@@ -18,14 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Fetch latest closes
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           BARK_URL: ${{ secrets.BARK_URL }}
         run: python3 scripts/fetch_dashboard.py
+
       - name: Commit data.json and alert_state.json if changed
         run: |
           git config user.name "github-actions[bot]"
