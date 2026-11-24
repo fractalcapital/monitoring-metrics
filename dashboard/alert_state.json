@@ -1,8 +1,8 @@
 {
-  "updated_at_utc": "2026-11-24T04:28:20Z",
+  "updated_at_utc": "2026-11-24T04:34:08Z",
   "channels_configured": {
-    "feishu": false,
-    "bark": false
+    "feishu": true,
+    "bark": true
   },
   "alerts": {
     "vix": {

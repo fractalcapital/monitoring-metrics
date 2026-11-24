@@ -479,6 +479,21 @@ def main():
             if out_path.exists():
                 print("Keeping previous data.json; exiting 0.",
                       file=sys.stderr)
+                # Still evaluate alerts on the last known closes, so
+                # alert_state.json (including channels_configured, which
+                # the dashboard displays) stays accurate even when
+                # Yahoo is rate-limiting us. Dedup prevents re-sends.
+                try:
+                    prev_payload = json.loads(
+                        out_path.read_text(encoding="utf-8"))
+                    now_utc = dt.datetime.now(dt.timezone.utc)
+                    new_state, sent = process_alerts(
+                        prev_payload, state_path, now_utc)
+                    print("Wrote %s (stale-data alert check, sent: %s)"
+                          % (state_path, sent or "none"))
+                except Exception as exc2:  # noqa: BLE001
+                    print("WARNING stale-data alert check failed: %s"
+                          % (exc2,), file=sys.stderr)
                 return
             sys.exit(1)
         time.sleep(1)  # don't burst 9 requests at Yahoo in 3 seconds
