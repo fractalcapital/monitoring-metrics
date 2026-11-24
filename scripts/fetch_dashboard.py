@@ -113,6 +113,15 @@ LEVEL_SEVERITY = {"normal": 0, "warning": 1, "critical": 2}
 LEVEL_LABEL = {"normal": "正常", "warning": "预警", "critical": "严重"}
 RESEND_AFTER = dt.timedelta(hours=24)
 
+# Always fetch direct, ignoring any system proxy: urllib's default
+# opener follows the OS proxy settings, and on a Mac the user may route
+# other traffic through a VPS proxy (Xray). The fetcher must use the
+# machine's own IP — Yahoo rate-limits the VPS datacenter IP, so a
+# proxied fetch would 429 exactly like the VPS does. On the VPS and
+# Actions runners there is no proxy configured, so this changes nothing
+# there.
+_NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
 
 def fetch_url(url, timeout=15, headers=None, retries=3):
     """Fetch a URL, retrying HTTP 429 (rate limit) with backoff.
@@ -125,7 +134,7 @@ def fetch_url(url, timeout=15, headers=None, retries=3):
     for attempt in range(retries + 1):
         try:
             req = urllib.request.Request(url, headers=headers or UA)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with _NO_PROXY_OPENER.open(req, timeout=timeout) as resp:
                 if resp.status != 200:
                     raise RuntimeError("HTTP %s for %s" % (resp.status, url))
                 return resp.read()

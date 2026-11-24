@@ -34,6 +34,13 @@ import urllib.request
 
 __all__ = ["send_feishu", "send_feishu_card", "send_bark"]
 
+# Always send direct, ignoring any system proxy (same reason as in
+# scripts/fetch_dashboard.py): the alerts must go out from the machine's
+# own IP, not through a VPS proxy the user may have configured for other
+# traffic on a Mac. On the VPS and Actions runners there is no proxy
+# configured, so this changes nothing there.
+_NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
 
 def _post_feishu(payload):
     """POST one JSON payload to the Feishu robot webhook.
@@ -55,7 +62,7 @@ def _post_feishu(payload):
                  "User-Agent": "curl/8.5.0"},
         method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with _NO_PROXY_OPENER.open(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             return resp.status == 200 and result.get("code") == 0
     except Exception as exc:
@@ -163,7 +170,7 @@ def send_bark(title, body, level):
     req = urllib.request.Request(
         url, method="GET", headers={"User-Agent": "curl/8.5.0"})
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with _NO_PROXY_OPENER.open(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             return 200 <= resp.status < 300 and result.get("code") == 200
     except Exception as exc:
