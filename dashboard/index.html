@@ -300,23 +300,23 @@ function readingFor(key,st,value,absChg,pct){
 
 /* ---- 指标元数据：阈值区间文字与刻度条（渐变分段按新档位边界） ---- */
 const META={
-  vix:{name:"VIX",unit:"",link:"../metrics/vix/index.html",desc:"标普 500 未来 30 天隐含波动率",
+  vix:{name:"VIX",unit:"",link:"../metrics/vix/index.html",tv:"https://cn.tradingview.com/symbols/CBOE-VIX/",desc:"标普 500 未来 30 天隐含波动率",
     scale:"<20 平静 · 20–30 警惕 · 30–40 紧张 · >40 恐慌",
     scaleMin:0,scaleMax:50,
     scaleGrad:"linear-gradient(90deg,var(--green) 0 40%,var(--amber) 40% 60%,var(--orange) 60% 80%,var(--red) 80% 100%)"},
-  vvix:{name:"VVIX",unit:"",link:"../metrics/vvix/index.html",desc:"VIX 本身的预期波动（波动率的波动率）",
+  vvix:{name:"VVIX",unit:"",link:"../metrics/vvix/index.html",tv:"https://cn.tradingview.com/symbols/CBOE-VVIX/",desc:"VIX 本身的预期波动（波动率的波动率）",
     scale:"<70 偏低 · 70–120 正常 · 120–140 偏高 · >140 极端",
     scaleMin:50,scaleMax:160,
     scaleGrad:"linear-gradient(90deg,var(--green) 0 64%,var(--amber) 64% 82%,var(--red) 82% 100%)"},
-  skew:{name:"SKEW",unit:"",link:"../metrics/vvix/index.html",desc:"尾部风险定价（100 为中性）",
+  skew:{name:"SKEW",unit:"",link:"../metrics/vvix/index.html",tv:"https://cn.tradingview.com/symbols/CBOE-SKEW/",desc:"尾部风险定价（100 为中性）",
     scale:"<120 尾部风险定价正常 · 120–140 略高 · ≥140 偏高",
     scaleMin:100,scaleMax:160,
     scaleGrad:"linear-gradient(90deg,var(--green) 0 33%,var(--amber) 33% 67%,var(--red) 67% 100%)"},
-  move:{name:"MOVE",unit:"",link:"../metrics/move/index.html",desc:"美债收益率未来一个月隐含波动（bp）",
+  move:{name:"MOVE",unit:"",link:"../metrics/move/index.html",tv:"https://cn.tradingview.com/symbols/TVC-MOVE/",desc:"美债收益率未来一个月隐含波动（bp）",
     scale:"<60 债市平静 · 60–140 债市常态 · ≥140 债市紧张",
     scaleMin:0,scaleMax:160,
     scaleGrad:"linear-gradient(90deg,var(--green) 0 87.5%,var(--red) 87.5% 100%)"},
-  hy_oas:{name:"HY OAS",unit:" bp",link:"../metrics/hy-oas/index.html",desc:"高收益债相对美债的利差（FRED 日度）",
+  hy_oas:{name:"HY OAS",unit:" bp",link:"../metrics/hy-oas/index.html",tv:"https://cn.tradingview.com/symbols/FRED-BAMLH0A0HYM2/",desc:"高收益债相对美债的利差（FRED 日度）",
     scale:"<300bp 信用偏紧 · 300–500bp 信用常态 · 500–800bp 信用走阔 · 800–1000bp 信用紧张 · ≥1000bp 信用极端",
     scaleMin:0,scaleMax:1100,
     scaleGrad:"linear-gradient(90deg,var(--green) 0 45%,var(--amber) 45% 73%,var(--orange) 73% 91%,var(--red) 91% 100%)"}
@@ -404,7 +404,7 @@ function render(data, isSnapshot){
         <div class="change">${chg}<span> · ${h.date}（日度，上一值 ${h.prev_value_bp}bp · ${h.prev_date}）</span></div>
         <div class="status-line"><span class="status-k">波动情况：</span><b class="t-${st.cls.slice(2)}">${st.label}</b><span class="status-read">${read}</span></div>
         ${sparkSVG(h.history,k)}${scaleHTML(k,h.value_bp)}
-        <div class="note">${m.desc}</div></div>`;
+        <div class="note">${m.desc} · <a href="${m.tv}" target="_blank" rel="noopener">TradingView ↗</a></div></div>`;
     }
     const d=ind[k], st=statusFor(k,d.value,d.change_pct);
     const absChg=(d.prev_close===null||d.prev_close===undefined)?null:d.value-d.prev_close;
@@ -414,7 +414,7 @@ function render(data, isSnapshot){
       <div class="change">${changeLine(absChg,d.change_pct)}<span> · ${d.date}${d.prev_close!==null&&d.prev_close!==undefined?`（前收 ${d.prev_close} · ${d.prev_date}）`:''}</span></div>
       <div class="status-line"><span class="status-k">波动情况：</span><b class="t-${st.cls.slice(2)}">${st.label}</b><span class="status-read">${read}</span></div>
       ${sparkSVG(d.history,k)}${scaleHTML(k,d.value)}
-      <div class="note">${m.desc}</div></div>`;
+      <div class="note">${m.desc} · <a href="${m.tv}" target="_blank" rel="noopener">TradingView ↗</a></div></div>`;
   }).join('');
 
   /* 标普 500 */
@@ -423,7 +423,7 @@ function render(data, isSnapshot){
     `<h3>标普 500 <span class="badge b-grey">背景</span></h3>
      <div class="value">${s.value.toLocaleString('en-US')}</div>
      <div class="change">${fmtChange(s.change_pct)}<span> · ${s.date}（前收 ${s.prev_close.toLocaleString('en-US')} · ${s.prev_date}）</span></div>
-     ${sparkSVG(s.history,'spx')}<div class="note">VIX 与标普 500 通常反向：指数反弹时 VIX 回落，反之亦然。单看 VIX 不看指数位置，容易误判。</div>`;
+     ${sparkSVG(s.history,'spx')}<div class="note">VIX 与标普 500 通常反向：指数反弹时 VIX 回落，反之亦然。单看 VIX 不看指数位置，容易误判。 · <a href="https://cn.tradingview.com/symbols/SPX/" target="_blank" rel="noopener">TradingView ↗</a></div>`;
 
   /* 期限结构 */
   const t=data.term_structure, maxT=Math.max(t.vix1d,t.vix9d,t.vix,t.vix3m,t.vix6m);
