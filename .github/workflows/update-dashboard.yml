@@ -8,7 +8,17 @@ on:
     # rate limit. Data is daily closes, so running every 30 minutes
     # only wastes runs and Yahoo quota.
     - cron: "30 21,23 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      manual_push:
+        description: 'Manual push to Feishu + Bark (test = one test message, status = current 5-indicator summary)'
+        required: false
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - test
+          - status
 
 permissions:
   contents: write
@@ -27,6 +37,7 @@ jobs:
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           BARK_URL: ${{ secrets.BARK_URL }}
+          MANUAL_PUSH: ${{ inputs.manual_push }}
         run: python3 scripts/fetch_dashboard.py
 
       - name: Commit data.json and alert_state.json if changed
