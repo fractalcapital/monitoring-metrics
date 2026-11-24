@@ -9,10 +9,12 @@ Safety rules (do not break them):
   - Both addresses come ONLY from environment variables:
     FEISHU_WEBHOOK_URL and BARK_URL. They are never written into any
     file in this repo (the repo is public) and never printed or logged.
-  - Feishu: rich text (msg_type "post", per the custom-bot docs):
-    a title plus paragraphs of text/link nodes. The dashboard link
-    is a clickable link, not a raw URL. Plain text (msg_type "text")
-    stays as a fallback in send_feishu.
+  - Feishu: interactive card (msg_type "interactive", card schema 2.0,
+    per the custom-bot docs): a coloured header (template by severity),
+    a markdown body, and a primary button that opens the dashboard.
+    Plain text (msg_type "text") stays as a fallback in send_feishu.
+    (Rich text / msg_type "post" was tried 2026-11-24 and looked too
+    plain, so it was replaced by cards.)
   - Bark: GET {base}/{quote(title)}/{quote(body)}
     ?group=monitoring-metrics&level=critical|active, where base is the
     BARK_URL env var (https://<bark server>/<key>, no title/body).
@@ -29,7 +31,7 @@ import sys
 import urllib.parse
 import urllib.request
 
-__all__ = ["send_feishu", "send_feishu_post", "send_bark"]
+__all__ = ["send_feishu", "send_feishu_card", "send_bark"]
 
 
 def _post_feishu(payload):
@@ -64,43 +66,56 @@ def send_feishu(text):
     """POST one plain-text message to the Feishu robot webhook.
 
     Kept as the plain-text fallback; the live messages use
-    send_feishu_post (rich text) instead.
+    send_feishu_card (interactive card) instead.
     """
     return _post_feishu({"msg_type": "text", "content": {"text": text}})
 
 
-def send_feishu_post(title, body):
-    """POST one rich-text (post) message to the Feishu robot webhook.
+def send_feishu_card(title, body, template="blue"):
+    """POST one interactive card to the Feishu robot webhook.
 
-    Feishu's rich-text format (msg_type "post", custom-bot docs):
-    a title plus paragraphs of text/link nodes. `body` is plain text
-    (lines separated by \\n); each line becomes one paragraph, and a
-    trailing "查看仪表盘：<url>" line becomes a clickable link instead
-    of a raw URL, so the message reads as a structured summary with a
-    link rather than a block of text. The title and text carry the same
-    words as the old plain-text messages, so a keyword security setting
-    on the bot still matches. Returns True on success, False when
-    skipped (no webhook configured) or on failure.
+    Feishu card format (msg_type "interactive", card schema 2.0, per
+    the custom-bot docs): a coloured header (template by severity),
+    a markdown body, and a primary button that opens the dashboard.
+    `body` is plain text (lines separated by \\n); the first line is
+    bolded, and a trailing "查看仪表盘：<url>" line becomes the button
+    instead of a raw URL. Custom-bot cards only support URL jumps from
+    buttons, no server callbacks — the button just opens the link.
+    Returns True on success, False when skipped (no webhook
+    configured) or on failure.
     """
-    paragraphs = []
-    for line in body.split("\n"):
-        if line.startswith("查看仪表盘：") and "http" in line:
-            href = line.split("：", 1)[1].strip()
-            paragraphs.append([
-                {"tag": "text", "text": "查看仪表盘："},
-                {"tag": "a", "text": "打开仪表盘 ↗", "href": href},
-            ])
-        else:
-            paragraphs.append([{"tag": "text", "text": line}])
+    lines = body.split("\n")
+    dashboard_url = None
+    if lines and lines[-1].startswith("查看仪表盘：") and "http" in lines[-1]:
+        dashboard_url = lines[-1].split("：", 1)[1].strip()
+        lines = lines[:-1]
+    if lines:
+        lines[0] = "**%s**" % lines[0]
+    elements = [
+        {"tag": "markdown", "content": "\n".join(lines),
+         "text_align": "left", "text_size": "normal_v2"},
+    ]
+    if dashboard_url:
+        elements.append({
+            "tag": "button",
+            "text": {"tag": "plain_text", "content": "打开仪表盘"},
+            "type": "primary",
+            "width": "default",
+            "size": "medium",
+            "behaviors": [{"type": "open_url", "default_url": dashboard_url,
+                           "pc_url": "", "ios_url": "", "android_url": ""}],
+        })
     return _post_feishu({
-        "msg_type": "post",
-        "content": {
-            "post": {
-                "zh_cn": {
-                    "title": title,
-                    "content": paragraphs,
-                }
-            }
+        "msg_type": "interactive",
+        "card": {
+            "schema": "2.0",
+            "config": {"update_multi": True},
+            "body": {"direction": "vertical",
+                     "padding": "12px 12px 12px 12px",
+                     "elements": elements},
+            "header": {"title": {"tag": "plain_text", "content": title},
+                       "template": template,
+                       "padding": "12px 12px 12px 12px"},
         },
     })
 

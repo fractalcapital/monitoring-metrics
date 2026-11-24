@@ -75,7 +75,7 @@ from pathlib import Path
 # `python3 scripts/fetch_dashboard.py` from the repo root, so
 # sys.path[0] is scripts/ — add the repo root first so `alert` imports.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from alert.notify import send_bark, send_feishu_post  # noqa: E402
+from alert.notify import send_bark, send_feishu_card  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -315,7 +315,7 @@ def _parse_utc(s):
 def format_alert_parts(key, ev):
     """Shared alert content for every channel: (title, body).
 
-    Feishu gets title + body as one rich-text (post) message; Bark gets
+    Feishu gets title + body as one interactive card; Bark gets
     them as its title/body path segments. Same content on both channels.
     """
     spec = ALERT_THRESHOLDS[key]
@@ -407,7 +407,8 @@ def _fetch_alert_send(key, label, detail, state, now_utc):
         "channels": channels,
     }
     sent = []
-    for ch, sender in (("feishu", lambda: send_feishu_post(title, body)),
+    for ch, sender in (("feishu", lambda: send_feishu_card(title, body,
+                                                            "orange")),
                         ("bark", lambda: send_bark(title, body, "warning"))):
         ch_old = entry["channels"].get(ch, {}) or {}
         ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
@@ -550,7 +551,12 @@ def process_alerts(payload, state_path, now_utc, hy_stale=False):
             "channels": channels,
         }
         any_sent = False
-        for ch, sender in (("feishu", lambda: send_feishu_post(title, body)),
+        # Header colour follows the alert level: warning orange,
+        # critical red.
+        template = {"warning": "orange", "critical": "red"}.get(new_level,
+                                                                "blue")
+        for ch, sender in (("feishu", lambda: send_feishu_card(title, body,
+                                                                template)),
                             ("bark", lambda: send_bark(title, body, new_level))):
             ch_old = entry["channels"].get(ch, {}) or {}
             ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
@@ -630,7 +636,11 @@ def _signed(value, decimals=2):
 
 
 def build_status_message(payload, stale=False):
-    """(title, body) for a manual status push. No state is touched."""
+    """(title, body, template) for a manual status push. No state is touched.
+
+    template is the card header colour, from the worst 波动情况 class:
+    b-green -> green, b-amber -> yellow, b-orange -> orange, b-red -> red.
+    """
     ind = payload["indicators"]
     hy = ind["hy_oas"]
     hy_pct = (hy["change_bp"] / hy["prev_value_bp"] * 100
@@ -678,7 +688,9 @@ def build_status_message(payload, stale=False):
     if hy.get("stale"):
         lines.append("（HY OAS 为上次值，FRED 本次未拉到）")
     lines.append("查看仪表盘：%s" % DASHBOARD_URL)
-    return "【手动推送】市场监控状态", "\n".join(lines)
+    template = {"b-green": "green", "b-amber": "yellow",
+                "b-orange": "orange", "b-red": "red"}[worst_cls]
+    return "【手动推送】市场监控状态", "\n".join(lines), template
 
 
 def send_manual_push(mode, payload=None, stale=False,
@@ -698,13 +710,14 @@ def send_manual_push(mode, payload=None, stale=False,
         body = ("这是一条测试消息，飞书和 Bark 通道已接通。\n"
                 "时间：%s（北京时间）\n查看仪表盘：%s"
                 % (now_bj, DASHBOARD_URL))
+        template = "blue"
     elif mode == "status":
-        title, body = build_status_message(payload, stale=stale)
+        title, body, template = build_status_message(payload, stale=stale)
     else:
         return False
     results = {}
     if "feishu" in channels:
-        results["feishu"] = send_feishu_post(title, body)
+        results["feishu"] = send_feishu_card(title, body, template)
     if "bark" in channels:
         results["bark"] = send_bark(title, body, "warning")
     print("  manual push %s (%s): %s"
