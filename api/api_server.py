@@ -281,7 +281,17 @@ class Handler(BaseHTTPRequestHandler):
         if not hmac.compare_digest(token, API_TOKEN):
             self._send_json(401, {"ok": False, "error": "bad token"})
             return
-        ip = self.client_address[0]
+        # Real client IP: the API sits behind a Cloudflare Tunnel, so the
+        # TCP peer is always cloudflared on 127.0.0.1 and per-IP rate
+        # limits would be global (one user's click blocks everyone).
+        # cloudflared sets X-Forwarded-For to the real client IP; fall
+        # back to the peer address for direct local access. Safe to
+        # trust: the server only listens on 127.0.0.1, so only
+        # cloudflared and local processes can reach it, and the header
+        # is used only for rate limiting, never for auth.
+        xff = self.headers.get("X-Forwarded-For", "")
+        ip = (xff.split(",")[0].strip() if xff else "") \
+            or self.client_address[0]
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
