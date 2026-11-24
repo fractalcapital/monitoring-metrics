@@ -6,14 +6,23 @@ cannot trigger a data fetch or send a push by itself. This tiny service
 is the backend for the dashboard's two manual buttons:
 
   GET  /health       -> {"ok": true} (tunnel / monitoring check)
-  POST /api/refresh  -> run the fetch script now, git-push data.json,
-                        return the fresh data.json payload
-  POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; run
-                        the fetch script with MANUAL_PUSH=mode and
-                        MANUAL_CHANNELS=channels and return per-channel
-                        results (channels defaults to both; the dashboard
-                        has one button per channel, rate-limited per channel
-                        so the two buttons don't block each other)
+  POST /api/refresh  -> start a background fetch+publish job and return
+                        {"status": "started"} at once (the fetch can take
+                        minutes from a datacenter IP: Yahoo retries with
+                        backoff. Cloudflare cuts a tunnel request off at
+                        ~100s, so a synchronous reply would 524). Poll
+                        GET /api/job for the outcome; the page re-reads
+                        data.json when the job finishes.
+  GET /api/job       -> {"running": "refresh"|"push"|null,
+                        "last_result": {...}|null}; no auth needed
+                        (read-only, and the page only reads it same-origin)
+  POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; "test"
+                        runs synchronously and returns per-channel results
+                        (fast, no fetch); "status" starts a background job
+                        like /api/refresh and returns {"status": "started"}
+                        (channels defaults to both; the dashboard has one
+                        button per channel, rate-limited per channel so
+                        the two buttons don't block each other)
 
 Auth: the X-Api-Token header must match the API_TOKEN env var. The token
 is ALSO in the dashboard page source (public), so it is NOT real
@@ -113,8 +122,7 @@ def _parse_push_results(out):
 
 def _do_refresh():
     """Fetch now and publish data.json; return a response dict."""
-    with _lock:
-        code, out, err = _run(["bash", "scripts/push_data.sh"])
+    code, out, err = _run(["bash", "scripts/push_data.sh"])
     pushed = "PUSH_OK" in out
     data = None
     try:
@@ -139,13 +147,11 @@ def _do_push(mode, channels):
     channels = [c for c in channels if c in ("feishu", "bark")] or ["feishu", "bark"]
     env = {"MANUAL_PUSH": mode, "MANUAL_CHANNELS": ",".join(channels)}
     if mode == "test":
-        with _lock:
-            code, out, err = _run(
-                ["python3", "scripts/fetch_dashboard.py"], env)
+        code, out, err = _run(
+            ["python3", "scripts/fetch_dashboard.py"], env)
         pushed = None
     elif mode == "status":
-        with _lock:
-            code, out, err = _run(["bash", "scripts/push_data.sh"], env)
+        code, out, err = _run(["bash", "scripts/push_data.sh"], env)
         pushed = "PUSH_OK" in out
     else:
         return {"ok": False, "error": "mode must be test or status"}
@@ -162,6 +168,39 @@ def _do_push(mode, channels):
         resp["ok"] = False
         resp["error"] = "all requested channels failed (check the service log)"
     return resp
+
+
+# One slow job at a time (a fetch can run minutes; the job guard, not the
+# subprocess lock, serialises refresh/status jobs). Test pushes run
+# synchronously and touch no data files, so they don't need the guard.
+_job = {"running": None, "result": None}
+
+
+def _start_job(kind, fn):
+    """Start fn in a background thread; return an immediate reply.
+
+    Returns {"ok": true, "status": "started", "job": kind} or, if a job
+    is already running, {"ok": false, "error": ...}. The outcome lands
+    in _job["result"] and is readable via GET /api/job.
+    """
+    with _lock:
+        if _job["running"]:
+            return {"ok": False,
+                    "error": "a %s job is already running" % _job["running"]}
+        _job["running"] = kind
+        _job["result"] = None
+
+    def _run_job():
+        try:
+            res = fn()
+        except Exception as exc:  # never leave the job stuck "running"
+            res = {"ok": False, "error": "job crashed: %s" % exc}
+        with _lock:
+            _job["running"] = None
+            _job["result"] = res
+
+    threading.Thread(target=_run_job, daemon=True).start()
+    return {"ok": True, "status": "started", "job": kind}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -208,6 +247,11 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": True, "service": "monitoring-api",
                 "time": dt.datetime.now(dt.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ")})
+        elif self.path == "/api/job":
+            with _lock:
+                self._send_json(200, {
+                    "running": _job["running"],
+                    "last_result": _job["result"]})
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
@@ -252,10 +296,20 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(429, {"ok": False, "error": limited})
             return
         if self.path == "/api/refresh":
-            self._send_json(200, _do_refresh())
+            # Async: the fetch can run minutes, past Cloudflare's ~100s
+            # tunnel timeout. Start the job and let the page poll /api/job.
+            self._send_json(200, _start_job("refresh", _do_refresh))
         else:
-            self._send_json(200, _do_push(
-                str(body.get("mode", "")).lower(), channels))
+            mode = str(body.get("mode", "")).lower()
+            if mode == "test":
+                # Fast (no fetch): answer synchronously.
+                self._send_json(200, _do_push("test", channels))
+            elif mode == "status":
+                self._send_json(200, _start_job(
+                    "push", lambda: _do_push("status", channels)))
+            else:
+                self._send_json(200, {"ok": False,
+                                      "error": "mode must be test or status"})
 
 
 def main():

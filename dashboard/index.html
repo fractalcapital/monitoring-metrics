@@ -2099,8 +2099,12 @@ setInterval(load, 60000);
 /* 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md）。
    API_TOKEN 也写在页面代码里（公开），真正的保护是服务端的限流
    （每分钟 1 次、每天每通道推送 10 次 / 刷新 30 次）；推送地址只存在 VPS 上，
-   页面本身不保存任何推送地址。接口不可用时，刷新退回重新读取 data.json，
-   推送则提示去 GitHub 工作流页面手动触发（备用入口）。 */
+   页面本身不保存任何推送地址。
+   刷新和状态推送是异步的：从机房 IP 拉 Yahoo 经常要重试，整个拉取可能
+   超过 Cloudflare 隧道约 100 秒的超时，同步等会 524。所以接口只返回
+   {"status": "started"}，页面轮询 GET /api/job 等任务完成再更新。
+   接口不可用时，刷新退回重新读取 data.json，推送则提示去 GitHub 工作流
+   页面手动触发（备用入口）。 */
 const API_BASE = 'https://api.infidea.app';
 const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
 async function apiPost(path, body){
@@ -2110,6 +2114,20 @@ async function apiPost(path, body){
   if(!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
+/* 轮询 /api/job 直到任务完成（每 15 秒一次，最多约 3 分钟），返回任务结果，
+   超时返回 null。 */
+async function waitForJob(){
+  for(let i = 0; i < 12; i++){
+    await new Promise(r => setTimeout(r, 15000));
+    try{
+      const r = await fetch(API_BASE + '/api/job');
+      if(!r.ok) continue;
+      const j = await r.json();
+      if(!j.running) return j.last_result;
+    }catch(e){}
+  }
+  return null;
+}
 async function manualRefresh(){
   const btn = document.getElementById('refreshBtn');
   const msg = document.getElementById('refreshMsg');
@@ -2118,14 +2136,34 @@ async function manualRefresh(){
   btn.textContent = '正在刷新…';
   try {
     const res = await apiPost('/api/refresh');
-    if(!res.ok || !res.data) throw new Error(res.error || 'refresh failed');
-    render(res.data, false);
-    try {
-      const rs = await fetch('./alert_state.json', { cache: 'no-store' });
-      if(rs.ok) renderAlerts(res.data, await rs.json());
-    } catch(e){}
-    if(msg) msg.textContent = '已重新同步 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
-      + (res.pushed ? '' : '（注意：数据已取回但未推到仓库）');
+    if(res.status === 'started'){
+      if(msg) msg.textContent = '正在后台拉取，预计 1-2 分钟，完成后自动更新';
+      const result = await waitForJob();
+      if(result && result.ok && result.data){
+        render(result.data, false);
+        try {
+          const rs = await fetch('./alert_state.json', { cache: 'no-store' });
+          if(rs.ok) renderAlerts(result.data, await rs.json());
+        } catch(e){}
+        if(msg) msg.textContent = '已刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
+          + (result.pushed ? '' : '（注意：数据已取回但未推到仓库）');
+      } else if(result && !result.ok){
+        await load();
+        if(msg) msg.textContent = '拉取失败：' + (result.error || '未知错误') + '，显示的仍是上次数据';
+      } else {
+        if(msg) msg.textContent = '拉取时间较长，页面会在 60 秒刷新时自动更新';
+      }
+    } else if(res.ok && res.data){
+      render(res.data, false);
+      try {
+        const rs = await fetch('./alert_state.json', { cache: 'no-store' });
+        if(rs.ok) renderAlerts(res.data, await rs.json());
+      } catch(e){}
+      if(msg) msg.textContent = '已刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
+        + (res.pushed ? '' : '（注意：数据已取回但未推到仓库）');
+    } else {
+      throw new Error(res.error || 'refresh failed');
+    }
   } catch(e){
     await load();
     if(msg) msg.textContent = '接口不可用，已重新读取上次数据';
@@ -2144,11 +2182,21 @@ async function manualPush(channel){
   if(label) label.textContent = '发送中…';
   try {
     const res = await apiPost('/api/push', { mode: 'status', channels: [channel] });
-    if(!res.ok) throw new Error(res.error || 'push failed');
-    const ok = res[channel] === true;
-    if(label) label.textContent = ok ? '已推送 ✓' : '发送失败 ✗';
-    if(msg) msg.textContent = name + (ok ? '已推送 ' : '推送失败 ')
-      + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    if(res.status === 'started'){
+      if(msg) msg.textContent = name + '正在拉取并推送，消息到达即完成';
+      const result = await waitForJob();
+      const ok = result && result.ok && result[channel] === true;
+      if(label) label.textContent = ok ? '已推送 ✓' : '失败 ✗';
+      if(msg) msg.textContent = name + (ok ? '已推送 ' : (result ? '推送失败 ' : '推送超时，请检查是否收到 '))
+        + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    } else if(res.ok){
+      const ok = res[channel] === true;
+      if(label) label.textContent = ok ? '已推送 ✓' : '发送失败 ✗';
+      if(msg) msg.textContent = name + (ok ? '已推送 ' : '推送失败 ')
+        + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    } else {
+      throw new Error(res.error || 'push failed');
+    }
   } catch(e){
     if(label) label.textContent = '失败 ✗';
     if(msg) msg.textContent = name + '推送失败：' + e.message + '。也可以去 GitHub 工作流页面手动触发。';

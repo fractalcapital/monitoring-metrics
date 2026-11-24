@@ -1,6 +1,6 @@
 # 实时监控仪表盘
 
-> 页面已于 2026-11-24 改版：新增每张卡的“波动情况”（水平定档 + 异动覆盖，见下），涨跌同时显示绝对值和百分比；视觉改为深色渐变 hero + 大圆角卡片的现代风格，亮色 / 暗色双主题。每张指标卡和标普 500 卡底部都有一个 TradingView ↗ 链接，指向该标的在 TradingView 的中文站页面（VIX CBOE:VIX、VVIX CBOE:VVIX、SKEW CBOE:SKEW、MOVE TVC:MOVE、HY OAS FRED:BAMLH0A0HYM2、标普 500 SPX）；各指标页面（metrics/…）顶部也有同样的链接。状态栏另有三个按钮：**🔄 刷新数据**立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 `api.infidea.app`），页面马上显示新数据；**飞书推送 / Bark 推送**各把当前五项指标的状态汇总立刻发到对应通道（也是经 VPS 接口，先拉最新数据再发）。接口不可用时刷新退回重新读取 `data.json`，推送则提示去 GitHub 工作流页面手动触发（备用入口，选 test 或 status 再点 Run workflow）。页面本身不保存任何推送地址，推送只能由服务端发；页面代码里的 API token 是公开的，真正的保护是服务端的限流（每分钟 1 次、每天每通道推送 10 次 / 刷新 30 次）。
+> 页面已于 2026-11-24 改版：新增每张卡的“波动情况”（水平定档 + 异动覆盖，见下），涨跌同时显示绝对值和百分比；视觉改为深色渐变 hero + 大圆角卡片的现代风格，亮色 / 暗色双主题。每张指标卡和标普 500 卡底部都有一个 TradingView ↗ 链接，指向该标的在 TradingView 的中文站页面（VIX CBOE:VIX、VVIX CBOE:VVIX、SKEW CBOE:SKEW、MOVE TVC:MOVE、HY OAS FRED:BAMLH0A0HYM2、标普 500 SPX）；各指标页面（metrics/…）顶部也有同样的链接。状态栏另有三个按钮：**🔄 刷新数据**立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 `api.infidea.app`），页面马上显示新数据；**飞书推送 / Bark 推送**各把当前五项指标的状态汇总立刻发到对应通道（也是经 VPS 接口，先拉最新数据再发）。刷新和状态推送都是异步的：从机房 IP 拉 Yahoo 经常要重试，整个拉取可能超过 Cloudflare 隧道约 100 秒的超时，所以点下按钮后页面先显示“正在后台拉取”，再轮询任务状态，完成后自动更新（刷新约 1-2 分钟）。接口不可用时刷新退回重新读取 `data.json`，推送则提示去 GitHub 工作流页面手动触发（备用入口，选 test 或 status 再点 Run workflow）。页面本身不保存任何推送地址，推送只能由服务端发；页面代码里的 API token 是公开的，真正的保护是服务端的限流（每分钟 1 次、每天每通道推送 10 次 / 刷新 30 次）。
 
 页面：[index.html](index.html) —— VIX / VVIX / SKEW / MOVE / HY OAS 五项指标 + 标普 500 + VIX 期限结构，一页看完。
 

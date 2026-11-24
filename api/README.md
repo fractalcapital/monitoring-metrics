@@ -13,8 +13,9 @@ Base URL: `https://api.infidea.app` (tunnel hostname → `127.0.0.1:8080`).
 | Method | Path | Body | What it does |
 | --- | --- | --- | --- |
 | GET | `/health` | — | `{"ok": true}` — tunnel / monitoring check |
-| POST | `/api/refresh` | — | Runs the fetch script now, git-pushes `data.json` + `alert_state.json`, returns the fresh `data.json` payload (the page re-renders from it immediately) |
-| POST | `/api/push` | `{"mode": "test" \| "status", "channels": ["feishu"] \| ["bark"]}` | Runs the fetch script with `MANUAL_PUSH=mode` and `MANUAL_CHANNELS=channels` (default both); `test` sends one test message and touches no data file, `status` fetches first then sends the 5-indicator summary. Returns per-channel results. Rate-limited per channel, so the Feishu and Bark buttons don't block each other |
+| POST | `/api/refresh` | — | Starts a background fetch + git-push job and returns `{"status": "started"}` at once. The fetch can run minutes from a datacenter IP (Yahoo retries with backoff), past Cloudflare's ~100s tunnel timeout, so a synchronous reply would 524. Poll `GET /api/job` for the outcome; the page re-reads `data.json` when the job finishes. Only one slow job runs at a time; a second start while one runs returns `{"ok": false, "error": "a … job is already running"}` |
+| GET | `/api/job` | — | `{"running": "refresh" \| "push" \| null, "last_result": {...} \| null}`. No auth (read-only; the page reads it same-origin) |
+| POST | `/api/push` | `{"mode": "test" \| "status", "channels": ["feishu"] \| ["bark"]}` | `test` runs synchronously and returns per-channel results (fast, no fetch). `status` starts a background job like `/api/refresh` and returns `{"status": "started"}`; poll `GET /api/job` for per-channel results. Runs the fetch script with `MANUAL_PUSH=mode` and `MANUAL_CHANNELS=channels` (default both). Rate-limited per channel, so the Feishu and Bark buttons don't block each other |
 
 All POSTs need the `X-Api-Token` header. The token is also in the
 dashboard page source (public), so it is NOT real security. The real
