@@ -40,6 +40,11 @@
   #themeToggle{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.10);color:#f2ede3;
     border-radius:999px;padding:8px 16px;cursor:pointer;font-size:14px;white-space:nowrap}
   #themeToggle:hover{border-color:#e8c15a}
+  .action-btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.10);color:#f2ede3;
+    border-radius:999px;padding:6px 14px;cursor:pointer;font-size:13px;white-space:nowrap;text-decoration:none}
+  .action-btn:hover{border-color:#e8c15a}
+  .action-btn:disabled{opacity:.55;cursor:default}
+  #refreshMsg{font-size:13px;color:#c9c2b4}
   .verdict{margin:22px 0 0;padding:20px 22px;border-radius:16px;
     background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-left:4px solid #d4a437}
   .verdict h2{margin:0 0 6px;font-size:24px;color:#fff}
@@ -147,6 +152,9 @@
       <span id="livePill" class="pill live">实时数据加载中…</span>
       <span id="updatedAt">—</span>
       <span id="countdown"></span>
+      <button id="refreshBtn" class="action-btn" type="button" title="立即重新读取 data.json（数据本身每天收盘后由 GitHub Actions 拉取两次）">🔄 刷新数据</button>
+      <a id="pushBtn" class="action-btn" href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener" title="打开 GitHub 工作流页面，选 test（只发一条测试消息）或 status（发当前五项指标的状态汇总）再点 Run workflow，飞书和 Bark 就会收到">📣 手动推送</a>
+      <span id="refreshMsg"></span>
     </div>
   </div>
 
@@ -182,7 +190,7 @@
 
   <div class="foot">
     <p><strong>数据来源：</strong><span id="sourceNote">Yahoo Finance（约 15 分钟延迟）提供 VIX / VVIX / SKEW / MOVE / 期限结构 / 标普 500；FRED（BAMLH0A0HYM2，ICE BofA 高收益利差，每日更新）提供 HY OAS。</span></p>
-    <p><strong>更新方式：</strong>GitHub Actions 每天收盘后拉取两次（UTC 21:30 和 23:30）并写入 <code>data.json</code>，本页每 60 秒同源刷新一次。浏览器不直接请求 Yahoo / FRED（会被 CORS 拦截），所以实时性来自服务端定时拉取，不是逐笔行情。</p>
+    <p><strong>更新方式：</strong>GitHub Actions 每天收盘后拉取两次（UTC 21:30 和 23:30）并写入 <code>data.json</code>，本页每 60 秒同源刷新一次。浏览器不直接请求 Yahoo / FRED（会被 CORS 拦截），所以实时性来自服务端定时拉取，不是逐笔行情。点“🔄 刷新数据”可立即重新读取 <code>data.json</code>，不用等 60 秒；点“📣 手动推送”会打开 GitHub 工作流页面，在那里选 test（只发一条测试消息）或 status（发当前五项指标的状态汇总）再点 Run workflow，飞书和 Bark 就会收到。页面本身不保存任何推送地址，推送只能由服务端发。</p>
     <p><strong>口径：</strong>HY OAS 是日度数据，盘中不会变；VIX 等是上一交易日收盘价，盘中也不会变——“实时”指每天自动更新到最新收盘，不是盘中跳动。阈值见各指标页面与 <a href="README.md">dashboard/README.md</a>，不是买卖信号。</p>
     <p><strong>相关页面：</strong><a href="../metrics/vix/index.html">VIX</a> · <a href="../metrics/vix-term-structure/index.html">VIX 期限结构</a> · <a href="../metrics/vvix/index.html">VVIX</a> · <a href="../metrics/move/index.html">MOVE</a> · <a href="../metrics/hy-oas/index.html">HY OAS</a></p>
     <p>本页不是投资建议。</p>
@@ -538,6 +546,26 @@ async function load(){
 }
 load();
 setInterval(load,60000);
+/* 手动刷新：立即重新读取 data.json + alert_state.json（不等 60 秒）。
+   注意：这只是重新读取文件，数据本身每天收盘后由 GitHub Actions 拉取两次；
+   要立即从 Yahoo / FRED 重新拉取，点“手动推送”旁边的 GitHub 工作流入口 Run workflow。
+   页面本身不保存任何推送地址，推送只能由服务端发。 */
+async function manualRefresh(){
+  const btn=document.getElementById('refreshBtn'), msg=document.getElementById('refreshMsg');
+  if(!btn) return;
+  btn.disabled=true; btn.textContent='正在刷新…';
+  try{
+    await load();
+    msg.textContent='已刷新 '+new Date().toLocaleTimeString('zh-CN',{hour12:false})+'（北京时间）';
+  }catch(e){
+    msg.textContent='刷新失败，显示的仍是上次数据';
+  }
+  btn.disabled=false; btn.textContent='🔄 刷新数据';
+}
+(function(){
+  const btn=document.getElementById('refreshBtn');
+  if(btn) btn.addEventListener('click',manualRefresh);
+})();
 setInterval(()=>{
   countdown=Math.max(0,countdown-1);
   document.getElementById('countdown').textContent='下次刷新：'+countdown+'s';

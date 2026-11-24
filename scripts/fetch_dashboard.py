@@ -38,6 +38,19 @@ Alerts (Bark push, in parallel with Feishu):
   - The Bark base URL/key is never written to any file and never logged.
     If BARK_URL is unset, Bark is skipped silently. If one channel fails,
     only a warning is logged and the other channel still sends.
+
+Manual push (MANUAL_PUSH env var, set by workflow_dispatch input):
+  - Set by the GitHub Actions workflow's manual_push input (none/test/status).
+  - "test" sends one test message on both channels and exits without
+    touching data.json. "status" runs the normal fetch first, then sends
+    one status summary (current values + 波动情况 labels, same rules as
+    the dashboard page's statusFor) on both channels. Manual pushes are
+    never deduped -- every explicit run sends. They do not touch
+    alert_state.json, so they never interfere with threshold alerts.
+  - The dashboard page itself can never send a push: it holds no webhook
+    URL or Bark key (both live only in GitHub Secrets). Its "手动推送"
+    button opens the workflow page, where the user picks test/status and
+    clicks Run workflow.
 """
 import csv
 import datetime as dt
@@ -568,12 +581,147 @@ def process_alerts(payload, state_path, now_utc, hy_stale=False):
     return new_state, sent
 
 
+# ------------------------------------------------------- manual push ---
+# 波动情况 labels: must mirror the dashboard page's STATUS_BANDS /
+# statusFor in dashboard/index.html exactly (same bands, same calm
+# predicates, same 异动 override). If the page's rules change, change
+# these too, and vice versa.
+STATUS_BANDS = {
+    "vix": {"bands": [(20, "平静", "b-green"), (30, "警惕", "b-amber"),
+                      (40, "紧张", "b-orange"), (float("inf"), "恐慌", "b-red")],
+            "calm": lambda v: v < 20},
+    "vvix": {"bands": [(70, "偏低", "b-green"), (120, "正常", "b-green"),
+                       (140, "偏高", "b-amber"), (float("inf"), "极端", "b-red")],
+             "calm": lambda v: 70 <= v < 120},
+    "skew": {"bands": [(120, "尾部风险定价正常", "b-green"),
+                       (140, "尾部风险定价略高", "b-amber"),
+                       (float("inf"), "尾部风险定价偏高", "b-red")],
+             "calm": lambda v: v < 120},
+    "move": {"bands": [(60, "债市平静", "b-green"), (140, "债市常态", "b-green"),
+                       (float("inf"), "债市紧张", "b-red")],
+             "calm": lambda v: 60 <= v < 140},
+    "hy_oas": {"bands": [(300, "信用偏紧", "b-green"), (500, "信用常态", "b-green"),
+                         (800, "信用走阔", "b-amber"), (1000, "信用紧张", "b-orange"),
+                         (float("inf"), "信用极端", "b-red")],
+               "calm": lambda v: 300 <= v < 500},
+}
+_STATUS_SEV = {"b-green": 0, "b-amber": 1, "b-orange": 2, "b-red": 3}
+_VERDICT_TITLES = {"b-green": "整体平静", "b-amber": "有所升温，未到恐慌",
+                   "b-orange": "压力明显", "b-red": "高度紧张"}
+
+
+def status_label(key, value, change_pct):
+    """波动情况 label + class for one indicator (mirrors the page)."""
+    spec = STATUS_BANDS[key]
+    label, cls = spec["bands"][-1][1], spec["bands"][-1][2]
+    for maximum, lab, c in spec["bands"]:
+        if value < maximum:
+            label, cls = lab, c
+            break
+    if (spec["calm"](value) and change_pct is not None
+            and abs(change_pct) >= 10):
+        return {"label": "异动", "cls": "b-amber"}
+    return {"label": label, "cls": cls}
+
+
+def _signed(value, decimals=2):
+    return "%s%.*f" % ("+" if value > 0 else "", decimals, value)
+
+
+def build_status_message(payload, stale=False):
+    """(title, body) for a manual status push. No state is touched."""
+    ind = payload["indicators"]
+    hy = ind["hy_oas"]
+    hy_pct = (hy["change_bp"] / hy["prev_value_bp"] * 100
+              if hy.get("prev_value_bp") else None)
+    st = {
+        "vix": status_label("vix", ind["vix"]["value"], ind["vix"]["change_pct"]),
+        "vvix": status_label("vvix", ind["vvix"]["value"], ind["vvix"]["change_pct"]),
+        "skew": status_label("skew", ind["skew"]["value"], ind["skew"]["change_pct"]),
+        "move": status_label("move", ind["move"]["value"], ind["move"]["change_pct"]),
+        "hy_oas": status_label("hy_oas", hy["value_bp"], hy_pct),
+    }
+    worst_cls = max((st[k]["cls"] for k in ("vix", "move", "hy_oas")),
+                    key=lambda c: _STATUS_SEV[c])
+    spx = payload["spx"]
+    spx_abs = (spx["value"] - spx["prev_close"]
+               if spx.get("prev_close") is not None else None)
+    lines = ["综合判断：%s" % _VERDICT_TITLES[worst_cls]]
+    if stale:
+        lines.append("注意：数据拉取失败，以下是上次成功数据")
+    lines.append("VIX %s（%s，%s%%）· %s" % (
+        ind["vix"]["value"],
+        _signed(ind["vix"]["value"] - ind["vix"]["prev_close"]),
+        _signed(ind["vix"]["change_pct"]), st["vix"]["label"]))
+    lines.append("VVIX %s（%s，%s%%）· %s" % (
+        ind["vvix"]["value"],
+        _signed(ind["vvix"]["value"] - ind["vvix"]["prev_close"]),
+        _signed(ind["vvix"]["change_pct"]), st["vvix"]["label"]))
+    lines.append("SKEW %s（%s，%s%%）· %s" % (
+        ind["skew"]["value"],
+        _signed(ind["skew"]["value"] - ind["skew"]["prev_close"]),
+        _signed(ind["skew"]["change_pct"]), st["skew"]["label"]))
+    lines.append("MOVE %s（%s，%s%%）· %s" % (
+        ind["move"]["value"],
+        _signed(ind["move"]["value"] - ind["move"]["prev_close"]),
+        _signed(ind["move"]["change_pct"]), st["move"]["label"]))
+    lines.append("HY OAS %sbp（%sbp，%s%%）· %s" % (
+        hy["value_bp"], _signed(hy["change_bp"], 0),
+        _signed(hy_pct) if hy_pct is not None else "—", st["hy_oas"]["label"]))
+    lines.append("标普 500 %s（%s，%s%%）" % (
+        format(spx["value"], ","),
+        _signed(spx_abs) if spx_abs is not None else "—",
+        _signed(spx["change_pct"])))
+    lines.append("数据：VIX 等 %s，HY OAS %s" % (
+        ind["vix"]["date"], hy["date"]))
+    if hy.get("stale"):
+        lines.append("（HY OAS 为上次值，FRED 本次未拉到）")
+    lines.append("查看仪表盘：%s" % DASHBOARD_URL)
+    return "【手动推送】市场监控状态", "\n".join(lines)
+
+
+def send_manual_push(mode, payload=None, stale=False):
+    """Send a manual push on both channels. No dedup, no state writes.
+
+    mode "test": one test message, no payload needed. mode "status":
+    a status summary built from payload. Returns True if at least one
+    channel succeeded. A missing channel is skipped, never fatal.
+    """
+    now_bj = dt.datetime.now(
+        dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")
+    if mode == "test":
+        title = "【测试】监控报警通道测试"
+        body = ("这是一条测试消息，飞书和 Bark 通道已接通。\n"
+                "时间：%s（北京时间）\n查看仪表盘：%s"
+                % (now_bj, DASHBOARD_URL))
+    elif mode == "status":
+        title, body = build_status_message(payload, stale=stale)
+    else:
+        return False
+    ok_f = send_feishu("%s\n%s" % (title, body))
+    ok_b = send_bark(title, body, "warning")
+    print("  manual push %s: feishu=%s bark=%s" % (mode, ok_f, ok_b))
+    return bool(ok_f or ok_b)
+
+
 # ------------------------------------------------------------------ main ---
 
 def main():
     root = Path(__file__).resolve().parent.parent
     out_path = root / "dashboard" / "data.json"
     state_path = root / "dashboard" / "alert_state.json"
+
+    # Manual push from the workflow_dispatch input (dashboard "手动推送"
+    # button opens the workflow page). "test" sends one test message and
+    # exits; "status" fetches normally, then sends a status summary.
+    mode = os.environ.get("MANUAL_PUSH", "").strip().lower()
+    if mode not in ("", "none", "test", "status"):
+        print("WARNING unknown MANUAL_PUSH=%r, ignoring" % (mode,),
+              file=sys.stderr)
+        mode = ""
+    if mode == "test":
+        send_manual_push("test")
+        return
 
     pairs = {}
     for key, symbol in YAHOO_SYMBOLS.items():
@@ -607,6 +755,8 @@ def main():
                         prev_payload, state_path, now_utc, hy_stale=True)
                     print("Wrote %s (stale-data alert check, sent: %s)"
                           % (state_path, sent or "none"))
+                    if mode == "status":
+                        send_manual_push("status", prev_payload, stale=True)
                 except Exception as exc2:  # noqa: BLE001
                     print("WARNING stale-data alert check failed: %s"
                           % (exc2,), file=sys.stderr)
@@ -717,6 +867,8 @@ def main():
         print("  alerts sent this run: %s" % (sent,))
     else:
         print("  alerts sent this run: none")
+    if mode == "status":
+        send_manual_push("status", payload, stale=hy_stale)
 
 
 if __name__ == "__main__":

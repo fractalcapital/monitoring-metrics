@@ -1,6 +1,6 @@
 # 实时监控仪表盘
 
-> 页面已于 2026-11-24 改版：新增每张卡的“波动情况”（水平定档 + 异动覆盖，见下），涨跌同时显示绝对值和百分比；视觉改为深色渐变 hero + 大圆角卡片的现代风格，亮色 / 暗色双主题。每张指标卡和标普 500 卡底部都有一个 TradingView ↗ 链接，指向该标的在 TradingView 的中文站页面（VIX CBOE:VIX、VVIX CBOE:VVIX、SKEW CBOE:SKEW、MOVE TVC:MOVE、HY OAS FRED:BAMLH0A0HYM2、标普 500 SPX）；各指标页面（metrics/…）顶部也有同样的链接。
+> 页面已于 2026-11-24 改版：新增每张卡的“波动情况”（水平定档 + 异动覆盖，见下），涨跌同时显示绝对值和百分比；视觉改为深色渐变 hero + 大圆角卡片的现代风格，亮色 / 暗色双主题。每张指标卡和标普 500 卡底部都有一个 TradingView ↗ 链接，指向该标的在 TradingView 的中文站页面（VIX CBOE:VIX、VVIX CBOE:VVIX、SKEW CBOE:SKEW、MOVE TVC:MOVE、HY OAS FRED:BAMLH0A0HYM2、标普 500 SPX）；各指标页面（metrics/…）顶部也有同样的链接。状态栏另有两个按钮：**🔄 刷新数据**立即重新读取 `data.json`（不等 60 秒；数据本身仍由 Actions 每天收盘后拉取两次）；**📣 手动推送**打开 GitHub 工作流页面，在那里选 `test`（只发一条测试消息）或 `status`（发当前五项指标的状态汇总）再点 Run workflow，飞书和 Bark 就会收到。页面本身不保存任何推送地址，推送只能由服务端发。
 
 页面：[index.html](index.html) —— VIX / VVIX / SKEW / MOVE / HY OAS 五项指标 + 标普 500 + VIX 期限结构，一页看完。
 
