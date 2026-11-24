@@ -111,6 +111,7 @@
     <div class="card">
       <div id="alertList">加载中…</div>
       <p class="note" id="channelLine">推送通道：加载中…</p>
+      <p class="note" id="fetchLine">数据拉取：加载中…</p>
       <p class="note">报警由服务端（GitHub Actions）在拉取数据时判断并推送，页面只展示状态，不发任何消息。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，另有 VIX ≥30 且 VVIX ≥140 或 MOVE ≥140 的综合预警。同一级别 24 小时内不重复推送。详见 <a href="README.md">dashboard/README.md</a>。</p>
     </div>
   </section>
@@ -330,6 +331,21 @@ function renderAlerts(data,state){
     chLine.textContent='推送通道：飞书 '+(c.feishu?'已配置':'未配置')+' · Bark '+(c.bark?'已配置':'未配置');
   }else{
     chLine.textContent='推送通道：未知（等待首次服务端运行生成报警状态文件）';
+  }
+  /* 数据拉取状态：任一数据源拉取失败时显示，方便及时处理 */
+  const fs=state&&state.fetch_status;
+  const fetchLine=document.getElementById('fetchLine');
+  if(fetchLine){
+    if(!fs){
+      fetchLine.textContent='数据拉取：未知（等待首次服务端运行）';
+    }else{
+      const fmt=(s)=>{
+        if(!s) return '未知';
+        if(s.ok) return '正常';
+        return '失败（'+(s.last_error||'未知错误')+'，'+fmtBJ(s.last_failed_at_utc)+'）';
+      };
+      fetchLine.textContent='数据拉取：Yahoo '+fmt(fs.yahoo)+' · FRED '+fmt(fs.fred);
+    }
   }
   el.innerHTML=Object.keys(ALERT_META).map(key=>{
     const lvl=alertLevel(key,data);

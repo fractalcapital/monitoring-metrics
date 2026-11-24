@@ -377,7 +377,154 @@ def _channel_should_send(old_level, new_level, old_sent_at, now_utc):
     return old_sent_at is None or now_utc - old_sent_at >= RESEND_AFTER
 
 
-def process_alerts(payload, state_path, now_utc):
+# ------------------------------------------- data-fetch failure alerts ---
+
+FETCH_SOURCES = {
+    "yahoo": "Yahoo Finance（VIX / VVIX / SKEW / MOVE / 标普 500 / 期限结构）",
+    "fred": "FRED（HY OAS）",
+}
+
+
+def _write_state(state_path, state):
+    Path(state_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(state_path).write_text(
+        json.dumps(state, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+
+
+def _fetch_alert_send(key, label, detail, state, now_utc):
+    """Send a fetch-failure alert on Feishu + Bark with 24h dedup.
+
+    state is the loaded alert_state dict (mutated in place). Returns the
+    list of channels that actually sent. No send on first failure is
+    impossible — the first failure is exactly when the user needs to
+    know; repeats are suppressed for 24h per channel.
+    """
+    now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    alerts = state.setdefault("alerts", {})
+    old = alerts.get(key, {})
+    old_level = old.get("level", "normal")
+    old_channels = old.get("channels", {}) or {}
+    channels_configured = {
+        "feishu": bool(os.environ.get("FEISHU_WEBHOOK_URL")),
+        "bark": bool(os.environ.get("BARK_URL")),
+    }
+    state["channels_configured"] = channels_configured
+    title = "【监控报警·预警】数据获取失败"
+    body = ("数据源：%s\n"
+            "失败原因：%s\n"
+            "时间：%s\n"
+            "仪表盘当前显示的是上一次成功拉取的数据（带日期），不是最新收盘，"
+            "请及时检查数据源。\n"
+            "查看仪表盘：%s"
+            % (label, detail, now_s, DASHBOARD_URL))
+    channels = {}
+    for ch in ("feishu", "bark"):
+        ch_old = old_channels.get(ch, {}) or {}
+        channels[ch] = {
+            "last_sent_at_utc": ch_old.get("last_sent_at_utc"),
+            "last_sent_value": ch_old.get("last_sent_value"),
+        }
+    entry = {
+        "level": "warning",
+        "level_label": "预警",
+        "value": detail,
+        "date": now_utc.date().isoformat(),
+        "threshold": "-",
+        "change": label,
+        "last_sent_at_utc": old.get("last_sent_at_utc"),
+        "last_sent_value": old.get("last_sent_value"),
+        "channels": channels,
+    }
+    sent = []
+    for ch, sender in (("feishu", lambda: send_feishu("%s\n%s" % (title, body))),
+                        ("bark", lambda: send_bark(title, body, "warning"))):
+        ch_old = entry["channels"].get(ch, {}) or {}
+        ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
+        if not _channel_should_send(old_level, "warning",
+                                    ch_sent_at, now_utc):
+            continue
+        if not channels_configured[ch]:
+            print("  fetch alert %s (no %s configured, not sent)"
+                  % (key, ch))
+            continue
+        if sender():
+            entry["channels"][ch] = {"last_sent_at_utc": now_s,
+                                     "last_sent_value": detail}
+            sent.append(ch)
+    if sent:
+        sent_at_list = [c["last_sent_at_utc"]
+                        for c in entry["channels"].values()
+                        if c.get("last_sent_at_utc")]
+        if sent_at_list:
+            entry["last_sent_at_utc"] = max(sent_at_list)
+        entry["last_sent_value"] = detail
+    alerts[key] = entry
+    return sent
+
+
+def record_fetch_failure(source_key, detail, state_path, now_utc):
+    """Record a data-source failure and alert on it (24h dedup).
+
+    Updates state["fetch_status"][source_key] and the
+    state["alerts"]["fetch_<source>"] entry, sends on Feishu + Bark
+    when due, and writes the state file. Never raises.
+    """
+    try:
+        state = load_alert_state(state_path)
+        now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        status = state.setdefault("fetch_status", {})
+        prev = status.get(source_key, {}) or {}
+        status[source_key] = {
+            "ok": False,
+            "last_error": detail,
+            "last_failed_at_utc": now_s,
+            "last_ok_at_utc": prev.get("last_ok_at_utc"),
+        }
+        state["updated_at_utc"] = now_s
+        sent = _fetch_alert_send("fetch_" + source_key,
+                                 FETCH_SOURCES[source_key], detail,
+                                 state, now_utc)
+        _write_state(state_path, state)
+        print("  fetch failure %s: %s (alert sent via: %s)"
+              % (source_key, detail, sent or "none"))
+        return sent
+    except Exception as exc:  # noqa: BLE001 - alerting must never abort a run
+        print("WARNING record_fetch_failure failed: %s" % (exc,),
+              file=sys.stderr)
+        return []
+
+
+def record_fetch_success(source_key, state, now_utc):
+    """Mark a source healthy in an already-loaded state dict (in memory
+    only; the caller writes the file). Clears the warning level so the
+    next failure alerts again."""
+    now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    status = state.setdefault("fetch_status", {})
+    prev = status.get(source_key, {}) or {}
+    status[source_key] = {
+        "ok": True,
+        "last_error": None,
+        "last_failed_at_utc": prev.get("last_failed_at_utc"),
+        "last_ok_at_utc": now_s,
+    }
+    key = "fetch_" + source_key
+    old = (state.get("alerts", {}) or {}).get(key, {})
+    if old.get("level") != "normal":
+        state.setdefault("alerts", {})[key] = {
+            "level": "normal",
+            "level_label": "正常",
+            "value": "ok",
+            "date": now_utc.date().isoformat(),
+            "threshold": "-",
+            "change": FETCH_SOURCES[source_key],
+            "last_sent_at_utc": old.get("last_sent_at_utc"),
+            "last_sent_value": old.get("last_sent_value"),
+            "channels": old.get("channels", {}),
+        }
+
+
+def process_alerts(payload, state_path, now_utc, hy_stale=False):
     """Evaluate, dedup and (maybe) send alerts on Feishu + Bark.
 
     Dedup state lives in one file (alert_state.json) and is tracked per
@@ -395,6 +542,16 @@ def process_alerts(payload, state_path, now_utc):
         "feishu": bool(os.environ.get("FEISHU_WEBHOOK_URL")),
         "bark": bool(os.environ.get("BARK_URL")),
     }
+    # A successful Yahoo fetch means the Yahoo source is healthy again;
+    # FRED is healthy only when this run actually fetched it (not stale).
+    # Fetch-failure entries are preserved, not dropped, so the dashboard
+    # keeps showing the last failure until the source recovers.
+    fetch_status = dict(state.get("fetch_status", {}) or {})
+    state["fetch_status"] = fetch_status
+    record_fetch_success("yahoo", state, now_utc)
+    if not hy_stale:
+        record_fetch_success("fred", state, now_utc)
+    alerts = state.get("alerts", {})
     sent = []
     for key, ev in evaluated.items():
         old = alerts.get(key, {})
@@ -450,11 +607,9 @@ def process_alerts(payload, state_path, now_utc):
         alerts[key] = entry
     new_state = {"updated_at_utc": now_s,
                  "channels_configured": channels_configured,
+                 "fetch_status": state.get("fetch_status", {}),
                  "alerts": alerts}
-    Path(state_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(state_path).write_text(
-        json.dumps(new_state, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8")
+    _write_state(state_path, new_state)
     return new_state, sent
 
 
@@ -479,6 +634,12 @@ def main():
             if out_path.exists():
                 print("Keeping previous data.json; exiting 0.",
                       file=sys.stderr)
+                # Alert the user that the data could not be fetched, so
+                # they can adjust in time (24h dedup per channel).
+                _now = dt.datetime.now(dt.timezone.utc)
+                record_fetch_failure(
+                    "yahoo", "%s: %s" % (symbol, exc),
+                    state_path, _now)
                 # Still evaluate alerts on the last known closes, so
                 # alert_state.json (including channels_configured, which
                 # the dashboard displays) stays accurate even when
@@ -488,7 +649,7 @@ def main():
                         out_path.read_text(encoding="utf-8"))
                     now_utc = dt.datetime.now(dt.timezone.utc)
                     new_state, sent = process_alerts(
-                        prev_payload, state_path, now_utc)
+                        prev_payload, state_path, now_utc, hy_stale=True)
                     print("Wrote %s (stale-data alert check, sent: %s)"
                           % (state_path, sent or "none"))
                 except Exception as exc2:  # noqa: BLE001
@@ -510,6 +671,12 @@ def main():
         print("WARNING fetching FRED HY OAS failed (%s); "
               "using last known value" % (exc,), file=sys.stderr)
         hy_stale = True
+        # Alert the user: HY OAS is now stale. The dashboard keeps the
+        # last known value (with its date), but the user asked to know
+        # whenever a source cannot be fetched.
+        record_fetch_failure(
+            "fred", str(exc), state_path,
+            dt.datetime.now(dt.timezone.utc))
         fred_rows = None
         try:
             prev_payload = json.loads(out_path.read_text(encoding="utf-8"))
@@ -582,7 +749,8 @@ def main():
     print("  spx: %s on %s" % (payload["spx"]["value"], payload["spx"]["date"]))
     print("  term: %s" % (payload["term_structure"],))
 
-    new_state, sent = process_alerts(payload, state_path, now_utc)
+    new_state, sent = process_alerts(payload, state_path, now_utc,
+                                     hy_stale=hy_stale)
     print("Wrote %s" % (state_path,))
     print("  channels configured: feishu=%s bark=%s"
           % (new_state["channels_configured"]["feishu"],
