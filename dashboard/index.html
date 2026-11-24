@@ -1176,7 +1176,7 @@
     <div class="nav-right">
       <span id="marketPill" class="pill closed"><span class="pulse-dot"></span>美股状态：计算中…</span>
       <span id="livePill" class="pill live"><span class="pulse-dot"></span>实时同步</span>
-      <span id="countdown" class="timer-pill">下次刷新：5:00</span>
+      <span id="countdown" class="timer-pill">下次刷新：30:00</span>
       <button id="refreshBtn" class="btn" type="button" title="立刻从 Yahoo / FRED 重新拉一次数据（经 VPS 接口），页面马上显示新数据">🔄 刷新数据</button>
       <button id="themeToggle" class="btn" type="button" aria-label="切换亮色 / 暗色主题">🌙 暗色</button>
     </div>
@@ -1337,7 +1337,7 @@
       <div>
         <h4>关于本监控仪表盘</h4>
         <p>市场波动与信用监控组合（3+2 框架）聚焦于跨市场交叉验证：股债共振、情绪与信用利差配合确认。单看单一指标容易产生噪音与假突破，多维验证方能确认系统性压力。</p>
-        <p><strong>更新节奏：</strong>服务端每天收盘后拉取两次（UTC 21:30 和 23:30），写入 <code>data.json</code>；前端页面每 5 分钟自动刷新。本页面不直接访问外部 API，杜绝浏览器跨域拦截（CORS）。点“🔄 刷新数据”会立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 <code>api.infidea.app</code>），页面马上显示新数据；“飞书推送 / Bark 推送”把当前状态汇总立刻发到对应通道。如果 VPS 接口不可用，也可以在 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a>手动触发（选 test 或 status 再点 Run workflow）。</p>
+        <p><strong>更新节奏：</strong>服务端每天收盘后拉取两次（UTC 21:30 和 23:30），写入 <code>data.json</code>；前端页面平时每 30 分钟自动刷新一次，收盘拉取时段（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新一次，所以新收盘数据出来后一分钟内就能看到。本页面不直接访问外部 API，杜绝浏览器跨域拦截（CORS）。点“🔄 刷新数据”会立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 <code>api.infidea.app</code>），页面马上显示新数据；“飞书推送 / Bark 推送”把当前状态汇总立刻发到对应通道。如果 VPS 接口不可用，也可以在 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a>手动触发（选 test 或 status 再点 Run workflow）。</p>
       </div>
       <div>
         <h4>数据源规范</h4>
@@ -2069,9 +2069,36 @@ function renderAlerts(data, state){
 }
 
 /* ---- 数据拉取与自动刷新倒计时 ---- */
-/* 自动刷新间隔 5 分钟：数据每天只在收盘后更新两次，60 秒一拉纯属空跑；
-   手动刷新和推送走异步任务（轮询 /api/job），不依赖这个定时器。 */
-let countdown = 300;
+/* 自动刷新按数据实际变化的时间来：服务端每天只在收盘后拉取两次
+   （UTC 21:30 和 23:30，即北京时间 05:30 和 07:30），拉取要几分钟，
+   所以平时 30 分钟拉一次，只在两个拉取窗口内（05:30–06:00、07:30–08:00）
+   每 1 分钟拉一次，新收盘数据出来后一分钟内就能看到；窗口快到时就等到
+   窗口开始再拉。手动刷新和推送走异步任务（轮询 /api/job），不依赖这个定时器。 */
+const NORMAL_INTERVAL_MS = 30 * 60 * 1000;   // 平时：30 分钟
+const WINDOW_INTERVAL_MS = 60 * 1000;        // 拉取窗口内：1 分钟
+const UPDATE_WINDOWS = [[5 * 60 + 30, 6 * 60], [7 * 60 + 30, 8 * 60]]; // 北京时间分钟数
+function beijingMinutes(){
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai', hour: 'numeric', minute: 'numeric', hour12: false
+  }).formatToParts(new Date());
+  const get = t => parts.find(p => p.type === t).value;
+  return (+get('hour')) * 60 + (+get('minute'));
+}
+function nextIntervalMs(){
+  const mins = beijingMinutes();
+  for(const [start, end] of UPDATE_WINDOWS){
+    if(mins >= start && mins < end) return WINDOW_INTERVAL_MS;
+    if(mins < start) return Math.min(NORMAL_INTERVAL_MS, (start - mins) * 60 * 1000);
+  }
+  return NORMAL_INTERVAL_MS;
+}
+let countdown = 30 * 60, refreshTimer = null;
+function scheduleNext(){
+  if(refreshTimer) clearTimeout(refreshTimer);
+  const ms = nextIntervalMs();
+  countdown = Math.round(ms / 1000);
+  refreshTimer = setTimeout(() => { load(); }, ms);
+}
 async function load(){
   let data = null, isSnapshot = false, state = null;
   try {
@@ -2092,11 +2119,10 @@ async function load(){
 
   render(data, isSnapshot);
   renderAlerts(data, state);
-  countdown = 300;
+  scheduleNext();
 }
 
 load();
-setInterval(load, 300000);
 
 /* 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md）。
    API_TOKEN 也写在页面代码里（公开），真正的保护是服务端的限流
@@ -2116,10 +2142,10 @@ async function apiPost(path, body){
   if(!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
-/* 轮询 /api/job 直到任务完成（每 15 秒一次，最多约 3 分钟），返回任务结果，
+/* 轮询 /api/job 直到任务完成（每 15 秒一次，最多约 5 分钟），返回任务结果，
    超时返回 null。 */
 async function waitForJob(){
-  for(let i = 0; i < 12; i++){
+  for(let i = 0; i < 20; i++){
     await new Promise(r => setTimeout(r, 15000));
     try{
       const r = await fetch(API_BASE + '/api/job');
@@ -2153,7 +2179,7 @@ async function manualRefresh(){
         await load();
         if(msg) msg.textContent = '拉取失败：' + (result.error || '未知错误') + '，显示的仍是上次数据';
       } else {
-        if(msg) msg.textContent = '拉取时间较长，页面会在 5 分钟内自动更新';
+        if(msg) msg.textContent = '拉取时间较长，页面会在下次定时刷新时自动更新';
       }
     } else if(res.ok && res.data){
       render(res.data, false);
