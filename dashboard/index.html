@@ -1176,7 +1176,7 @@
     <div class="nav-right">
       <span id="marketPill" class="pill closed"><span class="pulse-dot"></span>美股状态：计算中…</span>
       <span id="livePill" class="pill live"><span class="pulse-dot"></span>实时同步</span>
-      <span id="countdown" class="timer-pill">下次刷新：60s</span>
+      <span id="countdown" class="timer-pill">下次刷新：5:00</span>
       <button id="refreshBtn" class="btn" type="button" title="立刻从 Yahoo / FRED 重新拉一次数据（经 VPS 接口），页面马上显示新数据">🔄 刷新数据</button>
       <button id="themeToggle" class="btn" type="button" aria-label="切换亮色 / 暗色主题">🌙 暗色</button>
     </div>
@@ -1337,7 +1337,7 @@
       <div>
         <h4>关于本监控仪表盘</h4>
         <p>市场波动与信用监控组合（3+2 框架）聚焦于跨市场交叉验证：股债共振、情绪与信用利差配合确认。单看单一指标容易产生噪音与假突破，多维验证方能确认系统性压力。</p>
-        <p><strong>更新节奏：</strong>服务端每天收盘后拉取两次（UTC 21:30 和 23:30），写入 <code>data.json</code>；前端页面每 60 秒自动刷新。本页面不直接访问外部 API，杜绝浏览器跨域拦截（CORS）。点“🔄 刷新数据”会立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 <code>api.infidea.app</code>），页面马上显示新数据；“飞书推送 / Bark 推送”把当前状态汇总立刻发到对应通道。如果 VPS 接口不可用，也可以在 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a>手动触发（选 test 或 status 再点 Run workflow）。</p>
+        <p><strong>更新节奏：</strong>服务端每天收盘后拉取两次（UTC 21:30 和 23:30），写入 <code>data.json</code>；前端页面每 5 分钟自动刷新。本页面不直接访问外部 API，杜绝浏览器跨域拦截（CORS）。点“🔄 刷新数据”会立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 <code>api.infidea.app</code>），页面马上显示新数据；“飞书推送 / Bark 推送”把当前状态汇总立刻发到对应通道。如果 VPS 接口不可用，也可以在 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a>手动触发（选 test 或 status 再点 Run workflow）。</p>
       </div>
       <div>
         <h4>数据源规范</h4>
@@ -1979,7 +1979,7 @@ function updateMarketStatus(){
   }
 }
 updateMarketStatus();
-setInterval(updateMarketStatus, 60000);
+setInterval(updateMarketStatus, 300000);
 
 /* ---- 报警状态面板渲染 ---- */
 const ALERT_META = {
@@ -2069,7 +2069,9 @@ function renderAlerts(data, state){
 }
 
 /* ---- 数据拉取与自动刷新倒计时 ---- */
-let countdown = 60;
+/* 自动刷新间隔 5 分钟：数据每天只在收盘后更新两次，60 秒一拉纯属空跑；
+   手动刷新和推送走异步任务（轮询 /api/job），不依赖这个定时器。 */
+let countdown = 300;
 async function load(){
   let data = null, isSnapshot = false, state = null;
   try {
@@ -2090,11 +2092,11 @@ async function load(){
 
   render(data, isSnapshot);
   renderAlerts(data, state);
-  countdown = 60;
+  countdown = 300;
 }
 
 load();
-setInterval(load, 60000);
+setInterval(load, 300000);
 
 /* 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md）。
    API_TOKEN 也写在页面代码里（公开），真正的保护是服务端的限流
@@ -2151,7 +2153,7 @@ async function manualRefresh(){
         await load();
         if(msg) msg.textContent = '拉取失败：' + (result.error || '未知错误') + '，显示的仍是上次数据';
       } else {
-        if(msg) msg.textContent = '拉取时间较长，页面会在 60 秒刷新时自动更新';
+        if(msg) msg.textContent = '拉取时间较长，页面会在 5 分钟内自动更新';
       }
     } else if(res.ok && res.data){
       render(res.data, false);
@@ -2216,11 +2218,14 @@ async function manualPush(channel){
   if(bb) bb.addEventListener('click', () => manualPush('bark'));
 })();
 
-/* 倒计时计时器 */
+/* 倒计时计时器（≥60 秒显示为 m:ss） */
+function fmtCountdown(s){
+  return s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s + 's';
+}
 setInterval(() => {
   countdown = Math.max(0, countdown - 1);
   const cd = document.getElementById('countdown');
-  if(cd) cd.textContent = '下次刷新：' + countdown + 's';
+  if(cd) cd.textContent = '下次刷新：' + fmtCountdown(countdown);
 }, 1000);
 </script>
 </body>
