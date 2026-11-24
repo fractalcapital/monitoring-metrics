@@ -75,7 +75,7 @@ from pathlib import Path
 # `python3 scripts/fetch_dashboard.py` from the repo root, so
 # sys.path[0] is scripts/ — add the repo root first so `alert` imports.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from alert.notify import send_bark, send_feishu  # noqa: E402
+from alert.notify import send_bark, send_feishu_post  # noqa: E402
 
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -315,8 +315,8 @@ def _parse_utc(s):
 def format_alert_parts(key, ev):
     """Shared alert content for every channel: (title, body).
 
-    Feishu gets title + body as one text message; Bark gets them as its
-    title/body path segments. Same content on both channels.
+    Feishu gets title + body as one rich-text (post) message; Bark gets
+    them as its title/body path segments. Same content on both channels.
     """
     spec = ALERT_THRESHOLDS[key]
     unit = spec.get("unit", "")
@@ -333,11 +333,6 @@ def format_alert_parts(key, ev):
                                 ev["date"], ev["change"]))
     body = "%s\n查看仪表盘：%s" % (body, DASHBOARD_URL)
     return title, body
-
-
-def format_alert_message(key, ev):
-    title, body = format_alert_parts(key, ev)
-    return "%s\n%s" % (title, body)
 
 
 def _channel_should_send(old_level, new_level, old_sent_at, now_utc):
@@ -412,7 +407,7 @@ def _fetch_alert_send(key, label, detail, state, now_utc):
         "channels": channels,
     }
     sent = []
-    for ch, sender in (("feishu", lambda: send_feishu("%s\n%s" % (title, body))),
+    for ch, sender in (("feishu", lambda: send_feishu_post(title, body)),
                         ("bark", lambda: send_bark(title, body, "warning"))):
         ch_old = entry["channels"].get(ch, {}) or {}
         ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
@@ -555,8 +550,7 @@ def process_alerts(payload, state_path, now_utc, hy_stale=False):
             "channels": channels,
         }
         any_sent = False
-        for ch, sender in (("feishu", lambda: send_feishu(
-                                format_alert_message(key, ev))),
+        for ch, sender in (("feishu", lambda: send_feishu_post(title, body)),
                             ("bark", lambda: send_bark(title, body, new_level))):
             ch_old = entry["channels"].get(ch, {}) or {}
             ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
@@ -710,7 +704,7 @@ def send_manual_push(mode, payload=None, stale=False,
         return False
     results = {}
     if "feishu" in channels:
-        results["feishu"] = send_feishu("%s\n%s" % (title, body))
+        results["feishu"] = send_feishu_post(title, body)
     if "bark" in channels:
         results["bark"] = send_bark(title, body, "warning")
     print("  manual push %s (%s): %s"

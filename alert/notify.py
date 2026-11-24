@@ -9,7 +9,10 @@ Safety rules (do not break them):
   - Both addresses come ONLY from environment variables:
     FEISHU_WEBHOOK_URL and BARK_URL. They are never written into any
     file in this repo (the repo is public) and never printed or logged.
-  - Feishu: POST JSON {"msg_type": "text", "content": {"text": ...}}.
+  - Feishu: rich text (msg_type "post", per the custom-bot docs):
+    a title plus paragraphs of text/link nodes. The dashboard link
+    is a clickable link, not a raw URL. Plain text (msg_type "text")
+    stays as a fallback in send_feishu.
   - Bark: GET {base}/{quote(title)}/{quote(body)}
     ?group=monitoring-metrics&level=critical|active, where base is the
     BARK_URL env var (https://<bark server>/<key>, no title/body).
@@ -26,21 +29,20 @@ import sys
 import urllib.parse
 import urllib.request
 
-__all__ = ["send_feishu", "send_bark"]
+__all__ = ["send_feishu", "send_feishu_post", "send_bark"]
 
 
-def send_feishu(text):
-    """POST one text message to the Feishu robot webhook.
+def _post_feishu(payload):
+    """POST one JSON payload to the Feishu robot webhook.
 
     The URL comes only from the FEISHU_WEBHOOK_URL environment variable.
-    It is never printed or logged. Returns True on success, False when
-    skipped (no webhook configured) or on failure.
+    It is never printed or logged. Returns True on success (HTTP 200 and
+    code 0), False when skipped (no webhook configured) or on failure.
     """
     url = os.environ.get("FEISHU_WEBHOOK_URL")
     if not url:
         return False
-    body = json.dumps({"msg_type": "text", "content": {"text": text}},
-                      ensure_ascii=False).encode("utf-8")
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
         url, data=body,
         headers={"Content-Type": "application/json",
@@ -56,6 +58,51 @@ def send_feishu(text):
     except Exception as exc:
         print("WARNING: Feishu send failed: %s" % (exc,), file=sys.stderr)
         return False
+
+
+def send_feishu(text):
+    """POST one plain-text message to the Feishu robot webhook.
+
+    Kept as the plain-text fallback; the live messages use
+    send_feishu_post (rich text) instead.
+    """
+    return _post_feishu({"msg_type": "text", "content": {"text": text}})
+
+
+def send_feishu_post(title, body):
+    """POST one rich-text (post) message to the Feishu robot webhook.
+
+    Feishu's rich-text format (msg_type "post", custom-bot docs):
+    a title plus paragraphs of text/link nodes. `body` is plain text
+    (lines separated by \\n); each line becomes one paragraph, and a
+    trailing "查看仪表盘：<url>" line becomes a clickable link instead
+    of a raw URL, so the message reads as a structured summary with a
+    link rather than a block of text. The title and text carry the same
+    words as the old plain-text messages, so a keyword security setting
+    on the bot still matches. Returns True on success, False when
+    skipped (no webhook configured) or on failure.
+    """
+    paragraphs = []
+    for line in body.split("\n"):
+        if line.startswith("查看仪表盘：") and "http" in line:
+            href = line.split("：", 1)[1].strip()
+            paragraphs.append([
+                {"tag": "text", "text": "查看仪表盘："},
+                {"tag": "a", "text": "打开仪表盘 ↗", "href": href},
+            ])
+        else:
+            paragraphs.append([{"tag": "text", "text": line}])
+    return _post_feishu({
+        "msg_type": "post",
+        "content": {
+            "post": {
+                "zh_cn": {
+                    "title": title,
+                    "content": paragraphs,
+                }
+            }
+        },
+    })
 
 
 def send_bark(title, body, level):

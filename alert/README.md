@@ -4,7 +4,7 @@
 
 ## 里面有什么
 
-- `notify.py` — 两个发送函数：`send_feishu(text)`、`send_bark(title, body, level)`。只负责发送，不决定发不发。
+- `notify.py` — 发送函数：`send_feishu_post(title, body)`（飞书富文本，`msg_type: "post"`，带标题和可点击的仪表盘链接）、`send_feishu(text)`（纯文本备用）、`send_bark(title, body, level)`。只负责发送，不决定发不发。
 - `__init__.py` — 从 `.notify` 导出上面两个函数。
 
 ## 谁决定发不发
