@@ -2,7 +2,12 @@ name: Update dashboard data
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Twice a day after the US close (16:00 ET = 21:00 UTC): 21:30 UTC
+    # (05:30 Beijing next day) picks up the new close, 23:30 UTC
+    # (07:30 Beijing) is a retry in case the first run hit Yahoo's
+    # rate limit. Data is daily closes, so running every 30 minutes
+    # only wastes runs and Yahoo quota.
+    - cron: "30 21,23 * * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -13,17 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Fetch latest closes
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           BARK_URL: ${{ secrets.BARK_URL }}
         run: python3 scripts/fetch_dashboard.py
-
       - name: Commit data.json and alert_state.json if changed
         run: |
           git config user.name "github-actions[bot]"
