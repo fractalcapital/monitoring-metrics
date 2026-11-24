@@ -327,7 +327,12 @@ def send_feishu(text):
     body = json.dumps({"msg_type": "text", "content": {"text": text}},
                       ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"},
+        url, data=body,
+        headers={"Content-Type": "application/json",
+                 # Feishu hangs (read timeout) on the default Python-urllib
+                 # User-Agent from datacenter IPs — verified: curl UA
+                 # returns 200 in <1s, Python-urllib UA times out.
+                 "User-Agent": "curl/8.5.0"},
         method="POST")
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -355,7 +360,10 @@ def send_bark(title, body, level):
     url = ("%s/%s/%s?group=monitoring-metrics&level=%s"
            % (base.rstrip("/"), urllib.parse.quote(title, safe=""),
               urllib.parse.quote(body, safe=""), bark_level))
-    req = urllib.request.Request(url, method="GET")
+    # Bark sits behind Cloudflare, which 403s (error 1010) the default
+    # Python-urllib User-Agent — verified: curl UA returns code 200.
+    req = urllib.request.Request(
+        url, method="GET", headers={"User-Agent": "curl/8.5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
