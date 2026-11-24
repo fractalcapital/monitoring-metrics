@@ -1,0 +1,129 @@
+{
+  "updated_at_utc": "2026-11-24T04:28:20Z",
+  "channels_configured": {
+    "feishu": false,
+    "bark": false
+  },
+  "alerts": {
+    "vix": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": 26.62,
+      "date": "2026-11-23",
+      "threshold": 35,
+      "change": "-25.83% vs 2026-11-20",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {
+        "feishu": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        },
+        "bark": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        }
+      }
+    },
+    "vvix": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": 117.36,
+      "date": "2026-11-23",
+      "threshold": 140,
+      "change": "-14.98% vs 2026-11-20",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {
+        "feishu": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        },
+        "bark": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        }
+      }
+    },
+    "skew": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": 140.37,
+      "date": "2026-11-23",
+      "threshold": 150,
+      "change": "+1.10% vs 2026-11-20",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {
+        "feishu": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        },
+        "bark": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        }
+      }
+    },
+    "move": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": 100.91,
+      "date": "2026-11-23",
+      "threshold": 140,
+      "change": "-5.08% vs 2026-11-20",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {
+        "feishu": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        },
+        "bark": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        }
+      }
+    },
+    "hy_oas": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": 376,
+      "date": "2026-11-20",
+      "threshold": 500,
+      "change": "+24bp vs 2026-11-19",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {
+        "feishu": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        },
+        "bark": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        }
+      }
+    },
+    "cross": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": 26.62,
+      "date": "2026-11-23",
+      "threshold": 30,
+      "change": "-",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {
+        "feishu": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        },
+        "bark": {
+          "last_sent_at_utc": null,
+          "last_sent_value": null
+        }
+      }
+    }
+  }
+}
