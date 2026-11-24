@@ -45,6 +45,7 @@ import io
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -87,18 +88,58 @@ LEVEL_LABEL = {"normal": "正常", "warning": "预警", "critical": "严重"}
 RESEND_AFTER = dt.timedelta(hours=24)
 
 
-def fetch_url(url, timeout=15, headers=None):
-    req = urllib.request.Request(url, headers=headers or UA)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        if resp.status != 200:
-            raise RuntimeError("HTTP %s for %s" % (resp.status, url))
-        return resp.read()
+def fetch_url(url, timeout=15, headers=None, retries=3):
+    """Fetch a URL, retrying HTTP 429 (rate limit) with backoff.
+
+    Yahoo rate-limits shared datacenter IPs (GitHub Actions runners
+    hit 429 often): retry after 10s / 30s / 60s, honouring Retry-After
+    when present. Other errors are raised immediately.
+    """
+    last_exc = None
+    for attempt in range(retries + 1):
+        try:
+            req = urllib.request.Request(url, headers=headers or UA)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if resp.status != 200:
+                    raise RuntimeError("HTTP %s for %s" % (resp.status, url))
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            last_exc = exc
+            if exc.code != 429 or attempt == retries:
+                raise
+            wait = 60
+            try:
+                wait = int(exc.headers.get("Retry-After", "0") or 0) or wait
+            except ValueError:
+                pass
+            wait = [10, 30, 60][attempt] if attempt < 3 else 60
+            print("  429 for %s, retry %d/%d after %ds"
+                  % (url, attempt + 1, retries, wait), file=sys.stderr)
+            time.sleep(wait)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_exc = exc
+            if attempt == retries:
+                raise
+            time.sleep([5, 15, 30][attempt] if attempt < 3 else 30)
+    raise last_exc
 
 
 def fetch_yahoo(symbol):
-    url = ("https://query1.finance.yahoo.com/v8/finance/chart/" + symbol
-           + "?range=1mo&interval=1d")
-    raw = fetch_url(url)
+    # Try query1, then query2 on 429 — same backend, but the per-host
+    # limit sometimes lets the second host through.
+    params = "?range=1mo&interval=1d"
+    last_exc = None
+    for host in ("query1.finance.yahoo.com", "query2.finance.yahoo.com"):
+        url = "https://" + host + "/v8/finance/chart/" + symbol + params
+        try:
+            raw = fetch_url(url)
+            break
+        except Exception as exc:  # noqa: BLE001 - retry on the other host
+            last_exc = exc
+            print("  Yahoo %s via %s failed: %s" % (symbol, host, exc),
+                  file=sys.stderr)
+    else:
+        raise last_exc
     data = json.loads(raw.decode("utf-8"))
     result = data["chart"]["result"][0]
     stamps = result["timestamp"]
@@ -429,8 +470,18 @@ def main():
         try:
             pairs[key] = fetch_yahoo(symbol)
         except Exception as exc:
+            # Yahoo 429s shared Actions-runner IPs. If we already have a
+            # good data.json, keep it and exit 0 — the dashboard keeps
+            # showing the last good close (with its date) instead of
+            # failing the run. Only fail hard on a first run with no
+            # previous data to fall back to.
             print("ERROR fetching %s: %s" % (symbol, exc), file=sys.stderr)
+            if out_path.exists():
+                print("Keeping previous data.json; exiting 0.",
+                      file=sys.stderr)
+                return
             sys.exit(1)
+        time.sleep(1)  # don't burst 9 requests at Yahoo in 3 seconds
 
     try:
         fred_rows = fetch_fred_hy_oas()
