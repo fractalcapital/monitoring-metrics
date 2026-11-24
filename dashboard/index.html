@@ -130,7 +130,7 @@
 
   <div class="foot">
     <p><strong>数据来源：</strong><span id="sourceNote">Yahoo Finance（约 15 分钟延迟）提供 VIX / VVIX / SKEW / MOVE / 期限结构 / 标普 500；FRED（BAMLH0A0HYM2，ICE BofA 高收益利差，每日更新）提供 HY OAS。</span></p>
-    <p><strong>更新方式：</strong>GitHub Actions 每 30 分钟拉取一次并写入 <code>data.json</code>，本页每 60 秒同源刷新一次。浏览器不直接请求 Yahoo / FRED（会被 CORS 拦截），所以实时性来自服务端定时拉取，不是逐笔行情。</p>
+    <p><strong>更新方式：</strong>GitHub Actions 每天收盘后拉取两次（UTC 21:30 和 23:30）并写入 <code>data.json</code>，本页每 60 秒同源刷新一次。浏览器不直接请求 Yahoo / FRED（会被 CORS 拦截），所以实时性来自服务端定时拉取，不是逐笔行情。</p>
     <p><strong>口径：</strong>HY OAS 是日度数据，盘中不会变；VIX 等是上一交易日收盘价，盘中也不会变——“实时”指每天自动更新到最新收盘，不是盘中跳动。阈值见各指标页面与 <a href="README.md">dashboard/README.md</a>，不是买卖信号。</p>
     <p><strong>相关页面：</strong><a href="../vix/index.html">VIX</a> · <a href="../vix-term-structure/index.html">VIX 期限结构</a> · <a href="../vvix/index.html">VVIX</a> · <a href="../move/index.html">MOVE</a> · <a href="../hy-oas/index.html">HY OAS</a></p>
     <p>本页不是投资建议。</p>

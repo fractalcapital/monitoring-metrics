@@ -11,7 +11,7 @@
 | VVIX | [vvix/index.html](vvix/index.html) | 波动率的波动率：VIX 本身预计会怎么动 |
 | MOVE | [move/index.html](move/index.html) | 债市的 VIX：美债收益率未来一个月的隐含波动 |
 | HY OAS | [hy-oas/index.html](hy-oas/index.html) | 高收益债信用利差：企业借钱比美债多付多少，测违约担忧 |
-| 实时仪表盘 | [dashboard/index.html](dashboard/index.html) | VIX + VVIX + SKEW + MOVE + HY OAS 五项同页实时监控（Actions 每 30 分钟更新，页面每 60 秒刷新；飞书 + Bark 预警） |
+| 实时仪表盘 | [dashboard/index.html](dashboard/index.html) | VIX + VVIX + SKEW + MOVE + HY OAS 五项同页实时监控（Actions 每天收盘后更新两次，页面每 60 秒刷新；飞书 + Bark 预警） |
 
 每个子目录里还有一份对应的 `README.md`，讲该指标的定义、区间、关键读数和常见误读。
 

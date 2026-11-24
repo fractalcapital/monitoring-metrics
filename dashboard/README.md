@@ -16,7 +16,7 @@
 | 标普 500 | Yahoo Finance（`^GSPC`） | 同上 |
 | HY OAS | FRED `BAMLH0A0HYM2`（ICE BofA 美国高收益利差） | **每日一次**，盘中不会变 |
 
-- GitHub Actions 每 30 分钟运行 `scripts/fetch_dashboard.py`，拉取后写入 `dashboard/data.json`，有变化才提交。
+- GitHub Actions 每天收盘后运行两次（UTC 21:30 和 23:30，即北京时间次日 05:30 和 07:30），运行 `scripts/fetch_dashboard.py`，拉取后写入 `dashboard/data.json`，有变化才提交。
 - 页面每 60 秒同源拉取一次 `./data.json` 刷新显示。
 - “实时”指**每天自动更新到最新收盘**，不是盘中逐笔跳动：收盘价在交易时段内不会变，HY OAS 更是日度数据。
 
