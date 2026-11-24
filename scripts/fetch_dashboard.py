@@ -680,12 +680,15 @@ def build_status_message(payload, stale=False):
     return "【手动推送】市场监控状态", "\n".join(lines)
 
 
-def send_manual_push(mode, payload=None, stale=False):
-    """Send a manual push on both channels. No dedup, no state writes.
+def send_manual_push(mode, payload=None, stale=False,
+                     channels=("feishu", "bark")):
+    """Send a manual push on the given channels. No dedup, no state writes.
 
     mode "test": one test message, no payload needed. mode "status":
-    a status summary built from payload. Returns True if at least one
-    channel succeeded. A missing channel is skipped, never fatal.
+    a status summary built from payload. channels selects a subset
+    ("feishu" and/or "bark"); the dashboard has one button per channel.
+    Returns True if at least one requested channel succeeded. A missing
+    channel is skipped, never fatal.
     """
     now_bj = dt.datetime.now(
         dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")
@@ -698,10 +701,15 @@ def send_manual_push(mode, payload=None, stale=False):
         title, body = build_status_message(payload, stale=stale)
     else:
         return False
-    ok_f = send_feishu("%s\n%s" % (title, body))
-    ok_b = send_bark(title, body, "warning")
-    print("  manual push %s: feishu=%s bark=%s" % (mode, ok_f, ok_b))
-    return bool(ok_f or ok_b)
+    results = {}
+    if "feishu" in channels:
+        results["feishu"] = send_feishu("%s\n%s" % (title, body))
+    if "bark" in channels:
+        results["bark"] = send_bark(title, body, "warning")
+    print("  manual push %s (%s): %s"
+          % (mode, ",".join(channels),
+             " ".join("%s=%s" % (k, v) for k, v in results.items())))
+    return bool(any(results.values()))
 
 
 # ------------------------------------------------------------------ main ---
@@ -714,13 +722,20 @@ def main():
     # Manual push from the workflow_dispatch input (dashboard "手动推送"
     # button opens the workflow page). "test" sends one test message and
     # exits; "status" fetches normally, then sends a status summary.
+    # MANUAL_CHANNELS (comma-separated feishu/bark, default both) selects
+    # which channels a manual push goes to; the dashboard has one button
+    # per channel and passes it through the VPS API.
     mode = os.environ.get("MANUAL_PUSH", "").strip().lower()
+    channels = tuple(
+        c.strip().lower()
+        for c in os.environ.get("MANUAL_CHANNELS", "feishu,bark").split(",")
+        if c.strip().lower() in ("feishu", "bark")) or ("feishu", "bark")
     if mode not in ("", "none", "test", "status"):
         print("WARNING unknown MANUAL_PUSH=%r, ignoring" % (mode,),
               file=sys.stderr)
         mode = ""
     if mode == "test":
-        send_manual_push("test")
+        send_manual_push("test", channels=channels)
         return
 
     pairs = {}
@@ -756,7 +771,8 @@ def main():
                     print("Wrote %s (stale-data alert check, sent: %s)"
                           % (state_path, sent or "none"))
                     if mode == "status":
-                        send_manual_push("status", prev_payload, stale=True)
+                        send_manual_push("status", prev_payload, stale=True,
+                                         channels=channels)
                 except Exception as exc2:  # noqa: BLE001
                     print("WARNING stale-data alert check failed: %s"
                           % (exc2,), file=sys.stderr)
@@ -868,7 +884,8 @@ def main():
     else:
         print("  alerts sent this run: none")
     if mode == "status":
-        send_manual_push("status", payload, stale=hy_stale)
+        send_manual_push("status", payload, stale=hy_stale,
+                         channels=channels)
 
 
 if __name__ == "__main__":

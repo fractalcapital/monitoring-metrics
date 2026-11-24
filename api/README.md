@@ -14,7 +14,7 @@ Base URL: `https://api.infidea.app` (tunnel hostname → `127.0.0.1:8080`).
 | --- | --- | --- | --- |
 | GET | `/health` | — | `{"ok": true}` — tunnel / monitoring check |
 | POST | `/api/refresh` | — | Runs the fetch script now, git-pushes `data.json` + `alert_state.json`, returns the fresh `data.json` payload (the page re-renders from it immediately) |
-| POST | `/api/push` | `{"mode": "test" \| "status"}` | Runs the fetch script with `MANUAL_PUSH=mode`; `test` sends one test message and touches no data file, `status` fetches first then sends the 5-indicator summary. Returns per-channel results |
+| POST | `/api/push` | `{"mode": "test" \| "status", "channels": ["feishu"] \| ["bark"]}` | Runs the fetch script with `MANUAL_PUSH=mode` and `MANUAL_CHANNELS=channels` (default both); `test` sends one test message and touches no data file, `status` fetches first then sends the 5-indicator summary. Returns per-channel results. Rate-limited per channel, so the Feishu and Bark buttons don't block each other |
 
 All POSTs need the `X-Api-Token` header. The token is also in the
 dashboard page source (public), so it is NOT real security. The real

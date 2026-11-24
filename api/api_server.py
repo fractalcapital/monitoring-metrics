@@ -8,8 +8,12 @@ is the backend for the dashboard's two manual buttons:
   GET  /health       -> {"ok": true} (tunnel / monitoring check)
   POST /api/refresh  -> run the fetch script now, git-push data.json,
                         return the fresh data.json payload
-  POST /api/push     -> {"mode": "test"|"status"}; run the fetch script
-                        with MANUAL_PUSH=mode and return per-channel results
+  POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; run
+                        the fetch script with MANUAL_PUSH=mode and
+                        MANUAL_CHANNELS=channels and return per-channel
+                        results (channels defaults to both; the dashboard
+                        has one button per channel, rate-limited per channel
+                        so the two buttons don't block each other)
 
 Auth: the X-Api-Token header must match the API_TOKEN env var. The token
 is ALSO in the dashboard page source (public), so it is NOT real
@@ -56,11 +60,11 @@ _hits = {}                        # (endpoint, ip) -> [timestamps]
 _global_hits = {}                 # endpoint -> [timestamps]
 
 
-def _rate_limited(endpoint, ip):
+def _rate_limited(endpoint, ip, scope=""):
     per_min, per_day, global_day = LIMITS[endpoint]
     now = time.time()
     with _lock:
-        key = (endpoint, ip)
+        key = (endpoint, ip, scope)
         ts = [t for t in _hits.get(key, []) if now - t < 86400]
         if len([t for t in ts if now - t < 60]) >= per_min:
             return "too fast: at most %d call(s) per minute" % per_min
@@ -91,7 +95,20 @@ def _run(cmd, env_extra=None):
 
 
 _PUSH_RE = re.compile(
-    r"manual push (test|status): feishu=(True|False) bark=(True|False)")
+    r"manual push (test|status) \(([^)]*)\): (.*)")
+
+
+def _parse_push_results(out):
+    """Parse the script's 'manual push ...' line into {channel: bool}."""
+    m = _PUSH_RE.search(out)
+    if not m:
+        return None
+    results = {}
+    for part in m.group(3).split():
+        if "=" in part:
+            k, v = part.split("=", 1)
+            results[k] = (v == "True")
+    return results
 
 
 def _do_refresh():
@@ -117,32 +134,33 @@ def _do_refresh():
     return resp
 
 
-def _do_push(mode):
-    """Send a test/status push; return a response dict."""
+def _do_push(mode, channels):
+    """Send a test/status push to the given channels; return a dict."""
+    channels = [c for c in channels if c in ("feishu", "bark")] or ["feishu", "bark"]
+    env = {"MANUAL_PUSH": mode, "MANUAL_CHANNELS": ",".join(channels)}
     if mode == "test":
         with _lock:
             code, out, err = _run(
-                ["python3", "scripts/fetch_dashboard.py"],
-                {"MANUAL_PUSH": "test"})
+                ["python3", "scripts/fetch_dashboard.py"], env)
         pushed = None
     elif mode == "status":
         with _lock:
-            code, out, err = _run(
-                ["bash", "scripts/push_data.sh"], {"MANUAL_PUSH": "status"})
+            code, out, err = _run(["bash", "scripts/push_data.sh"], env)
         pushed = "PUSH_OK" in out
     else:
         return {"ok": False, "error": "mode must be test or status"}
-    m = _PUSH_RE.search(out)
-    if code != 0 or not m:
+    results = _parse_push_results(out)
+    if code != 0 or results is None:
         return {"ok": False,
                 "error": "push failed: %s" % (err.strip()[-300:] or out.strip()[-300:]),
                 "pushed": pushed}
-    resp = {"ok": True, "mode": mode,
-            "feishu": m.group(2) == "True",
-            "bark": m.group(3) == "True", "pushed": pushed}
-    if not (resp["feishu"] or resp["bark"]):
+    resp = {"ok": True, "mode": mode, "channels": channels,
+            "feishu": results.get("feishu"),
+            "bark": results.get("bark"), "pushed": pushed}
+    sent = [v for k, v in results.items() if k in channels]
+    if not any(sent):
         resp["ok"] = False
-        resp["error"] = "both channels failed (check the service log)"
+        resp["error"] = "all requested channels failed (check the service log)"
     return resp
 
 
@@ -206,10 +224,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(401, {"ok": False, "error": "bad token"})
             return
         ip = self.client_address[0]
-        limited = _rate_limited(self.path, ip)
-        if limited:
-            self._send_json(429, {"ok": False, "error": limited})
-            return
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -225,10 +239,23 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, UnicodeDecodeError):
                 self._send_json(400, {"ok": False, "error": "bad JSON"})
                 return
+        scope = ""
+        channels = []
+        if self.path == "/api/push":
+            # Rate-limit per channel so the Feishu and Bark buttons don't
+            # block each other when clicked one after another.
+            channels = [str(c).lower() for c in body.get("channels", [])
+                        if str(c).lower() in ("feishu", "bark")]
+            scope = ",".join(sorted(channels)) or "both"
+        limited = _rate_limited(self.path, ip, scope)
+        if limited:
+            self._send_json(429, {"ok": False, "error": limited})
+            return
         if self.path == "/api/refresh":
             self._send_json(200, _do_refresh())
         else:
-            self._send_json(200, _do_push(str(body.get("mode", "")).lower()))
+            self._send_json(200, _do_push(
+                str(body.get("mode", "")).lower(), channels))
 
 
 def main():
