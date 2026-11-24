@@ -27,6 +27,7 @@ Safety rules (do not break them):
 """
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -71,6 +72,23 @@ def send_feishu(text):
     return _post_feishu({"msg_type": "text", "content": {"text": text}})
 
 
+_CHANGE_RE = re.compile(r"（([+-][^，）]+)，([+-][^%）]+%)）")
+
+
+def _color_change_spans(line):
+    """Wrap a "(±abs，±pct%)" change span in a red/green font tag.
+
+    Chinese market convention: up (positive) red, down (negative)
+    green. Only the change span is coloured; the value and the status
+    label stay plain. Lines without a change span are untouched.
+    """
+    def repl(m):
+        color = "red" if m.group(1).startswith("+") else "green"
+        return "（<font color=\"%s\">%s，%s</font>）" % (color, m.group(1),
+                                                        m.group(2))
+    return _CHANGE_RE.sub(repl, line)
+
+
 def send_feishu_card(title, body, template="blue"):
     """POST one interactive card to the Feishu robot webhook.
 
@@ -78,9 +96,11 @@ def send_feishu_card(title, body, template="blue"):
     the custom-bot docs): a coloured header (template by severity),
     a markdown body, and a primary button that opens the dashboard.
     `body` is plain text (lines separated by \\n); the first line is
-    bolded, and a trailing "查看仪表盘：<url>" line becomes the button
-    instead of a raw URL. Custom-bot cards only support URL jumps from
-    buttons, no server callbacks — the button just opens the link.
+    bolded, a trailing "查看仪表盘：<url>" line becomes the button
+    instead of a raw URL, and each "(±abs，±pct%)" change span is
+    coloured red for up / green for down (Chinese market convention).
+    Custom-bot cards only support URL jumps from buttons, no server
+    callbacks — the button just opens the link.
     Returns True on success, False when skipped (no webhook
     configured) or on failure.
     """
@@ -89,6 +109,7 @@ def send_feishu_card(title, body, template="blue"):
     if lines and lines[-1].startswith("查看仪表盘：") and "http" in lines[-1]:
         dashboard_url = lines[-1].split("：", 1)[1].strip()
         lines = lines[:-1]
+    lines = [_color_change_spans(ln) for ln in lines]
     if lines:
         lines[0] = "**%s**" % lines[0]
     elements = [

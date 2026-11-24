@@ -100,11 +100,11 @@ DASHBOARD_URL = "https://mon.infidea.app/dashboard/"
 # --- Alert thresholds (from the repo READMEs' bands; edit here to change) ---
 # warning = alert, critical = severe. Keys without "critical" only ever warn.
 ALERT_THRESHOLDS = {
-    "vix": {"label": "VIX", "unit": "", "warning": 35, "critical": 40},
-    "vvix": {"label": "VVIX", "unit": "", "warning": 140},
-    "skew": {"label": "SKEW", "unit": "", "warning": 150},
-    "move": {"label": "MOVE", "unit": "", "warning": 140},
-    "hy_oas": {"label": "HY OAS", "unit": "bp", "warning": 500, "critical": 1000},
+    "vix": {"label": "VIX 恐慌指数", "unit": "", "warning": 35, "critical": 40},
+    "vvix": {"label": "VVIX 波动率", "unit": "", "warning": 140},
+    "skew": {"label": "SKEW 黑天鹅", "unit": "", "warning": 150},
+    "move": {"label": "MOVE 债市波动", "unit": "", "warning": 140},
+    "hy_oas": {"label": "HY OAS 信用利差", "unit": "bp", "warning": 500, "critical": 1000},
     # Cross-check: VIX high AND (VVIX or MOVE high).
     "cross": {"label": "综合预警", "unit": "", "vix": 30, "vvix": 140, "move": 140},
 }
@@ -660,29 +660,41 @@ def build_status_message(payload, stale=False):
     lines = ["综合判断：%s" % _VERDICT_TITLES[worst_cls]]
     if stale:
         lines.append("注意：数据拉取失败，以下是上次成功数据")
-    lines.append("VIX %s（%s，%s%%）· %s" % (
+    lines.append("%s %s（%s，%s%%）· %s" % (
+        ALERT_THRESHOLDS["vix"]["label"],
         ind["vix"]["value"],
         _signed(ind["vix"]["value"] - ind["vix"]["prev_close"]),
         _signed(ind["vix"]["change_pct"]), st["vix"]["label"]))
-    lines.append("VVIX %s（%s，%s%%）· %s" % (
+    lines.append("%s %s（%s，%s%%）· %s" % (
+        ALERT_THRESHOLDS["vvix"]["label"],
         ind["vvix"]["value"],
         _signed(ind["vvix"]["value"] - ind["vvix"]["prev_close"]),
         _signed(ind["vvix"]["change_pct"]), st["vvix"]["label"]))
-    lines.append("SKEW %s（%s，%s%%）· %s" % (
+    lines.append("%s %s（%s，%s%%）· %s" % (
+        ALERT_THRESHOLDS["skew"]["label"],
         ind["skew"]["value"],
         _signed(ind["skew"]["value"] - ind["skew"]["prev_close"]),
         _signed(ind["skew"]["change_pct"]), st["skew"]["label"]))
-    lines.append("MOVE %s（%s，%s%%）· %s" % (
+    lines.append("%s %s（%s，%s%%）· %s" % (
+        ALERT_THRESHOLDS["move"]["label"],
         ind["move"]["value"],
         _signed(ind["move"]["value"] - ind["move"]["prev_close"]),
         _signed(ind["move"]["change_pct"]), st["move"]["label"]))
-    lines.append("HY OAS %sbp（%sbp，%s%%）· %s" % (
+    lines.append("%s %sbp（%sbp，%s%%）· %s" % (
+        ALERT_THRESHOLDS["hy_oas"]["label"],
         hy["value_bp"], _signed(hy["change_bp"], 0),
         _signed(hy_pct) if hy_pct is not None else "—", st["hy_oas"]["label"]))
     lines.append("标普 500 %s（%s，%s%%）" % (
         format(spx["value"], ","),
         _signed(spx_abs) if spx_abs is not None else "—",
         _signed(spx["change_pct"])))
+    # VIX term structure (extra context: the curve shape says whether
+    # the market prices near-term fear above/below longer-dated fear).
+    ts = payload.get("term_structure") or {}
+    ts_vals = [ts.get(k) for k in ("vix1d", "vix9d", "vix3m", "vix6m")]
+    if all(v is not None for v in ts_vals):
+        lines.append("期限结构：1D %.2f / 9D %.2f / 3M %.2f / 6M %.2f"
+                     % tuple(ts_vals))
     lines.append("数据：VIX 等 %s，HY OAS %s" % (
         ind["vix"]["date"], hy["date"]))
     if hy.get("stale"):
