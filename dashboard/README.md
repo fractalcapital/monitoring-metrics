@@ -4,7 +4,7 @@
 
 ## 它和各指标页面的区别
 
-各指标页面（`vix/`、`vvix/`、`move/`、`hy-oas/`、`vix-term-structure/`）是科普 + 历史长图，读数是固定快照。
+各指标页面（`metrics/vix/`、`metrics/vvix/`、`metrics/move/`、`metrics/hy-oas/`、`metrics/vix-term-structure/`）是科普 + 历史长图，读数是固定快照。
 本页是**监控用**：每天自动更新到最新收盘，带状态徽章、涨跌幅和近 30 个交易日迷你走势。
 
 ## 数据来源与更新节奏

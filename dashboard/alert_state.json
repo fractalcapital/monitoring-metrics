@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-11-24T05:03:22Z",
+  "updated_at_utc": "2026-11-24T05:23:51Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
@@ -8,14 +8,14 @@
     "yahoo": {
       "ok": true,
       "last_error": null,
-      "last_failed_at_utc": "2026-11-24T05:03:00Z",
-      "last_ok_at_utc": "2026-11-24T05:03:22Z"
+      "last_failed_at_utc": "2026-11-24T05:23:08Z",
+      "last_ok_at_utc": "2026-11-24T05:23:51Z"
     },
     "fred": {
       "ok": true,
       "last_error": null,
-      "last_failed_at_utc": "2026-11-24T05:03:00Z",
-      "last_ok_at_utc": "2026-11-24T05:03:22Z"
+      "last_failed_at_utc": null,
+      "last_ok_at_utc": "2026-11-24T05:23:51Z"
     }
   },
   "alerts": {
@@ -26,15 +26,15 @@
       "date": "2026-11-24",
       "threshold": "-",
       "change": "Yahoo Finance（VIX / VVIX / SKEW / MOVE / 标普 500 / 期限结构）",
-      "last_sent_at_utc": "2026-11-24T05:03:00Z",
+      "last_sent_at_utc": "2026-11-24T05:23:08Z",
       "last_sent_value": "^VIX: HTTP Error 429: Too Many Requests",
       "channels": {
         "feishu": {
-          "last_sent_at_utc": "2026-11-24T05:03:00Z",
+          "last_sent_at_utc": "2026-11-24T05:23:08Z",
           "last_sent_value": "^VIX: HTTP Error 429: Too Many Requests"
         },
         "bark": {
-          "last_sent_at_utc": "2026-11-24T05:03:00Z",
+          "last_sent_at_utc": "2026-11-24T05:23:08Z",
           "last_sent_value": "^VIX: HTTP Error 429: Too Many Requests"
         }
       }
@@ -46,18 +46,9 @@
       "date": "2026-11-24",
       "threshold": "-",
       "change": "FRED（HY OAS）",
-      "last_sent_at_utc": "2026-11-24T05:03:00Z",
-      "last_sent_value": "The read operation timed out",
-      "channels": {
-        "feishu": {
-          "last_sent_at_utc": "2026-11-24T05:03:00Z",
-          "last_sent_value": "The read operation timed out"
-        },
-        "bark": {
-          "last_sent_at_utc": "2026-11-24T05:03:00Z",
-          "last_sent_value": "The read operation timed out"
-        }
-      }
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {}
     },
     "vix": {
       "level": "normal",

@@ -6,11 +6,11 @@
 
 | 指标 | 页面 | 一句话 |
 | --- | --- | --- |
-| VIX | [vix/index.html](vix/index.html) | CBOE 波动率指数：标普 500 未来 30 天的隐含波动率，“恐慌指数”只是外号 |
-| VIX 期限结构 | [vix-term-structure/index.html](vix-term-structure/index.html) | 现货 + 不同到期日 VIX 期货连成的曲线：升水 vs 贴水 |
-| VVIX | [vvix/index.html](vvix/index.html) | 波动率的波动率：VIX 本身预计会怎么动 |
-| MOVE | [move/index.html](move/index.html) | 债市的 VIX：美债收益率未来一个月的隐含波动 |
-| HY OAS | [hy-oas/index.html](hy-oas/index.html) | 高收益债信用利差：企业借钱比美债多付多少，测违约担忧 |
+| VIX | [metrics/vix/index.html](metrics/vix/index.html) | CBOE 波动率指数：标普 500 未来 30 天的隐含波动率，“恐慌指数”只是外号 |
+| VIX 期限结构 | [metrics/vix-term-structure/index.html](metrics/vix-term-structure/index.html) | 现货 + 不同到期日 VIX 期货连成的曲线：升水 vs 贴水 |
+| VVIX | [metrics/vvix/index.html](metrics/vvix/index.html) | 波动率的波动率：VIX 本身预计会怎么动 |
+| MOVE | [metrics/move/index.html](metrics/move/index.html) | 债市的 VIX：美债收益率未来一个月的隐含波动 |
+| HY OAS | [metrics/hy-oas/index.html](metrics/hy-oas/index.html) | 高收益债信用利差：企业借钱比美债多付多少，测违约担忧 |
 | 实时仪表盘 | [dashboard/index.html](dashboard/index.html) | VIX + VVIX + SKEW + MOVE + HY OAS 五项同页实时监控（Actions 每天收盘后更新两次，页面每 60 秒刷新；飞书 + Bark 预警） |
 
 每个子目录里还有一份对应的 `README.md`，讲该指标的定义、区间、关键读数和常见误读。
@@ -44,11 +44,11 @@
 
 ```bash
 # 任选其一，用浏览器打开即可，无需构建
-open vix/index.html
-open vix-term-structure/index.html
-open vvix/index.html
-open move/index.html
-open hy-oas/index.html
+open metrics/vix/index.html
+open metrics/vix-term-structure/index.html
+open metrics/vvix/index.html
+open metrics/move/index.html
+open metrics/hy-oas/index.html
 open dashboard/index.html
 ```
 
