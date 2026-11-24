@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>VVIX 波动率的波动率可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem;}
+* { box-sizing: border-box;}
+:root{
+color-scheme:light;
+--bg:#f7f7f4; --surface:#ffffff; --surface2:#efefe9;
+--ink:#16181d; --ink2:#454a54; --muted:#767d89;
+--line:#e2e2da; --line2:#d2d2c8;
+--red:#c81e1e; --red-soft:#fdeeee; --red-ink:#8f1212;
+--amber:#b45309; --amber-soft:#fdf3e3;
+--teal:#0f766e; --teal-soft:#e6f4f1;
+--blue:#1d4ed8;
+--chart-grid:#e3e3db;
+--shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.05);
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]){
+color-scheme:dark;
+--bg:#101216; --surface:#181b20; --surface2:#1f232a;
+--ink:#f2f3f5; --ink2:#c3c8d1; --muted:#8b929e;
+--line:#2a2e36; --line2:#363b45;
+--red:#f26d6d; --red-soft:#331d1d; --red-ink:#ffb4b4;
+--amber:#e8a04c; --amber-soft:#33270f;
+--teal:#4cc2b4; --teal-soft:#12302c;
+--blue:#7aa5ff;
+--chart-grid:#262a31;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+}
+}
+:root[data-theme="dark"]{
+color-scheme:dark;
+--bg:#101216; --surface:#181b20; --surface2:#1f232a;
+--ink:#f2f3f5; --ink2:#c3c8d1; --muted:#8b929e;
+--line:#2a2e36; --line2:#363b45;
+--red:#f26d6d; --red-soft:#331d1d; --red-ink:#ffb4b4;
+--amber:#e8a04c; --amber-soft:#33270f;
+--teal:#4cc2b4; --teal-soft:#12302c;
+--blue:#7aa5ff;
+--chart-grid:#262a31;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+}
+:root[data-theme="light"]{
+color-scheme:light;
+--bg:#f7f7f4; --surface:#ffffff; --surface2:#efefe9;
+--ink:#16181d; --ink2:#454a54; --muted:#767d89;
+--line:#e2e2da; --line2:#d2d2c8;
+--red:#c81e1e; --red-soft:#fdeeee; --red-ink:#8f1212;
+--amber:#b45309; --amber-soft:#fdf3e3;
+--teal:#0f766e; --teal-soft:#e6f4f1;
+--blue:#1d4ed8;
+--chart-grid:#e3e3db;
+--shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.05);
+}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+font-family:"Noto Sans SC",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased;line-height:1.65}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.wrap{max-width:1060px;margin:0 auto;padding:0 20px 72px}
+a{color:var(--blue)}
+h1,h2,h3{line-height:1.3;margin:0}
+p{margin:0}
+
+/* ---------- Theme toggle ---------- */
+.theme-toggle{position:fixed;top:16px;right:16px;z-index:60;display:inline-flex;align-items:center;gap:8px;
+background:var(--surface);color:var(--ink);border:1px solid var(--line2);border-radius:999px;
+padding:8px 14px 8px 11px;font-family:inherit;font-size:13.5px;font-weight:700;line-height:1;cursor:pointer;
+box-shadow:var(--shadow);min-height:38px;-webkit-tap-highlight-color:transparent}
+.theme-toggle:hover{border-color:var(--muted)}
+.theme-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.theme-toggle svg{width:18px;height:18px;flex:none;display:block}
+.theme-toggle .icon-sun{display:none}
+.theme-toggle .icon-moon{display:block}
+:root[data-theme="dark"] .theme-toggle .icon-sun{display:block}
+:root[data-theme="dark"] .theme-toggle .icon-moon{display:none}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]) .theme-toggle .icon-sun{display:block}
+:root:not([data-theme="light"]) .theme-toggle .icon-moon{display:none}
+}
+:root[data-theme="light"] .theme-toggle .icon-sun{display:none}
+:root[data-theme="light"] .theme-toggle .icon-moon{display:block}
+.theme-toggle .label-to-light{display:none}
+.theme-toggle .label-to-dark{display:inline}
+:root[data-theme="dark"] .theme-toggle .label-to-light{display:inline}
+:root[data-theme="dark"] .theme-toggle .label-to-dark{display:none}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]) .theme-toggle .label-to-light{display:inline}
+:root:not([data-theme="light"]) .theme-toggle .label-to-dark{display:none}
+}
+:root[data-theme="light"] .theme-toggle .label-to-light{display:none}
+:root[data-theme="light"] .theme-toggle .label-to-dark{display:inline}
+@media (max-width:760px){.theme-toggle{top:12px;right:12px;padding:7px 12px 7px 10px;font-size:13px;min-height:36px}}
+
+/* ---------- Hero ---------- */
+.hero{padding:64px 0 8px}
+.hero-top{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;justify-content:space-between}
+.hero-title{font-size:clamp(30px,5.4vw,52px);font-weight:900;letter-spacing:-.01em;line-height:1.3;margin:0}
+.fear{color:var(--red)}
+.hero-sub{margin-top:14px;font-size:clamp(15px,2.2vw,18px);color:var(--ink2);max-width:640px}
+.hero-sub strong{color:var(--ink)}
+.bigread{text-align:right;flex:none}
+.br-lab{font-size:12px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+.br-num{font-size:clamp(56px,9vw,92px);font-weight:700;line-height:1;color:var(--amber)}
+.br-cap{font-size:13px;color:var(--ink2);margin-top:6px}
+.namegrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px}
+.namecard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+.nc-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border-radius:999px;margin-bottom:10px}
+.tag-official{background:var(--teal-soft);color:var(--teal)}
+.tag-nick{background:var(--amber-soft);color:var(--amber)}
+.namecard h3{font-size:19px;font-weight:900}
+.namecard p{margin-top:6px;font-size:14px;color:var(--ink2)}
+.namecard p strong{color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+.stat-v{font-size:30px;font-weight:700;line-height:1.1}
+.stat-k{font-size:13px;color:var(--muted);margin-top:4px}
+.v-red{color:var(--red)}
+.v-amber{color:var(--amber)}
+
+/* ---------- Sections ---------- */
+section{margin-top:52px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.sec-no{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:700;color:var(--red);
+border:1.5px solid var(--red);border-radius:8px;padding:2px 8px}
+.sec-head h2{font-size:clamp(22px,3.4vw,30px);font-weight:900}
+.sec-lede{color:var(--ink2);font-size:15px;max-width:760px;margin-bottom:20px}
+.sec-lede strong{color:var(--ink)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+
+/* ---------- Main chart ---------- */
+.chart-card{padding:20px 20px 14px}
+.chart-wrap{position:relative}
+svg.chart{width:100%;height:auto;display:block}
+.chart-tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);
+border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.5;opacity:0;transition:opacity.12s;
+max-width:250px;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.tip-t{font-weight:700}
+.tip-v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--ink2);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:22px;height:4px;border-radius:2px;display:inline-block}
+.swdot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+.chip{border:1px solid var(--line2);background:var(--surface);color:var(--ink2);border-radius:999px;
+padding:8px 14px;font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;min-height:36px}
+.chip:hover{border-color:var(--red);color:var(--ink)}
+.chip-on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.event-detail{margin-top:14px;border-top:1px dashed var(--line2);padding-top:14px;display:flex;gap:18px;flex-wrap:wrap;align-items:baseline}
+.ev-v{font-size:40px;font-weight:700;line-height:1}
+.ev-t{font-size:16px;font-weight:900}
+.ev-d{font-size:14px;color:var(--ink2);max-width:620px}
+.src-note{font-size:12.5px;color:var(--muted);margin-top:12px}
+
+/* ---------- Bars ---------- */
+.bars-card{padding:22px}
+.bar-row{display:grid;grid-template-columns:172px 1fr 74px;gap:12px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
+.bar-row-last{border-bottom:none}
+.bar-l{font-size:14px;font-weight:700}
+.bar-l small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.bar-track{position:relative;height:26px;background:var(--surface2);border-radius:7px}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:#3f4753}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .bar-fill{background:#9aa3b2}}
+:root[data-theme="dark"] .bar-fill{background:#9aa3b2}
+:root[data-theme="light"] .bar-fill{background:#3f4753}
+.bar-fill.fill-crisis{background:var(--red)}
+.bar-fill.fill-ai{background:var(--amber)}
+.bar-fill.fill-calm{background:var(--teal)}
+.fill-crisis{background:var(--red)}
+.fill-ai{background:var(--amber)}
+.fill-calm{background:var(--teal)}
+.bar-v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px;text-align:right}
+.base-line-note{font-size:13px;color:var(--ink2);margin-top:12px}
+.base-line-note strong{color:var(--ink)}
+
+/* ---------- Chain / mechanism ---------- */
+.chain{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:stretch}
+.chain-card{padding:22px;position:relative}
+.chain-card h3{font-size:18px;font-weight:900;margin-bottom:8px}
+.chain-card p{font-size:14.5px;color:var(--ink2)}
+.chain-card p strong{color:var(--ink)}
+.chain-step{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border-radius:999px;margin-bottom:10px;background:var(--surface2);color:var(--ink2)}
+.chain-step-hot{background:var(--red-soft);color:var(--red-ink)}
+.chain-arrow{display:none}
+.lead-card{margin-top:14px;padding:22px}
+.lead-card h3{font-size:18px;font-weight:900;margin-bottom:8px}
+.lead-card p{font-size:14.5px;color:var(--ink2)}
+.lead-card p strong{color:var(--ink)}
+.flow{display:flex;align-items:stretch;gap:0;margin-top:16px;flex-wrap:wrap}
+.flow-step{flex:1;min-width:120px;background:var(--surface2);border-radius:10px;padding:10px 12px;font-size:13px}
+.flow-step b{display:block;font-size:13.5px;margin-bottom:2px}
+.flow-arr{display:flex;align-items:center;padding:0 7px;color:var(--red);font-weight:900}
+
+/* ---------- Quadrant ---------- */
+.quad{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.quad-card{padding:22px}
+.quad-card h3{font-size:17px;font-weight:900;margin-bottom:6px}
+.quad-card p{font-size:14px;color:var(--ink2)}
+.quad-card p strong{color:var(--ink)}
+.quad-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:999px;margin-bottom:10px}
+.q-calm{background:var(--teal-soft);color:var(--teal)}
+.q-watch{background:var(--amber-soft);color:var(--amber)}
+.q-peak{background:var(--surface2);color:var(--ink2)}
+.q-crisis{background:var(--red-soft);color:var(--red-ink)}
+.quad-axis{font-size:12.5px;color:var(--muted);margin-top:12px}
+
+/* ---------- Myth / analogy ---------- */
+.myth{border:1.5px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:22px}
+.myth h3{font-size:19px;font-weight:900}
+.myth-warn{color:var(--amber)}
+.myth p{margin-top:8px;font-size:15px;color:var(--ink2)}
+.myth p strong{color:var(--ink)}
+.analogy{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.ana-card{padding:22px}
+.ana-card h3{font-size:17px;font-weight:900;margin-bottom:8px}
+.ana-card p{font-size:14.5px;color:var(--ink2)}
+.ana-card p strong{color:var(--ink)}
+blockquote{margin:14px 0 0;padding:14px 18px;background:var(--surface2);border-radius:12px;font-size:16px;font-weight:700}
+blockquote span{color:var(--red)}
+
+/* ---------- Translator ---------- */
+.translator{padding:24px}
+.tr-top{display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between}
+.tr-val{font-size:64px;font-weight:700;line-height:1}
+.tr-zone{display:inline-block;font-weight:900;font-size:16px;padding:5px 14px;border-radius:999px;margin-left:12px;vertical-align:middle}
+.tr-hint{font-size:13.5px;color:var(--muted);max-width:300px}
+input[type=range]{width:100%;accent-color:var(--red);height:36px;cursor:pointer}
+.tr-scale{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",monospace;margin-top:-4px}
+.tr-out{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+.tr-cell{background:var(--surface2);border-radius:12px;padding:16px}
+.tr-cv{font-size:26px;font-weight:700;line-height:1.15}
+.tr-ck{font-size:13px;color:var(--ink2);margin-top:4px}
+.tr-desc{margin-top:16px;font-size:15px;color:var(--ink2)}
+.tr-desc strong{color:var(--ink)}
+
+/* ---------- Levels table ---------- */
+.levels{overflow:hidden}
+.lv-row{display:grid;grid-template-columns:110px 130px 1fr;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line);align-items:baseline}
+.lv-row-last{border-bottom:none}
+.lv-range{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px}
+.lv-zone{font-weight:900;font-size:15px}
+.lv-desc{font-size:14px;color:var(--ink2)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px}
+
+/* ---------- Verdict / gauge ---------- */
+.verdict{border:1.5px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:22px;margin-bottom:14px}
+.verdict-title{font-size:19px;font-weight:900}
+.verdict-text{margin-top:8px;font-size:15px;color:var(--ink2)}
+.verdict-text strong{color:var(--ink)}
+.gauge-card{padding:22px}
+.gauge-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.gauge-value{font-size:38px;font-weight:700;line-height:1}
+.gauge-status{display:inline-block;font-weight:900;font-size:13.5px;padding:4px 12px;border-radius:999px;background:var(--amber-soft);color:var(--amber)}
+.gauge{margin-top:18px}
+.gauge-track{position:relative;height:14px;border-radius:7px;display:flex;overflow:hidden;background:var(--surface2)}
+.gauge-seg{height:100%}
+.gauge-marker{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink);border-radius:2px;z-index:2}
+.gauge-marker-ghost{position:absolute;top:-4px;bottom:-4px;width:3px;background:transparent;border-left:3px dashed var(--muted);z-index:2}
+.gauge-labels{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:6px;font-family:"IBM Plex Mono",monospace}
+.gauge-zones{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--ink2);margin-top:8px}
+.gauge-judge{margin-top:14px;font-size:14px;color:var(--ink2);background:var(--surface2);border-radius:10px;padding:12px 14px}
+.gauge-judge strong{color:var(--ink)}
+.cmp-bars{margin-top:16px;display:grid;gap:10px}
+.cmp-row{display:grid;grid-template-columns:170px 1fr 64px;gap:10px;align-items:center;font-size:13.5px}
+.cmp-track{position:relative;height:20px;background:var(--surface2);border-radius:6px}
+.cmp-fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.cmp-v{font-family:"IBM Plex Mono",monospace;font-weight:700;text-align:right}
+footer{margin-top:56px;border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--muted)}
+.foot-gap{margin-top:6px}
+
+@media (max-width:760px){
+.namegrid{grid-template-columns:1fr}
+.chain{grid-template-columns:1fr}
+.quad{grid-template-columns:1fr}
+.analogy{grid-template-columns:1fr}
+.stats{grid-template-columns:1fr 1fr}
+.tr-out{grid-template-columns:1fr}
+.bigread{text-align:left}
+.bar-row{grid-template-columns:118px 1fr 62px}
+.cmp-row{grid-template-columns:128px 1fr 56px}
+.lv-row{grid-template-columns:86px 1fr;gap:6px 12px}
+.lv-desc{grid-column:1/-1}
+.hero{padding-top:52px}
+}
+@media (prefers-reduced-motion: reduce){
+html{scroll-behavior:auto}
+*{transition:none!important}
+}
+</style>
+</head>
+<body>
+<button type="button" class="theme-toggle" id="themeToggle" aria-label="切换亮色 / 暗色主题" title="切换亮色 / 暗色主题">
+<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+<span class="label-to-dark">暗色</span><span class="label-to-light">亮色</span>
+</button>
+<div class="wrap">
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+<div class="hero-top">
+<div>
+<h1 class="hero-title">VVIX 不是恐慌本身，<br />是<span class="fear">恐慌的“不稳定程度”</span></h1>
+<p class="hero-sub">一句话分清：<strong>VIX 测的是标普 500 未来 30 天预计会波动多大；VVIX 再往上套一层——测的是 VIX 本身未来 30 天预计会波动多大。</strong>所以它有个直白的别名：波动率的波动率（Vol of Vol）。</p>
+</div>
+<div class="bigread">
+<div class="br-lab">11 月 20 日 · VVIX 收盘</div>
+<div class="br-num mono">138.03</div>
+<div class="br-cap">偏高区顶部，但远低于今年 4 月那次的 171<br />——紧张，没到失控</div>
+</div>
+</div>
+
+<div class="namegrid">
+<div class="namecard">
+<span class="nc-tag tag-official">正式名称 · OFFICIAL</span>
+<h3>CBOE VVIX 指数（VVIX）</h3>
+<p>由芝加哥期权交易所（CBOE）发布，计算方法和 VIX 同源，只是原料换成了 <strong>VIX 期权</strong>：从 VIX 期权价格反推出 <strong>VIX 自身未来 30 天的隐含波动率</strong>，年化百分比表示。</p>
+</div>
+<div class="namecard">
+<span class="nc-tag tag-nick">直白别名 · WHAT IT MEANS</span>
+<h3>“波动率的波动率” Vol of Vol</h3>
+<p>VIX 是体温计，VVIX 测的是<strong>这支体温计的读数会不会乱跳</strong>。VVIX 高，意思不是“市场很慌”，而是“市场觉得连恐慌本身都可能突然放大或熄火”——不确定性套着不确定性。</p>
+</div>
+</div>
+
+<div class="stats">
+<div class="stat"><div class="stat-v mono">70–120</div><div class="stat-k">正常区间：大部分年份 VVIX 都在这一带活动</div></div>
+<div class="stat"><div class="stat-v mono">≈ 87</div><div class="stat-k">长期均值附近：平静年份常在 80–90 一带趴着</div></div>
+<div class="stat"><div class="stat-v mono v-amber">138.03</div><div class="stat-k">11 月 20 日收盘：偏高区（120–140）顶部</div></div>
+<div class="stat"><div class="stat-v mono v-red">171</div><div class="stat-k">今年 4 月那次低点时的读数：极端档（140+）深处</div></div>
+</div>
+</header>
+
+<!-- ================= 01 MAIN CHART ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">01</span><h2>VVIX 的历史：平时趴在 90，极端时冲过 170</h2></div>
+<p class="sec-lede">下图是 VVIX 自 2007 年以来的走势：底色按读数分区，圆点是几次标志性行情中的代表性高点。和 VIX 那张图对照着看会很有意思——<strong>2022 年那种慢慢阴跌的熊市，VIX 没怎么报警，VVIX 也全程没进极端区</strong>；真正让 VVIX 冲上 140+ 的，都是恐慌可能“失控放大”的时刻。点任意事件标签查看细节。</p>
+
+<div class="card chart-card">
+<div class="chart-wrap">
+<svg class="chart" id="mainChart" viewBox="0 0 960 430" role="img" aria-label="VVIX 2007年至2026年走势图，标注2018年、2020年、2024年、2025年4月171与11月20日138.03等高点"></svg>
+<div class="chart-tip" id="chartTip"></div>
+</div>
+<div class="legend">
+<span><i class="sw" style="background:var(--ink)"></i>VVIX 走势（趋势示意）</span>
+<span><i class="swdot" style="background:var(--red)"></i>历史代表性高点（约数）</span>
+<span><i class="swdot" style="background:var(--amber)"></i>本轮读数（138.03）</span>
+<span>底色：绿 70–120 正常 · 黄 120–140 偏高 · 红 140+ 极端</span>
+</div>
+<div class="chips" id="eventChips"></div>
+<div class="event-detail" id="eventDetail"></div>
+<p class="src-note">数据口径：连线为连接各高点与常态区间的趋势示意，不代表逐日数据。2025 年 4 月的 171 与 11 月 20 日的 138.03 为此前交叉验证摘要所引读数；其余圆点为代表性高点约数，用于同尺对比量级。</p>
+</div>
+</section>
+
+<!-- ================= 02 BARS ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">02</span><h2>高点排行榜：138 在历史上算老几？</h2></div>
+<p class="sec-lede">只比高点：11 月 20 日的 138.03 之上，还压着 2020 年新冠、2024 年套息平仓和今年 4 月这几次 150–170 档的读数。它确实进了偏高区，但离“市场觉得恐慌本身会失控”的那一档，还差着明显一截。</p>
+<div class="card bars-card" id="barsCard"></div>
+<p class="base-line-note">读法：VVIX 每高一档，变的不是恐慌的<strong>程度</strong>，是恐慌的<strong>可预测性</strong>。90 上下，意思是“VIX 大概就在这附近晃”；到了 170，意思是“没人敢说下周 VIX 是 20 还是 80”——期权卖方会为这种不确定性收很贵的钱。</p>
+</section>
+
+<!-- ================= 03 CHAIN ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">03</span><h2>它是怎么算出来的：给波动率再套一层</h2></div>
+<p class="sec-lede">VVIX 和 VIX 是同一套方法、用在两层不同的原料上。理解这条链，就理解了它为什么能当“提前量”用。</p>
+<div class="chain">
+<div class="card chain-card">
+<span class="chain-step">第 0 层 · 标的</span>
+<h3>标普 500</h3>
+<p>真实的股票市场本身。它的涨跌是第一层事实，但 VIX 和 VVIX 都<strong>不直接看它</strong>——它们看的是期权市场为它定的价。</p>
+</div>
+<div class="card chain-card">
+<span class="chain-step">第 1 层 · VIX</span>
+<h3>标普 500 期权 → VIX</h3>
+<p>从标普 500 期权价格反推未来 30 天的隐含波动率。它回答：<strong>“接下来一个月，股市预计波动多大？”</strong>这是第一层不确定性。</p>
+</div>
+<div class="card chain-card">
+<span class="chain-step chain-step-hot">第 2 层 · VVIX</span>
+<h3>VIX 期权 → VVIX</h3>
+<p>市场上有人专门交易 VIX 期权（赌恐慌本身涨跌）。从它们的价格再反推一层，得到 <strong>VIX 自身的隐含波动率</strong>——第二层不确定性。</p>
+</div>
+</div>
+<div class="card lead-card">
+<h3>为什么它有提前量：有人会先给“恐慌”买保险</h3>
+<p>机构想对冲尾部风险时，常常不直接等 VIX 涨起来才行动，而是<strong>提前买入 VIX 看涨期权</strong>——相当于给“恐慌”本身买保险。这类买盘会先把 VIX 期权买贵，VVIX 于是先于 VIX 悄悄抬升。所以实务里有个常见读法：<strong>VIX 还在低位趴着、VVIX 先爬上 110–120，往往是有人在提前布防</strong>，值得多看一眼；反过来，VIX 已经冲高而 VVIX 开始回落，常是恐慌见顶的伴随信号之一。</p>
+<div class="flow">
+<div class="flow-step"><b>机构提前布防</b>买入 VIX 看涨期权对冲尾部</div>
+<div class="flow-arr">→</div>
+<div class="flow-step"><b>VIX 期权变贵</b>“恐慌的保险”先涨价</div>
+<div class="flow-arr">→</div>
+<div class="flow-step"><b>VVIX 先行抬升</b>VIX 本身可能还没动</div>
+</div>
+</div>
+</section>
+
+<!-- ================= 04 QUADRANT ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">04</span><h2>单看一个会误判：VIX × VVIX 四种组合</h2></div>
+<p class="sec-lede">VVIX 的正确用法不是替代 VIX，而是和它拼起来读。同一个 VIX 读数，配上不同的 VVIX，含义完全不同。</p>
+<div class="quad">
+<div class="card quad-card">
+<span class="quad-tag q-calm">VIX 低 · VVIX 低</span>
+<h3>真平静</h3>
+<p>市场不慌，也没人觉得慌会突然来。<strong>保险便宜，且没人抢着买</strong>——这是最典型的常态，大部分年份的大部分时间都是这一格。</p>
+</div>
+<div class="card quad-card">
+<span class="quad-tag q-watch">VIX 低 · VVIX 高</span>
+<h3>平静水面下的布防</h3>
+<p>表面没事，但<strong>已经有人在为“恐慌突然放大”付高价</strong>。这是 VVIX 最有价值的一格：它不会告诉你一定会出事，但它告诉你专业资金正在为什么做准备。</p>
+</div>
+<div class="card quad-card">
+<span class="quad-tag q-peak">VIX 高 · VVIX 低 / 回落</span>
+<h3>恐慌高，但可控</h3>
+<p>恐慌已经兑现，市场却不觉得它还会再放大一轮。<strong>历史上这种组合常出现在恐慌的后半段</strong>——VIX 还在高位，但“恐慌失控”的定价先退了。</p>
+</div>
+<div class="card quad-card">
+<span class="quad-tag q-crisis">VIX 高 · VVIX 高</span>
+<h3>恐慌 + 恐慌会失控</h3>
+<p>最危险的一格：市场既在为大波动付钱，又在为“波动本身再翻倍”付钱。<strong>2020 年 3 月和今年 4 月都进过这一格</strong>，11 月 20 日没有——这是那天“触及未确认”的核心证据之一。</p>
+</div>
+</div>
+<p class="quad-axis">记忆法：VIX 回答“现在多慌”，VVIX 回答“这份慌稳不稳”。先看 VIX 定程度，再看 VVIX 定可信度。</p>
+</section>
+
+<!-- ================= 05 MYTH ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">05</span><h2>两个很常见的误读</h2></div>
+<div class="myth">
+<h3><span class="myth-warn">⚠</span> 误读一：VVIX 高 ≠ VIX 马上要暴涨</h3>
+<p>VVIX 测的是 VIX 的<strong>波动幅度</strong>，不是方向。VVIX 冲到 150，只说明市场认为 VIX 接下来可能大幅摆动——<strong>向上冲和向下熄火，都算“大幅摆动”</strong>。把它当成“VIX 看涨信号”单独下注，等于把体温计的抖动当成了发烧预报。</p>
+</div>
+<div class="analogy">
+<div class="card ana-card">
+<h3>🎢 贴切的类比：VVIX = 天气预报的“置信度”</h3>
+<p>VIX 像天气预报说明天降温 5 度；VVIX 则像预报员的把握程度。<strong>VVIX 低，是预报员很笃定；VVIX 高，是预报员自己先声明“这次模型分歧很大，可能差出十几度”</strong>。预报不准不等于一定有暴风雪，但你出门会多带一件衣服。</p>
+<blockquote>VVIX 高 ≠ 风暴要来，<span>是“预报本身开始不可信”</span>。</blockquote>
+</div>
+<div class="card ana-card">
+<h3>误读二：拿 VVIX 的绝对值和 VIX 直接比大小</h3>
+<p>两个指数的“刻度”完全不同：VIX 常态是 12–20，VVIX 常态是 70–120。<strong>VVIX 的 138 放在它自己的尺子上只是偏高区顶部，相当于 VIX 尺子上的 30 出头</strong>，远不是“比 VIX 的 82 还吓人”。跨尺子比数字，是这类二阶指标最常见的乌龙。</p>
+<blockquote>138 在 VVIX 的尺子上，<span>≈ VIX 尺子上的“恐慌刚入门”</span>。</blockquote>
+</div>
+</div>
+</section>
+
+<!-- ================= 06 TRANSLATOR ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">06</span><h2>读数翻译器：VVIX 数字到底意味着 VIX 会怎么摆？</h2></div>
+<p class="sec-lede">拖动滑块。VVIX 是 VIX 的年化波动率：未来 30 天 VIX 的预期摆动幅度 ≈ 当前 VIX ×（VVIX ÷ 100 ÷ √12）。下面按 11 月 20 日的 VIX 收盘 35.9 换算。</p>
+<div class="card translator">
+<div class="tr-top">
+<div>
+<span class="tr-val mono" id="trVal">138</span><span class="tr-zone" id="trZone"></span>
+</div>
+<div class="tr-hint">试试拖到 171（今年 4 月），再拖回 87（长期均值附近），感受“恐慌的可预测性”差了多少。</div>
+</div>
+<input type="range" id="trRange" min="65" max="185" step="1" value="138" aria-label="VVIX 读数" />
+<div class="tr-scale"><span>65 · 笃定</span><span>87 · 长期均值</span><span>120 · 正常上限</span><span>138.03 · 11 月 20 日</span><span>171 · 今年 4 月</span></div>
+<div class="tr-out">
+<div class="tr-cell"><div class="tr-cv mono" id="trPct">±39.8%</div><div class="tr-ck">未来 30 天，VIX 自身的预期摆动幅度（约 1 个标准差量级）</div></div>
+<div class="tr-cell"><div class="tr-cv mono" id="trBand">22 – 50</div><div class="tr-ck">以 VIX = 35.9 为起点：市场觉得一个月内 VIX 在这个带子里摆，都算“正常发挥”</div></div>
+<div class="tr-cell"><div class="tr-cv mono" id="trVs">1.6×</div><div class="tr-ck">相对长期均值（约 87）的“不确定性倍数”</div></div>
+</div>
+<p class="tr-desc" id="trDesc"></p>
+</div>
+</section>
+
+<!-- ================= 07 LEVELS ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">07</span><h2>速查表：下次看到 VVIX，先对号入座</h2></div>
+<div class="card levels">
+<div class="lv-row"><div class="lv-range">&lt; 80</div><div class="lv-zone"><span class="dot" style="background:var(--teal)"></span>笃定</div><div class="lv-desc">连波动率本身都很稳。市场对“接下来 VIX 就在附近晃”很有把握——这种时候尾部保险最便宜，也最没人买。</div></div>
+<div class="lv-row"><div class="lv-range">80 – 100</div><div class="lv-zone"><span class="dot" style="background:var(--teal)"></span>常态</div><div class="lv-desc">长期均值（约 87）所在的一档。VIX 会有日常起伏，但没人预期它翻倍或腰斩。</div></div>
+<div class="lv-row"><div class="lv-range">100 – 120</div><div class="lv-zone"><span class="dot" style="background:var(--amber)"></span>留意</div><div class="lv-desc">正常区间的上半段。若 VIX 还低而 VVIX 爬进这里，往往是提前买保险的资金在进场——值得把其他指标一起调出来看。</div></div>
+<div class="lv-row"><div class="lv-range">120 – 140</div><div class="lv-zone"><span class="dot" style="background:var(--amber)"></span>偏高</div><div class="lv-desc">市场开始认真为“VIX 大幅摆动”定价。11 月 20 日的 138.03 就在这一档的最顶端——紧张，但还在可解释的范围内。</div></div>
+<div class="lv-row"><div class="lv-range">140 – 160</div><div class="lv-zone"><span class="dot" style="background:var(--red)"></span>极端</div><div class="lv-desc">跨过 140 就进入极端档：期权卖方大幅抬价，没人愿意为“恐慌的走势”打包票。通常只在危机进行中出现。</div></div>
+<div class="lv-row lv-row-last"><div class="lv-range">&gt; 160</div><div class="lv-zone"><span class="dot" style="background:var(--red)"></span>失控定价</div><div class="lv-desc">今年 4 月的 171 在这一档。含义是市场连“恐慌会怎么走”都放弃预测了——这是 VVIX 能给出的最强信号。</div></div>
+</div>
+</section>
+
+<!-- ================= 08 VERDICT ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">08</span><h2>11 月 20 日回放：它在仪表盘里的那一票</h2></div>
+<p class="sec-lede">回到那天的交叉验证：VIX 盘中摸到 40.03、收 35.9，单看很吓人。VVIX 投出的是一票<strong>“偏高，但不确认极端”</strong>——下面这把尺子就是它当时的位置。</p>
+
+<div class="verdict">
+<div class="verdict-title">VVIX 的一票：触及了恐慌，但没确认</div>
+<p class="verdict-text">当天 VVIX 收 <strong>138.03</strong>，卡在偏高区（120–140）的最顶端，离极端线只差 2 个点——确实紧张。但对照锚很关键：今年 4 月那次低点时它到过 <strong>171</strong>。同一把尺子上，这次只有那次的八成左右。所以它和 SKEW、VIX 期货曲线一起，把结论从“危机”拉回了<strong>“在防，不是在逃”</strong>。</p>
+</div>
+
+<div class="card gauge-card">
+<div class="gauge-head">
+<span class="gauge-value mono" style="color:var(--amber)">138.03</span>
+<span class="gauge-status">偏高区顶部 · 未到极端</span>
+<span style="font-size:13.5px;color:var(--ink2)">11 月 20 日收盘</span>
+</div>
+<div class="gauge">
+<div class="gauge-track">
+<div class="gauge-seg" style="width:50%;background:var(--teal);opacity:.45"></div>
+<div class="gauge-seg" style="width:16.7%;background:var(--amber);opacity:.55"></div>
+<div class="gauge-seg" style="width:33.3%;background:var(--red);opacity:.4"></div>
+<div class="gauge-marker" style="left:65%"></div>
+<div class="gauge-marker-ghost" style="left:92.5%"></div>
+</div>
+<div class="gauge-labels"><span>60</span><span>120 正常上限</span><span>140 极端线</span><span>171 今年 4 月（虚线）</span><span>180</span></div>
+<div class="gauge-zones"><span>70–120 正常</span><span>120–140 偏高</span><span>140+ 极端</span></div>
+</div>
+<div class="cmp-bars">
+<div class="cmp-row"><span>今年 4 月 · VVIX 高点</span><div class="cmp-track"><div class="cmp-fill" style="width:95%;background:var(--red)"></div></div><span class="cmp-v">171</span></div>
+<div class="cmp-row"><span>11 月 20 日 · VVIX 收盘</span><div class="cmp-track"><div class="cmp-fill" style="width:76.7%;background:var(--amber)"></div></div><span class="cmp-v">138.03</span></div>
+<div class="cmp-row"><span>长期均值附近</span><div class="cmp-track"><div class="cmp-fill" style="width:48.3%;background:var(--teal)"></div></div><span class="cmp-v">≈87</span></div>
+</div>
+<p class="gauge-judge"><strong>怎么用这一票：</strong>下次 VIX 再冲高，先看 VVIX 站在哪一档。若 VIX 冲 40 而 VVIX 还在 140 以下，恐慌大概率是“定价波动”而非“定价失控”；若 VVIX 跟着冲进 160+，那就是另一回事了——两个一起极端，才是历史上真正难熬的那种行情。</p>
+</div>
+</section>
+
+<footer>
+<p>数据说明：VVIX 由 CBOE 发布，历史数据自 2007 年起；正常区间 70–120、偏高 120–140、极端 140+ 为常用经验分区，长期均值约 87 为全样本近似值。11 月 20 日 VVIX 收盘 138.03、今年 4 月高点 171 为此前 VIX / VVIX 交叉验证摘要所引读数；主图其余高点（2018、2020、2024）为代表性约数，连线为趋势示意。</p>
+<p class="foot-gap">换算口径：未来 30 天 VIX 预期摆动 ≈ 当前 VIX ×（VVIX ÷ 100 ÷ √12），为约 1 个标准差量级的粗略换算，不构成对 VIX 未来路径的预测。本页为科普可视化，不构成投资建议。</p>
+</footer>
+</div>
+
+<script>
+/* ============ 单一数据源：代表性高点 ============ */
+var EVENTS = [
+{ t: 2018.10, label: "2018 · Volmageddon", short: "2018 波动率末日", close: 150, approx: true,
+desc: "做空波动率产品单日爆仓，VIX 一夜翻倍多，VVIX 冲到约 150。恐慌的源头不在股市，而在波动率产品自身的挤兑——VVIX 对这种“二阶事故”最敏感。"},
+{ t: 2020.21, label: "2020 · 新冠熔断", short: "2020 新冠", close: 160, approx: true,
+desc: "VIX 收盘创纪录的同一周，VVIX 也冲到约 160：市场不只怕股市跌，而是连“恐慌接下来怎么走”都没人敢打包票。VIX 与 VVIX 双极端，是历史上最难熬的组合。"},
+{ t: 2022.50, label: "2022 · 加息熊市", short: "2022 加息熊市", close: 118, approx: true,
+desc: "全年股债双杀，但跌得有序、可预期：VVIX 最高只在正常区上沿附近（约 118），从未进极端区。有序的熊市和无序的崩盘，在 VVIX 上同样是两个物种。"},
+{ t: 2024.60, label: "2024 · 日元套息平仓", short: "2024 套息平仓", close: 155, approx: true,
+desc: "VIX 盘中瞬间冲到 65 的那天，VVIX 也短暂冲到约 155。但几天内就回落——尖峰来得快去得也快，和持续数周的极端读数含金量完全不同。"},
+{ t: 2025.29, label: "2025 · 4 月关税冲击", short: "2025 年 4 月", close: 171,
+desc: "关税冲击砸出阶段低点时，VVIX 到过 171，深入极端档。这是离我们最近的一次“失控定价”，也是判断 11 月 20 日那次读数时最关键的对照锚。"},
+{ t: 2026.88, label: "11 月 20 日 · AI 板块回调", short: "11 月 20 日本轮", close: 138.03, now: true,
+desc: "VIX 盘中摸到 40.03 的同一天，VVIX 收 138.03：偏高区顶部，离极端线只差 2 个点，但只有 4 月那次 171 的八成左右。它是那天“触及了恐慌，但没确认”结论的核心证据之一。"}
+];
+
+var BARS = [
+{ name: "2025 · 4 月关税冲击", sub: "阶段低点时读数", v: 171, cls: "fill-crisis"},
+{ name: "2020 · 新冠熔断", sub: "代表性高点 · 约数", v: 160, cls: "fill-crisis", approx: true},
+{ name: "2024 · 日元套息平仓", sub: "急跌当日 · 约数", v: 155, cls: "", approx: true},
+{ name: "2018 · Volmageddon", sub: "波动率产品爆仓 · 约数", v: 150, cls: "", approx: true},
+{ name: "11 月 20 日 · AI 回调", sub: "本轮收盘读数", v: 138.03, cls: "fill-ai"},
+{ name: "2022 · 加息熊市全年最高", sub: "有序熊市 · 约数", v: 118, cls: "", approx: true},
+{ name: "长期均值", sub: "平静年份的典型读数", v: 87, cls: "fill-calm", approx: true}
+];
+
+/* ============ 主图 ============ */
+(function () {
+var svg = document.getElementById("mainChart");
+var tip = document.getElementById("chartTip");
+var W = 960, H = 430, L = 52, R = 16, T = 26, B = 40;
+var iw = W - L - R, ih = H - T - B;
+var X0 = 2007, X1 = 2027, Y0 = 60, Y1 = 190;
+function X(t) { return L + (t - X0) / (X1 - X0) * iw;}
+function Y(v) { return T + ih - (v - Y0) / (Y1 - Y0) * ih;}
+function cssVar(n) { return "var(" + n + ")";}
+var ink = cssVar("--ink"), muted = cssVar("--muted"), grid = cssVar("--chart-grid"),
+red = cssVar("--red"), amber = cssVar("--amber");
+var NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) {
+var e = document.createElementNS(NS, tag);
+for (var k in attrs) {
+if (k === "fill" || k === "stroke") { e.style.setProperty(k, attrs[k]); }
+else e.setAttribute(k, attrs[k]);
+}
+if (parent) parent.appendChild(e);
+return e;
+}
+function txt(x, y, s, attrs, parent) {
+var e = el("text", attrs || {}, parent || svg);
+e.setAttribute("x", x); e.setAttribute("y", y); e.textContent = s;
+return e;
+}
+
+/* 底色分区 */
+el("rect", { x: L, y: Y(190), width: iw, height: Y(140) - Y(190), fill: red, opacity: 0.07}, svg);
+el("rect", { x: L, y: Y(140), width: iw, height: Y(120) - Y(140), fill: amber, opacity: 0.12}, svg);
+el("rect", { x: L, y: Y(120), width: iw, height: Y(60) - Y(120), fill: cssVar("--teal"), opacity: 0.06}, svg);
+
+/* 网格 + Y 轴 */
+[60, 90, 120, 140, 170].forEach(function (v) {
+el("line", { x1: L, x2: L + iw, y1: Y(v), y2: Y(v), stroke: grid, "stroke-width": 1}, svg);
+txt(L - 10, Y(v) + 4, v, { "text-anchor": "end", "font-size": 12, fill: muted, "font-family": "IBM Plex Mono, monospace"});
+});
+txt(L + 6, Y(140) - 8, "140 · 极端线", { "text-anchor": "start", "font-size": 12, fill: red, "font-weight": 700});
+el("line", { x1: L, x2: L + iw, y1: Y(140), y2: Y(140), stroke: red, "stroke-width": 1.2, "stroke-dasharray": "5 4", opacity: 0.65}, svg);
+txt(L + 6, Y(131), "120–140 偏高", { "font-size": 11.5, fill: muted});
+txt(L + 6, Y(93), "70–120 正常区间", { "font-size": 11.5, fill: muted});
+
+/* X 轴 */
+[2007, 2010, 2013, 2016, 2019, 2022, 2025].forEach(function (yr) {
+txt(X(yr), H - 14, yr, { "text-anchor": "middle", "font-size": 12, fill: muted, "font-family": "IBM Plex Mono, monospace"});
+el("line", { x1: X(yr), x2: X(yr), y1: T + ih, y2: T + ih + 5, stroke: grid, "stroke-width": 1}, svg);
+});
+
+/* 趋势线：常态基线锚点 + 高点锚点 */
+var base = [
+[2007, 88], [2009, 95], [2011, 92], [2013, 82], [2015, 90], [2016.6, 100],
+[2017, 78], [2019, 86], [2021, 108], [2023, 88], [2024.2, 84], [2025.6, 96],
+[2026.2, 92], [2026.6, 98]
+];
+var pts = base.slice();
+EVENTS.forEach(function (e) { pts.push([e.t, e.close]);});
+pts.sort(function (a, b) { return a[0] - b[0];});
+var d = pts.map(function (p, i) { return (i? "L": "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);}).join(" ");
+el("path", { d: d, fill: "none", stroke: ink, "stroke-width": 2, "stroke-linejoin": "round", opacity: 0.85}, svg);
+
+/* 高点圆点 */
+var dots = [];
+EVENTS.forEach(function (e, i) {
+var c = el("circle", {
+cx: X(e.t), cy: Y(e.close), r: e.now? 7: 6,
+fill: e.now? amber: red, stroke: cssVar("--surface"), "stroke-width": 2,
+style: "cursor:pointer", tabindex: 0, role: "button",
+"aria-label": e.label + " VVIX " + e.close
+}, svg);
+dots.push({ el: c, ev: e, idx: i});
+});
+function anno(t, v, label, val, anchor, dy) {
+txt(X(t), Y(v) + dy, label, { "text-anchor": anchor, "font-size": 13, "font-weight": 700, fill: ink});
+if (val) txt(X(t), Y(v) + dy + 19, val, { "text-anchor": anchor, "font-size": 13, "font-weight": 700, fill: red, "font-family": "IBM Plex Mono, monospace"});
+}
+anno(2025.29, 171, "2025 年 4 月", "171", "middle", -14);
+anno(2026.88, 138.03, "11 月 20 日 138.03", "", "end", -14);
+
+/* 交互：tooltip + 详情面板 */
+var chipsBox = document.getElementById("eventChips");
+var detail = document.getElementById("eventDetail");
+var chipEls = [];
+function fmt(e) { return e.approx? "≈ " + e.close: String(e.close);}
+function select(i) {
+var e = EVENTS[i];
+chipEls.forEach(function (c, j) { c.classList.toggle("chip-on", j === i);});
+dots.forEach(function (dt, j) {
+dt.el.setAttribute("r", j === i? 9: (EVENTS[j].now? 7: 6));
+});
+detail.innerHTML =
+'<div class="ev-v mono" style="color:' + (e.now? "var(--amber)": "var(--red)") + '">' + fmt(e) + "</div>" +
+'<div><div class="ev-t">' + e.label + " · VVIX" + (e.approx? "（约数）": "") + "</div>" +
+'<div class="ev-d">' + e.desc + "</div></div>";
+}
+EVENTS.forEach(function (e, i) {
+var b = document.createElement("button");
+b.className = "chip"; b.type = "button";
+b.textContent = e.short + " · " + fmt(e);
+b.addEventListener("click", function () { select(i);});
+chipsBox.appendChild(b); chipEls.push(b);
+});
+dots.forEach(function (dt) {
+function show() {
+var e = dt.ev;
+tip.innerHTML = '<div class="tip-t">' + e.label + '</div><div class="tip-v">' + fmt(e) + '</div>' +
+'<div style="opacity:.75">点击查看详解</div>';
+var wrap = svg.parentElement.getBoundingClientRect();
+var sx = wrap.width / W, sy = wrap.height / H;
+var px = X(e.t) * sx, py = Y(e.close) * sy;
+tip.style.left = Math.min(Math.max(px - 60, 4), wrap.width - 180) + "px";
+tip.style.top = Math.max(py - 104, 2) + "px";
+tip.style.opacity = 1;
+}
+function hide() { tip.style.opacity = 0;}
+dt.el.addEventListener("mouseenter", show);
+dt.el.addEventListener("mouseleave", hide);
+dt.el.addEventListener("focus", show);
+dt.el.addEventListener("blur", hide);
+dt.el.addEventListener("click", function () { select(dt.idx); hide();});
+});
+select(EVENTS.length - 1); /* 默认选中 11 月 20 日 */
+})();
+
+/* ============ 排行榜条形图 ============ */
+(function () {
+var box = document.getElementById("barsCard");
+var max = 180;
+var html = "";
+BARS.forEach(function (b, i) {
+var pct = (b.v / max * 100).toFixed(1);
+html += '<div class="bar-row' + (i === BARS.length - 1? " bar-row-last": "") + '"><div class="bar-l">' + b.name + "<small>" + b.sub + "</small></div>" +
+'<div class="bar-track"><div class="bar-fill ' + b.cls + '" style="width:' + pct + '%"></div></div>' +
+'<div class="bar-v">' + (b.approx? "≈": "") + b.v + "</div></div>";
+});
+box.innerHTML = html;
+})();
+
+/* ============ 读数翻译器 ============ */
+(function () {
+var range = document.getElementById("trRange");
+var val = document.getElementById("trVal"), zone = document.getElementById("trZone");
+var pct = document.getElementById("trPct"), band = document.getElementById("trBand"),
+vs = document.getElementById("trVs"), desc = document.getElementById("trDesc");
+var VIX_NOW = 35.9;
+function zoneOf(v) {
+if (v < 80) return ["笃定区", "var(--teal-soft)", "var(--teal)", "市场对 VIX 的下一步很有把握：预期摆动不到 ±25%。这种读数下，VIX 就算动，也多半是小步挪动——真正的意外，往往恰恰是在这种笃定里攒出来的。"];
+if (v < 100) return ["常态区", "var(--teal-soft)", "var(--teal)", "长期均值（约 87）就在这一档：VIX 未来一个月摆动 ±25–29% 被视为平常事。以 VIX 35.9 计，就是在 26–46 之间晃，不需要特别的故事来解释。"];
+if (v < 120) return ["留意区", "var(--amber-soft)", "var(--amber)", "正常区间的上半段。市场开始为 VIX 的大幅摆动多付一点钱——如果此时 VIX 本身还低，这往往是提前买保险的资金在进场，是 VVIX 最有价值的预警形态。"];
+if (v < 140) return ["偏高区", "var(--amber-soft)", "var(--amber)", "11 月 20 日就在这里（138.03）：市场认为 VIX 一个月内摆动 ±40% 上下很正常。恐慌不只存在，而且不稳定——但还没到“没人敢给恐慌定价”的程度。"];
+if (v < 160) return ["极端区", "var(--red-soft)", "var(--red-ink)", "跨过 140，期权卖方会大幅抬价：他们不愿意为 VIX 的走势打包票。历史上这一档只在危机进行中出现，且通常与 VIX 冲上 40+ 同时发生。"];
+return ["失控定价区", "var(--red-soft)", "var(--red-ink)", "今年 4 月的 171 在这一档：市场等于宣布放弃预测恐慌的路径。VIX 可能下周腰斩、也可能再翻倍——为这种不确定性付的钱，是 VVIX 能给出的最贵信号。"];
+}
+function render() {
+var v = parseFloat(range.value);
+val.textContent = v;
+var z = zoneOf(v);
+zone.textContent = z[0];
+zone.style.background = z[1]; zone.style.color = z[2];
+var p = v / 100 / Math.sqrt(12) * 100;
+pct.textContent = "±" + p.toFixed(1) + "%";
+var lo = VIX_NOW * (1 - p / 100), hi = VIX_NOW * (1 + p / 100);
+band.textContent = lo.toFixed(0) + " – " + hi.toFixed(0);
+vs.textContent = (v / 87).toFixed(1) + "×";
+desc.innerHTML = z[3];
+}
+range.addEventListener("input", render);
+render();
+})();
+</script>
+<script>
+(function () {
+var btn = document.getElementById("themeToggle");
+if (!btn) return;
+function effectiveTheme() {
+var t = document.documentElement.getAttribute("data-theme");
+if (t === "dark" || t === "light") return t;
+return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function syncPressed() {
+btn.setAttribute("aria-pressed", effectiveTheme() === "dark" ? "true" : "false");
+}
+btn.addEventListener("click", function () {
+var next = effectiveTheme() === "dark" ? "light" : "dark";
+document.documentElement.setAttribute("data-theme", next);
+syncPressed();
+});
+syncPressed();
+if (window.matchMedia) {
+var mq = window.matchMedia("(prefers-color-scheme: dark)");
+if (mq.addEventListener) mq.addEventListener("change", syncPressed);
+}
+})();
+</script>
+</body>
+</html>

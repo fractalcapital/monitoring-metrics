@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>VIX 恐慌指数可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem;}
+* { box-sizing: border-box;}
+:root{
+--bg:#f7f7f4; --surface:#ffffff; --surface2:#efefe9;
+--ink:#16181d; --ink2:#454a54; --muted:#767d89;
+--line:#e2e2da; --line2:#d2d2c8;
+--red:#c81e1e; --red-soft:#fdeeee; --red-ink:#8f1212;
+--amber:#b45309; --amber-soft:#fdf3e3;
+--teal:#0f766e; --teal-soft:#e6f4f1;
+--blue:#1d4ed8;
+--chart-grid:#e3e3db;
+--shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.05);
+}
+@media (prefers-color-scheme: dark){
+:root{
+--bg:#101216; --surface:#181b20; --surface2:#1f232a;
+--ink:#f2f3f5; --ink2:#c3c8d1; --muted:#8b929e;
+--line:#2a2e36; --line2:#363b45;
+--red:#f26d6d; --red-soft:#331d1d; --red-ink:#ffb4b4;
+--amber:#e8a04c; --amber-soft:#33270f;
+--teal:#4cc2b4; --teal-soft:#12302c;
+--blue:#7aa5ff;
+--chart-grid:#262a31;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+}
+}
+:root[data-theme="dark"]{
+--bg:#101216; --surface:#181b20; --surface2:#1f232a;
+--ink:#f2f3f5; --ink2:#c3c8d1; --muted:#8b929e;
+--line:#2a2e36; --line2:#363b45;
+--red:#f26d6d; --red-soft:#331d1d; --red-ink:#ffb4b4;
+--amber:#e8a04c; --amber-soft:#33270f;
+--teal:#4cc2b4; --teal-soft:#12302c;
+--blue:#7aa5ff;
+--chart-grid:#262a31;
+--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+}
+:root[data-theme="light"]{
+--bg:#f7f7f4; --surface:#ffffff; --surface2:#efefe9;
+--ink:#16181d; --ink2:#454a54; --muted:#767d89;
+--line:#e2e2da; --line2:#d2d2c8;
+--red:#c81e1e; --red-soft:#fdeeee; --red-ink:#8f1212;
+--amber:#b45309; --amber-soft:#fdf3e3;
+--teal:#0f766e; --teal-soft:#e6f4f1;
+--blue:#1d4ed8;
+--chart-grid:#e3e3db;
+--shadow:0 1px 2px rgba(20,22,28,.05),0 8px 24px rgba(20,22,28,.05);
+}
+:root{--bar:#3f4753;color-scheme:light}
+@media (prefers-color-scheme: dark){:root{--bar:#9aa3b2;color-scheme:dark}}
+:root[data-theme="dark"]{--bar:#9aa3b2;color-scheme:dark}
+:root[data-theme="light"]{--bar:#3f4753;color-scheme:light}
+.theme-toggle{position:fixed;top:14px;right:16px;z-index:60;display:inline-flex;align-items:center;gap:7px;
+background:var(--surface);color:var(--ink);border:1px solid var(--line2);border-radius:999px;
+padding:7px 14px 7px 11px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
+box-shadow:var(--shadow);min-height:36px;line-height:1}
+.theme-toggle:hover{border-color:var(--red)}
+.theme-toggle svg{width:17px;height:17px;flex:none;display:block}
+.theme-toggle:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+font-family:"Noto Sans SC",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased;line-height:1.65}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.wrap{max-width:1060px;margin:0 auto;padding:0 20px 72px}
+a{color:var(--blue)}
+h1,h2,h3{line-height:1.3;margin:0}
+p{margin:0}
+
+/* ---------- Hero ---------- */
+.hero{padding:76px 0 8px}
+.hero-top{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;justify-content:space-between}
+.hero-title{font-size:clamp(30px,5.4vw,52px);font-weight:900;letter-spacing:-.01em;line-height:1.3;margin:0}
+.fear{color:var(--red)}
+.hero-sub{margin-top:14px;font-size:clamp(15px,2.2vw,18px);color:var(--ink2);max-width:640px}
+.hero-sub strong{color:var(--ink)}
+.bigread{text-align:right;flex:none}
+.br-lab{font-size:12px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+.br-num{font-size:clamp(56px,9vw,92px);font-weight:700;line-height:1;color:var(--red)}
+.br-cap{font-size:13px;color:var(--ink2);margin-top:6px}
+.namegrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px}
+.namecard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+.nc-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border-radius:999px;margin-bottom:10px}
+.tag-official{background:var(--teal-soft);color:var(--teal)}
+.tag-nick{background:var(--red-soft);color:var(--red-ink)}
+.namecard h3{font-size:19px;font-weight:900}
+.namecard p{margin-top:6px;font-size:14px;color:var(--ink2)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+.stat-v{font-size:30px;font-weight:700;line-height:1.1}
+.stat-k{font-size:13px;color:var(--muted);margin-top:4px}
+.v-red{color:var(--red)}
+.v-amber{color:var(--amber)}
+
+/* ---------- Sections ---------- */
+section{margin-top:52px}
+.sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.sec-no{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:700;color:var(--red);
+border:1.5px solid var(--red);border-radius:8px;padding:2px 8px}
+.sec-head h2{font-size:clamp(22px,3.4vw,30px);font-weight:900}
+.sec-lede{color:var(--ink2);font-size:15px;max-width:760px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+
+/* ---------- Main chart ---------- */
+.chart-card{padding:20px 20px 14px}
+.chart-wrap{position:relative}
+svg.chart{width:100%;height:auto;display:block}
+.chart-tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);
+border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.5;opacity:0;transition:opacity.12s;
+max-width:250px;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.tip-t{font-weight:700}
+.tip-v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--ink2);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:22px;height:4px;border-radius:2px;display:inline-block}
+.swdot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+.chip{border:1px solid var(--line2);background:var(--surface);color:var(--ink2);border-radius:999px;
+padding:8px 14px;font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;min-height:36px}
+.chip:hover{border-color:var(--red);color:var(--ink)}
+.chip-on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.event-detail{margin-top:14px;border-top:1px dashed var(--line2);padding-top:14px;display:flex;gap:18px;flex-wrap:wrap;align-items:baseline}
+.ev-v{font-size:40px;font-weight:700;line-height:1}
+.ev-t{font-size:16px;font-weight:900}
+.ev-d{font-size:14px;color:var(--ink2);max-width:620px}
+.src-note{font-size:12.5px;color:var(--muted);margin-top:12px}
+
+/* ---------- Bars ---------- */
+.bars-card{padding:22px}
+.bar-row{display:grid;grid-template-columns:172px 1fr 74px;gap:12px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
+.bar-row-last{border-bottom:none}
+.bar-l{font-size:14px;font-weight:700}
+.bar-l small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.bar-track{position:relative;height:26px;background:var(--surface2);border-radius:7px}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:var(--bar)}
+.fill-crisis{background:var(--red)}
+.fill-ai{background:var(--amber)}
+.fill-calm{background:var(--teal)}
+.bar-v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px;text-align:right}
+.base-line-note{font-size:13px;color:var(--ink2);margin-top:12px}
+
+/* ---------- Mechanism ---------- */
+.mech{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mech-card{padding:22px}
+.mech-card h3{font-size:18px;font-weight:900;margin-bottom:8px}
+.mech-card p{font-size:14.5px;color:var(--ink2)}
+.mech-card p strong{color:var(--ink)}
+.flow{display:flex;align-items:stretch;gap:0;margin-top:16px;flex-wrap:wrap}
+.flow-step{flex:1;min-width:120px;background:var(--surface2);border-radius:10px;padding:10px 12px;font-size:13px}
+.flow-step b{display:block;font-size:13.5px;margin-bottom:2px}
+.flow-arr{display:flex;align-items:center;padding:0 7px;color:var(--red);font-weight:900}
+.inverse{margin-top:16px}
+.inv-cap{font-size:12.5px;color:var(--muted);margin-top:6px}
+.inv-legend{display:flex;gap:18px;font-size:13px;color:var(--ink2);margin-top:4px}
+
+/* ---------- Myth / analogy ---------- */
+.myth{border:1.5px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:22px}
+.myth h3{font-size:19px;font-weight:900}
+.myth-warn{color:var(--amber)}
+.myth p{margin-top:8px;font-size:15px;color:var(--ink2)}
+.myth p strong{color:var(--ink)}
+.analogy{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.ana-card{padding:22px}
+.ana-card h3{font-size:17px;font-weight:900;margin-bottom:8px}
+.ana-card p{font-size:14.5px;color:var(--ink2)}
+.ana-card p strong{color:var(--ink)}
+blockquote{margin:14px 0 0;padding:14px 18px;background:var(--surface2);border-radius:12px;font-size:16px;font-weight:700}
+blockquote span{color:var(--red)}
+
+/* ---------- Translator ---------- */
+.translator{padding:24px}
+.tr-top{display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between}
+.tr-val{font-size:64px;font-weight:700;line-height:1}
+.tr-zone{display:inline-block;font-weight:900;font-size:16px;padding:5px 14px;border-radius:999px;margin-left:12px;vertical-align:middle}
+.tr-hint{font-size:13.5px;color:var(--muted);max-width:300px}
+input[type=range]{width:100%;accent-color:var(--red);height:36px;cursor:pointer}
+.tr-scale{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",monospace;margin-top:-4px}
+.tr-out{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+.tr-cell{background:var(--surface2);border-radius:12px;padding:16px}
+.tr-cv{font-size:26px;font-weight:700;line-height:1.15}
+.tr-ck{font-size:13px;color:var(--ink2);margin-top:4px}
+.tr-desc{margin-top:16px;font-size:15px;color:var(--ink2)}
+.tr-desc strong{color:var(--ink)}
+
+/* ---------- Levels table ---------- */
+.levels{overflow:hidden}
+.lv-row{display:grid;grid-template-columns:110px 130px 1fr;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line);align-items:baseline}
+.lv-row-last{border-bottom:none}
+.lv-range{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px}
+.lv-zone{font-weight:900;font-size:15px}
+.lv-desc{font-size:14px;color:var(--ink2)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px}
+
+/* ---------- Dashboard ---------- */
+.dash-verdict{border:1.5px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:22px;margin-bottom:14px}
+.dash-verdict-title{font-size:19px;font-weight:900}
+.dash-verdict-text{margin-top:8px;font-size:15px;color:var(--ink2)}
+.dash-verdict-text-strong{color:var(--ink)}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dash-card{padding:22px;display:flex;flex-direction:column}
+.dash-card-wide{grid-column:1/-1}
+.dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dash-name{font-size:18px;font-weight:900;line-height:1.35}
+.dash-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.dash-badge{font-size:12px;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:999px;flex:none}
+.badge-must{background:var(--red-soft);color:var(--red-ink)}
+.badge-adv{background:var(--teal-soft);color:var(--teal)}
+.dash-what{font-size:14px;color:var(--ink2);margin-top:10px}
+.dash-what-strong{color:var(--ink)}
+.dash-reading{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line2)}
+.dash-reading-lab{font-size:12px;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.dash-value{font-size:38px;font-weight:700;line-height:1}
+.dash-value-note{font-size:13.5px;color:var(--ink2)}
+.dash-status{display:inline-block;font-weight:900;font-size:13.5px;padding:4px 12px;border-radius:999px}
+.status-high{background:var(--amber-soft);color:var(--amber)}
+.status-panic{background:var(--red-soft);color:var(--red-ink)}
+.status-watch{background:var(--surface2);color:var(--ink2)}
+.gauge{margin-top:18px}
+.gauge-track{position:relative;height:14px;border-radius:7px;display:flex;overflow:hidden;background:var(--surface2)}
+.gauge-seg{height:100%}
+.gauge-marker{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink);border-radius:2px;z-index:2}
+.gauge-marker-ghost{position:absolute;top:-4px;bottom:-4px;width:3px;background:transparent;border-left:3px dashed var(--muted);z-index:2}
+.gauge-labels{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:6px;font-family:"IBM Plex Mono",monospace}
+.gauge-zones{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--ink2);margin-top:8px}
+.dash-judge{margin-top:14px;font-size:14px;color:var(--ink2);background:var(--surface2);border-radius:10px;padding:12px 14px}
+.dash-judge-strong{color:var(--ink)}
+.term-bars{margin-top:16px;display:grid;gap:10px}
+.term-row{display:grid;grid-template-columns:118px 1fr 64px;gap:10px;align-items:center;font-size:13.5px}
+.term-track{position:relative;height:20px;background:var(--surface2);border-radius:6px}
+.term-fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.term-v{font-family:"IBM Plex Mono",monospace;font-weight:700;text-align:right}
+.dash-use{margin-top:14px;padding:22px}
+.dash-use-title{font-size:17px;font-weight:900;margin-bottom:8px}
+.dash-use-row{font-size:14.5px;color:var(--ink2);padding:8px 0;border-bottom:1px dashed var(--line)}
+.dash-use-row-last{border-bottom:none}
+.dash-use-strong{color:var(--ink)}
+footer{margin-top:56px;border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--muted)}
+.foot-gap{margin-top:6px}
+
+@media (max-width:760px){
+.namegrid{grid-template-columns:1fr}
+.mech{grid-template-columns:1fr}
+.analogy{grid-template-columns:1fr}
+.dash-grid{grid-template-columns:1fr}
+.term-row{grid-template-columns:96px 1fr 56px}
+.stats{grid-template-columns:1fr 1fr}
+.tr-out{grid-template-columns:1fr}
+.bigread{text-align:left}
+.bar-row{grid-template-columns:118px 1fr 62px}
+.lv-row{grid-template-columns:86px 1fr;gap:6px 12px}
+.lv-desc{grid-column:1/-1}
+.hero{padding-top:72px}
+}
+@media (prefers-reduced-motion: reduce){
+html{scroll-behavior:auto}
+*{transition:none!important}
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到暗色主题" aria-pressed="false">
+<svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+<svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+<span id="themeToggleLabel">暗色</span>
+</button>
+<div class="wrap">
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+<div class="hero-top">
+<div>
+<h1 class="hero-title">VIX 不是“恐慌”本身，<br />是<span class="fear">恐慌的价格</span></h1>
+<p class="hero-sub">一句话分清：<strong>VIX 的正式名字是 CBOE 波动率指数，它本身就是标普 500 未来 30 天的隐含波动率</strong>；“恐慌指数”只是市场给它的外号，不是官方名称。</p>
+</div>
+<div class="bigread">
+<div class="br-lab">本轮 AI 回调 · VIX 约</div>
+<div class="br-num mono">40</div>
+<div class="br-cap">明显恐慌，但离真正的危机读数<br />（80+）还差整整一倍</div>
+</div>
+</div>
+
+<div class="namegrid">
+<div class="namecard">
+<span class="nc-tag tag-official">正式名称 · OFFICIAL</span>
+<h3>CBOE 波动率指数（VIX）</h3>
+<p>由芝加哥期权交易所（CBOE）发布，根据标普 500 指数期权价格反推出来的<strong>未来 30 天隐含波动率</strong>，年化百分比表示。VIX = 20，意思是市场预期标普 500 未来一年波动率约 20%。</p>
+</div>
+<div class="namecard">
+<span class="nc-tag tag-nick">市场外号 · NICKNAME</span>
+<h3>“恐慌指数” Fear Gauge</h3>
+<p>不是官方叫法。因为它绝大多数时候和股市反向走——跌得越狠、它蹿得越高——媒体和交易者看多了这个规律，干脆叫它恐慌温度计。</p>
+</div>
+</div>
+
+<div class="stats">
+<div class="stat"><div class="stat-v mono">≈ 20</div><div class="stat-k">长期历史均值：平静时多在 12–20 之间晃</div></div>
+<div class="stat"><div class="stat-v mono v-red">80.86</div><div class="stat-k">2008 金融危机收盘峰值（2008-11-20）</div></div>
+<div class="stat"><div class="stat-v mono v-red">82.69</div><div class="stat-k">2020 新冠收盘峰值 · 历史最高（2020-03-16）</div></div>
+<div class="stat"><div class="stat-v mono v-amber">≈ 40</div><div class="stat-k">本轮 AI 板块回调：够恐慌，不够“危机”</div></div>
+</div>
+</header>
+
+<!-- ================= 01 MAIN CHART ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">01</span><h2>同样冲过 40，80+ 和 40 是两个世界</h2></div>
+<p class="sec-lede">下图是 VIX 自 1990 年以来的走势：底色按读数分区，圆点是历史上真实的收盘峰值。把 2008、2020 的 80+ 和本轮 AI 回调的约 40 放在同一把尺子上，差距一目了然——40 是“高度紧张”，80 是“系统在崩”。点任意一个事件标签查看细节。</p>
+
+<div class="card chart-card">
+<div class="chart-wrap">
+<svg class="chart" id="mainChart" viewBox="0 0 960 430" role="img" aria-label="VIX 1990年至2026年走势图，标注2008年80.86、2020年82.69与近期AI回调约40等峰值"></svg>
+<div class="chart-tip" id="chartTip"></div>
+</div>
+<div class="legend">
+<span><i class="sw" style="background:var(--ink)"></i>VIX 走势（趋势示意）</span>
+<span><i class="swdot" style="background:var(--red)"></i>真实收盘峰值</span>
+<span><i class="swdot" style="background:var(--amber)"></i>本轮 AI 回调（约数）</span>
+<span>底色：绿 &lt;20 平静 · 黄 20–30 紧张 · 红 30+ 恐慌</span>
+</div>
+<div class="chips" id="eventChips"></div>
+<div class="event-detail" id="eventDetail"></div>
+<p class="src-note">数据口径：圆点为 CBOE VIX 历史收盘值；连线为连接各峰值与常态区间的趋势示意，不代表逐日数据。2024 年 8 月收盘 38.57，但盘中一度冲到 65.73，图中按收盘计。本轮 AI 回调读数约 40 为约数。</p>
+</div>
+</section>
+
+<!-- ================= 02 BARS ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">02</span><h2>峰值排行榜：40 在历史上算老几？</h2></div>
+<p class="sec-lede">只比最高点：本轮 AI 回调的约 40 之上，还压着六次更高的历史读数（82.69、80.86、48.00、45.74、43.74、40.74），它和 2015 年 8·24（40.74）几乎同档；比 2008、2020 的危机峰值低了一半还多。</p>
+<div class="card bars-card" id="barsCard"></div>
+<p class="base-line-note">读法：VIX 每高 10 点，市场为“保险”多付的钱不是多 10%，而是波动预期整体抬升一档。从 20 到 40 是“紧张翻倍”，从 40 到 80 则是市场开始定价<strong>系统性崩盘</strong>。</p>
+</section>
+
+<!-- ================= 03 WHY FEAR ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">03</span><h2>为什么会被叫作恐慌指数？</h2></div>
+<p class="sec-lede">两个原因：一是它的原料就是“保险费”，二是它和股市几乎永远反着走。</p>
+<div class="mech">
+<div class="card mech-card">
+<h3>原因一 · 它看的是期权价格，不是涨跌</h3>
+<p>VIX 不直接看标普 500 涨了还是跌了，它看的是<strong>投资者愿意花多少钱买期权</strong>——尤其是看跌期权，那本质上就是<strong>给股票组合买的下跌保险</strong>。越怕大跌，越多人抢着买保险，期权被买贵，VIX 就走高。</p>
+<div class="flow">
+<div class="flow-step"><b>市场害怕大跌</b>抢购看跌期权对冲</div>
+<div class="flow-arr">→</div>
+<div class="flow-step"><b>期权变贵</b>保险费被竞价抬高</div>
+<div class="flow-arr">→</div>
+<div class="flow-step"><b>VIX 读数走高</b>反推出更高隐含波动</div>
+</div>
+</div>
+<div class="card mech-card">
+<h3>原因二 · 它和标普 500 绝大多数时候反向</h3>
+<p>股市平稳、大家乐观时没人抢保险，VIX 常在 <strong>10–20</strong> 低位趴着；一旦暴跌、危机来临，它瞬间飙升——2008 年和 2020 年疫情都冲到 <strong>80 以上</strong>。这种稳定的反向关系，就是“恐慌指标”外号的来源。</p>
+<div class="inverse">
+<svg id="inverseChart" viewBox="0 0 520 170" style="width:100%;height:auto;display:block" role="img" aria-label="示意图：标普500下跌时VIX上升，两者反向"></svg>
+<div class="inv-legend">
+<span><i class="sw" style="background:var(--blue)"></i>标普 500（示意）</span>
+<span><i class="sw" style="background:var(--red)"></i>VIX（示意）</span>
+</div>
+<p class="inv-cap">示意图：一次典型下跌中两条线的镜像关系，非真实行情数据。</p>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ================= 04 MYTH ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">04</span><h2>一个很关键的误区</h2></div>
+<div class="myth">
+<h3><span class="myth-warn">⚠</span> VIX 测的是，不是单纯测恐慌</h3>
+<p>理论上，<strong>大涨的剧烈波动同样能推高 VIX</strong>——只要涨得足够猛、足够不确定，期权一样会变贵。只是现实里美股投资者更怕大跌、很少因为大涨而疯狂买入看涨期权对冲，所以 VIX 长期表现成了“恐慌温度计”。把它读成纯粹的恐惧程度，会误判那些由逼空、轧空引发的上涨型波动。</p>
+</div>
+<div class="analogy">
+<div class="card ana-card">
+<h3>🚗 最贴切的类比：VIX = 车险保费</h3>
+<p>保费涨，<strong>不代表一定会出车祸</strong>，只代表保险公司和车主都觉得出事概率变高、愿意多花钱买保障。同理，VIX 冲到 40，代表市场在为大波动<strong>定价</strong>，不是预言大跌一定会发生——很多次 VIX 见顶时，恰恰是跌势最猛、离底部最近的时候。</p>
+<blockquote>VIX = 车险保费。<span>保费涨 ≠ 一定出事</span>，只是大家觉得出事概率变高了。</blockquote>
+</div>
+<div class="card ana-card">
+<h3>所以本轮 AI 回调的 40 该怎么读？</h3>
+<p>40 的含义是：市场正在认真为 AI 板块乃至大盘的<strong>大幅波动</strong>付保费，情绪从“紧张”（20–30）跨进了“恐慌”（30+）区间。但对照历史，真正的危机定价是 80+：那意味着市场在定价<strong>金融系统本身出问题</strong>。本轮到 40 就停住，说明恐慌集中在板块估值与获利了结，还没扩散成系统性挤兑——这正是 40 和 80 之间最重要的一条分界线。</p>
+<blockquote>40 = 板块级恐慌；<span>80 = 系统级恐慌</span>。差的不是程度，是性质。</blockquote>
+</div>
+</div>
+</section>
+
+<!-- ================= 05 TRANSLATOR ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">05</span><h2>读数翻译器：VIX 数字到底意味着多大波动？</h2></div>
+<p class="sec-lede">拖动滑块。VIX 是年化波动率，换算一下就具体了：未来 30 天的预期波动幅度 ≈ VIX ÷ √12，单日 ≈ VIX ÷ √252（均为约 1 个标准差的量级）。</p>
+<div class="card translator">
+<div class="tr-top">
+<div>
+<span class="tr-val mono" id="trVal">40</span><span class="tr-zone" id="trZone"></span>
+</div>
+<div class="tr-hint">试试拖到 82.69 附近，感受一下 2020 年 3 月市场在定价多大的波动。</div>
+</div>
+<input type="range" id="trRange" min="8" max="90" step="0.5" value="40" aria-label="VIX 读数" />
+<div class="tr-scale"><span>8 · 死水一潭</span><span>20 · 常态</span><span>40 · 本轮 AI</span><span>82.69 · 2020 峰值</span><span>90</span></div>
+<div class="tr-out">
+<div class="tr-cell"><div class="tr-cv mono" id="trMonth">±11.5%</div><div class="tr-ck">未来 30 天，标普 500 的预期波动幅度（约 68% 概率落在 ±此幅度内）</div></div>
+<div class="tr-cell"><div class="tr-cv mono" id="trDay">±2.5%</div><div class="tr-ck">折算到每一天：日均涨跌这个量级，市场觉得“很正常”</div></div>
+<div class="tr-cell"><div class="tr-cv mono" id="trVs">2.0×</div><div class="tr-ck">相对长期均值（约 20）的恐慌倍数</div></div>
+</div>
+<p class="tr-desc" id="trDesc"></p>
+</div>
+</section>
+
+<!-- ================= 06 LEVELS ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">06</span><h2>速查表：下次看到 VIX，先对号入座</h2></div>
+<div class="card levels">
+<div class="lv-row"><div class="lv-range">&lt; 15</div><div class="lv-zone"><span class="dot" style="background:var(--teal)"></span>自满</div><div class="lv-desc">风平浪静，保险便宜到没人买。历史上这种低位常出现在大涨末段——便宜的不只是保险，还有大家的警惕心。</div></div>
+<div class="lv-row"><div class="lv-range">15 – 20</div><div class="lv-zone"><span class="dot" style="background:var(--teal)"></span>常态</div><div class="lv-desc">长期均值附近。市场有正常的担忧，但没人在抢保险。</div></div>
+<div class="lv-row"><div class="lv-range">20 – 30</div><div class="lv-zone"><span class="dot" style="background:var(--amber)"></span>紧张</div><div class="lv-desc">出了值得担心的事：财报暴雷、数据难看、地缘冲突。保险开始涨价，但秩序还在。</div></div>
+<div class="lv-row"><div class="lv-range">30 – 40</div><div class="lv-zone"><span class="dot" style="background:var(--amber)"></span>恐慌</div><div class="lv-desc">抛售成规模，对冲盘排队买入。本轮 AI 回调的约 40 就在这一档的顶端。</div></div>
+<div class="lv-row"><div class="lv-range">40 – 60</div><div class="lv-zone"><span class="dot" style="background:var(--red)"></span>危机</div><div class="lv-desc">2011 年美债降级（48）、2008 年雷曼倒闭前后都在这一档。市场开始定价失控的下跌。</div></div>
+<div class="lv-row lv-row-last"><div class="lv-range">&gt; 60</div><div class="lv-zone"><span class="dot" style="background:var(--red)"></span>系统性崩盘</div><div class="lv-desc">只有 2008 年（80.86）和 2020 年新冠（82.69）到过这里。定价的不再是某个板块，而是金融系统本身。</div></div>
+</div>
+</section>
+
+<!-- ================= 07 DASHBOARD ================= -->
+<section>
+<div class="sec-head"><span class="sec-no">07</span><h2>监控仪表盘：只看 VIX 不够，五个一起看</h2></div>
+<p class="sec-lede">VIX 只回答一个问题——未来 30 天标普 500 预计波动多大。它不告诉你方向，不告诉你债市和信用市场出没出问题，也分不清这次是真恐慌还是只摸了一下。下面把 11 月 20 日这一次的五个读数放在同一页上对照：单看 VIX 会以为已经很极端，交叉验证完，结论完全不同。</p>
+
+<div class="dash-verdict">
+<div class="dash-verdict-title">11 月 20 日交叉验证结论：触及了恐慌，但没确认</div>
+<p class="dash-verdict-text">当天 VIX 盘中摸到 <strong class="dash-verdict-text-strong">40.03</strong>、收 <strong class="dash-verdict-text-strong">35.9</strong>，单看这一项像危机。但另外四项都没跟上极端档：VVIX 收 138.03，远低于今年 4 月那次低点的 171；SKEW 138.84 只是偏高；12 月 VIX 期货只有约 27.53，明显低于现货。Saxo 当天的判断正是这八个字——<strong class="dash-verdict-text-strong">“触及了恐慌，但没确认。”</strong></p>
+</div>
+
+<div class="dash-grid">
+
+<div class="card dash-card dash-card-wide">
+<div class="dash-head">
+<div><div class="dash-name">VIX 现货 + 期限结构</div><div class="dash-sub">股市的体温计 · 看现货，也看期货曲线是升水还是倒挂</div></div>
+<span class="dash-badge badge-must">必看 · 1 / 3</span>
+</div>
+<p class="dash-what">现货告诉你当下有多慌；<strong class="dash-what-strong">期限结构告诉你市场觉得这份慌能持续多久</strong>。正常时远月期货高于现货（升水 contango），代表市场预期以后会平静；一旦近月冲得比远月还高（倒挂 backwardation），说明压力集中在眼前。只看一个数字，会把盘中尖峰误读成持续危机。</p>
+<div class="dash-reading">
+<span class="dash-reading-lab">11 月 20 日</span>
+<span class="dash-value mono" style="color:var(--red)">35.9</span>
+<span class="dash-status status-panic">恐慌区 · 30–40 档顶端</span>
+<span class="dash-value-note">收盘 35.9 · 盘中最高 40.03</span>
+</div>
+<div class="gauge">
+<div class="gauge-track">
+<div class="gauge-seg" style="width:22.2%;background:var(--teal);opacity:.45"></div>
+<div class="gauge-seg" style="width:11.1%;background:var(--amber);opacity:.45"></div>
+<div class="gauge-seg" style="width:16.7%;background:var(--amber);opacity:.75"></div>
+<div class="gauge-seg" style="width:50%;background:var(--red);opacity:.4"></div>
+<div class="gauge-marker" style="left:39.9%"></div>
+<div class="gauge-marker-ghost" style="left:44.5%"></div>
+</div>
+<div class="gauge-labels"><span>0</span><span>20 常态上限</span><span>40 盘中高点（虚线）</span><span>90</span></div>
+<div class="gauge-zones"><span>＜20 平静</span><span>20–30 紧张</span><span>30–45 恐慌</span><span>45+ 危机</span></div>
+</div>
+<div class="term-bars">
+<div class="term-row"><span>VIX 现货（收盘）</span><div class="term-track"><div class="term-fill" style="width:79.8%;background:var(--red)"></div></div><span class="term-v">35.9</span></div>
+<div class="term-row"><span>12 月 VIX 期货</span><div class="term-track"><div class="term-fill" style="width:61.2%;background:var(--amber)"></div></div><span class="term-v">≈27.53</span></div>
+</div>
+<p class="dash-judge"><strong class="dash-judge-strong">怎么读这一天：</strong>期货（27.53）明显低于现货（35.9），差了 8 个多点——市场在说“眼下很慌，但不认为一个月后还这么慌”。这是尖峰型恐慌的典型形状，和 2008、2020 年那种整条曲线一起抬上 60+ 的持续危机不是一回事。</p>
+</div>
+
+<div class="card dash-card">
+<div class="dash-head">
+<div><div class="dash-name">MOVE 指数</div><div class="dash-sub">债市的 VIX · 美债收益率未来一个月隐含波动</div></div>
+<span class="dash-badge badge-must">必看 · 2 / 3</span>
+</div>
+<p class="dash-what">补的是 VIX 最大的盲区：<strong class="dash-what-strong">债市主导的下跌，VIX 经常不报警</strong>。2022 年就是样本——VIX 大部分时间没超过 35，MOVE 却几个月趴在 120–160。等 VIX 来确认，债市那一轮早就走完了。</p>
+<div class="gauge">
+<div class="gauge-track">
+<div class="gauge-seg" style="width:33.3%;background:var(--teal);opacity:.45"></div>
+<div class="gauge-seg" style="width:22.2%;background:var(--amber);opacity:.45"></div>
+<div class="gauge-seg" style="width:22.2%;background:var(--amber);opacity:.75"></div>
+<div class="gauge-seg" style="width:22.3%;background:var(--red);opacity:.4"></div>
+</div>
+<div class="gauge-labels"><span>0</span><span>60</span><span>100</span><span>140</span><span>180</span></div>
+<div class="gauge-zones"><span>＜60 平静</span><span>60–100 中等</span><span>100–140 偏高</span><span>140+ 极高</span></div>
+</div>
+<p class="dash-judge"><strong class="dash-judge-strong">11 月 20 日对照要点：</strong>本次交叉验证的公开摘要没有单列 MOVE 当日读数，这里不填假数字。对照时只看一件事——它有没有跟着 VIX 一起冲进 100+ 的偏高区。股债两个体温计同时发烧，才是压力在扩散；只有 VIX 高、MOVE 平静，更像股市内部的估值与仓位调整。下次看盘时把当日 MOVE 填进这条尺子即可定位。</p>
+</div>
+
+<div class="card dash-card">
+<div class="dash-head">
+<div><div class="dash-name">高收益债信用利差（HY OAS）</div><div class="dash-sub">看内伤 · 企业借钱变贵了没有</div></div>
+<span class="dash-badge badge-must">必看 · 3 / 3</span>
+</div>
+<p class="dash-what">VIX 完全不反映这一项。它看的是<strong class="dash-what-strong">资金链和违约担忧</strong>：股市跌、利差不扩，大概率还是情绪和估值调整；利差快速走扩，说明市场开始担心企业还不上钱，那才是系统性风险的形状。</p>
+<div class="gauge">
+<div class="gauge-track">
+<div class="gauge-seg" style="width:33.3%;background:var(--teal);opacity:.45"></div>
+<div class="gauge-seg" style="width:33.3%;background:var(--amber);opacity:.55"></div>
+<div class="gauge-seg" style="width:33.4%;background:var(--red);opacity:.4"></div>
+</div>
+<div class="gauge-labels"><span>平稳</span><span>走扩中</span><span>快速走扩</span></div>
+<div class="gauge-zones"><span>利差不扩 = 多半是情绪调整</span><span>利差快速走扩 = 资金链在收紧</span></div>
+</div>
+<p class="dash-judge"><strong class="dash-judge-strong">11 月 20 日对照要点：</strong>同 MOVE 一样，本次摘要没有单列利差读数，不编数字。这一项的读法本来就不是看绝对值、是看<strong class="dash-judge-strong">速度</strong>：几天内跟随股市同步明显走扩，恐慌才算从“定价波动”升级成“定价违约”；走扩有限或基本不动，就和“触及未确认”的结论一致。</p>
+</div>
+
+<div class="card dash-card">
+<div class="dash-head">
+<div><div class="dash-name">VVIX</div><div class="dash-sub">波动率的波动率 · VIX 本身预计会怎么动</div></div>
+<span class="dash-badge badge-adv">进阶 · 1 / 2</span>
+</div>
+<p class="dash-what">价值在<strong class="dash-what-strong">提前量</strong>：VIX 还没动、VVIX 先悄悄上去，往往是有人在提前买尾部保险。它冲得越高，说明市场越觉得“连恐慌本身都会失控”。</p>
+<div class="dash-reading">
+<span class="dash-reading-lab">11 月 20 日 · 收盘</span>
+<span class="dash-value mono" style="color:var(--amber)">138.03</span>
+<span class="dash-status status-high">偏高区顶部 · 未到极端</span>
+</div>
+<div class="gauge">
+<div class="gauge-track">
+<div class="gauge-seg" style="width:50%;background:var(--teal);opacity:.45"></div>
+<div class="gauge-seg" style="width:16.7%;background:var(--amber);opacity:.55"></div>
+<div class="gauge-seg" style="width:33.3%;background:var(--red);opacity:.4"></div>
+<div class="gauge-marker" style="left:65%"></div>
+<div class="gauge-marker-ghost" style="left:92.5%"></div>
+</div>
+<div class="gauge-labels"><span>60</span><span>120 正常上限</span><span>140 极端线</span><span>171 今年 4 月（虚线）</span><span>180</span></div>
+<div class="gauge-zones"><span>70–120 正常</span><span>120–140 偏高</span><span>140+ 极端</span></div>
+</div>
+<p class="dash-judge"><strong class="dash-judge-strong">怎么读这一天：</strong>138.03 卡在偏高区的最顶端，离极端线只差 2 个点——确实紧张。但对照锚很关键：今年 4 月那次低点时它到过 <strong class="dash-judge-strong">171</strong>。同一把尺子上，这次连上次的八成都不到，所以是“偏高”，不是“失控”。</p>
+</div>
+
+<div class="card dash-card">
+<div class="dash-head">
+<div><div class="dash-name">SKEW 指数</div><div class="dash-sub">尾部风险定价 · 为极端下跌买的保险有多贵</div></div>
+<span class="dash-badge badge-adv">进阶 · 2 / 2</span>
+</div>
+<p class="dash-what">100 代表期权市场认为基本没有尾部风险，长期均值在 115–118。它<strong class="dash-what-strong">不是方向信号</strong>：读数高不等于一定会跌，只等于“防黑天鹅的保费变贵了”、机构在积极对冲极端下跌。</p>
+<div class="dash-reading">
+<span class="dash-reading-lab">11 月 20 日</span>
+<span class="dash-value mono" style="color:var(--amber)">138.84</span>
+<span class="dash-status status-high">偏高 · 机构在加对冲</span>
+</div>
+<div class="gauge">
+<div class="gauge-track">
+<div class="gauge-seg" style="width:36%;background:var(--teal);opacity:.45"></div>
+<div class="gauge-seg" style="width:24%;background:var(--amber);opacity:.45"></div>
+<div class="gauge-seg" style="width:40%;background:var(--red);opacity:.35"></div>
+<div class="gauge-marker" style="left:77.7%"></div>
+</div>
+<div class="gauge-labels"><span>100 无尾部风险</span><span>115–118 均值</span><span>130–140 积极对冲</span><span>150</span></div>
+<div class="gauge-zones"><span>≈100 不设防</span><span>115–118 常态</span><span>130–140 防尾部</span></div>
+</div>
+<p class="dash-judge"><strong class="dash-judge-strong">怎么读这一天：</strong>138.84 落在 130–140 的“积极对冲”带里，说明机构确实在为极端情况多付保费。但它没有脱离这个常见的高位带单独冲出去——和 VVIX 的信号一致：<strong class="dash-judge-strong">在防，不是在逃</strong>。</p>
+</div>
+
+</div>
+
+<div class="card dash-use">
+<div class="dash-use-title">怎么一起用：3 + 2，按身份选</div>
+<p class="dash-use-row"><strong class="dash-use-strong">长期持有、偶尔看冷热：</strong>必看 3 个就够——VIX + 期限结构、MOVE、信用利差。一个管股市、一个管债市、一个管内伤，不用每天盯。</p>
+<p class="dash-use-row"><strong class="dash-use-strong">判断“这次跌是不是到底部附近”：</strong>再加进阶 2 个——VVIX 和 SKEW，看恐慌是被多重确认，还是像 11 月 20 日这样只摸了一下就被期货曲线否掉。</p>
+<p class="dash-use-row dash-use-row-last"><strong class="dash-use-strong">一句话记忆：</strong>VIX 是股市的体温计，MOVE 是债市的体温计，信用利差看有没有内伤，VVIX 和 SKEW 看大家在为多坏的情况买保险。体温高不等于病重，得几个一起看。</p>
+</div>
+</section>
+
+<footer>
+<p>数据说明：历史峰值均为 CBOE VIX 收盘值——2008-11-20 收盘 80.86（盘中最高 89.53，2008-10-24）；2020-03-16 收盘 82.69，为历史最高收盘纪录；2011-08-08 收盘 48.00；2015-08-24 收盘 40.74；2018-02-05 收盘 37.32；2024-08-05 收盘 38.57（盘中 65.73）。长期均值约 20 为 1990 年以来全样本近似值。</p>
+<p class="foot-gap">仪表盘 11 月 20 日读数口径：VIX 盘中 40.03、收盘 35.9，VVIX 收盘 138.03，SKEW 138.84，12 月 VIX 期货约 27.53，为当日交叉验证摘要所引读数（结论引 Saxo 当日判断）；MOVE 与高收益利差当日读数未在该摘要中单列，仪表盘中只给正常区间与读法，未填数值。本轮 AI 回调的 VIX 约 40 为约数读数，用于与历史危机峰值同尺对比；主图连线为趋势示意，圆点峰值才是数据点。本页为科普可视化，不构成投资建议。</p>
+</footer>
+</div>
+
+<script>
+/* ============ 单一数据源：历史峰值（CBOE 收盘值） ============ */
+var EVENTS = [
+{ t: 1998.75, label: "1998 · LTCM 危机", short: "1998 LTCM", close: 45.74,
+desc: "俄罗斯债务违约 + 对冲基金 Long-Term Capital 濒临倒闭，美联储牵头救助。VIX 收盘冲到 45.74——这是 2008 年之前最吓人的一次。"},
+{ t: 2001.72, label: "2001 · 9·11 恐袭", short: "2001 9·11", close: 43.74,
+desc: "美股休市四天后重开暴跌，VIX 收盘 43.74。地缘冲击型恐慌：来得猛，但随市场重开很快回落。"},
+{ t: 2008.88, label: "2008 · 金融危机", short: "2008 金融危机", close: 80.86, intra: "盘中最高 89.53（2008-10-24）",
+desc: "雷曼倒闭后信用市场冻结，VIX 收盘 80.86、盘中摸到 89.53。它在 60 以上整整停留了数周——市场定价的是银行系统本身会不会垮。"},
+{ t: 2011.61, label: "2011 · 美债降级", short: "2011 美债降级", close: 48.00,
+desc: "标普下调美国主权评级叠加欧债危机，单日暴跌中 VIX 收盘 48.00。是 40–60「危机档」最典型的样本。"},
+{ t: 2015.64, label: "2015 · 8·24 全球股灾", short: "2015 8·24", close: 40.74,
+desc: "A 股与人民币贬值冲击传导至全球，美股开盘闪崩，VIX 收盘 40.74。和本轮 AI 回调几乎同档：板块与情绪冲击，而非系统危机。"},
+{ t: 2018.10, label: "2018 · Volmageddon", short: "2018 波动率末日", close: 37.32, intra: "次日盘中冲到 50.30",
+desc: "做空波动率产品单日爆仓（XIV 清盘），VIX 一夜翻倍多。恐慌源头不在股市基本面，而在波动率产品自身的挤兑。"},
+{ t: 2020.21, label: "2020 · 新冠熔断", short: "2020 新冠", close: 82.69, intra: "盘中最高 85.47（2020-03-18）",
+desc: "两周内美股四次熔断，VIX 收盘 82.69 创历史最高纪录。市场在定价的是整个经济停摆——这是 80+ 的含义：不是贵不贵的问题，是秩序还在不在。"},
+{ t: 2022.18, label: "2022 · 加息熊市", short: "2022 加息熊市", close: 36.45,
+desc: "美联储激进加息、股债双杀贯穿全年，但 VIX 最高只到 36 一带。有序的熊市和无序的崩盘，在 VIX 上是两个物种。"},
+{ t: 2024.60, label: "2024 · 日元套息平仓", short: "2024 套息平仓", close: 38.57, intra: "盘中一度 65.73（2024-08-05）",
+desc: "日元套息交易集中平仓引发全球急跌，VIX 盘中瞬间冲到 65.73，但收盘回落到 38.57、几天内平息——盘中尖峰和收盘高位，含金量完全不同。"},
+{ t: 2026.75, label: "近期 · AI 板块回调", short: "本轮 AI 回调", close: 40, approx: true,
+desc: "本轮 AI 板块下跌把 VIX 推到约 40：正式跨进恐慌区，保险费翻了倍。但它停在 40 而不是 80，说明市场定价的是 AI 估值与仓位的再平衡，还不是金融系统的系统性风险。"}
+];
+
+var BARS = [
+{ name: "2020 · 新冠熔断", sub: "2020-03-16 收盘 · 历史最高", v: 82.69, cls: "fill-crisis"},
+{ name: "2008 · 金融危机", sub: "2008-11-20 收盘", v: 80.86, cls: "fill-crisis"},
+{ name: "2011 · 美债降级", sub: "2011-08-08 收盘", v: 48.00, cls: ""},
+{ name: "1998 · LTCM 危机", sub: "1998-10-08 收盘", v: 45.74, cls: ""},
+        { name: "2001 · 9·11 恐袭", sub: "2001-09-21 收盘", v: 43.74, cls: ""},
+{ name: "2015 · 8·24 股灾", sub: "2015-08-24 收盘", v: 40.74, cls: ""},
+{ name: "近期 · AI 板块回调", sub: "本轮读数 · 约数", v: 40, cls: "fill-ai", approx: true},
+{ name: "2024 · 日元套息平仓", sub: "2024-08-05 收盘（盘中 65.73）", v: 38.57, cls: ""},
+{ name: "平静常态", sub: "无风无浪时的典型读数", v: 15, cls: "fill-calm"}
+];
+
+/* ============ 主图 ============ */
+window.renderMainChart = function () {
+var svg = document.getElementById("mainChart");
+svg.innerHTML = "";
+var tip = document.getElementById("chartTip");
+var W = 960, H = 430, L = 52, R = 16, T = 26, B = 40;
+var iw = W - L - R, ih = H - T - B;
+var X0 = 1990, X1 = 2027, Y1 = 90;
+function X(t) { return L + (t - X0) / (X1 - X0) * iw;}
+function Y(v) { return T + ih - v / Y1 * ih;}
+function cssVar(n) { return "var(" + n + ")";}
+var ink = cssVar("--ink"), muted = cssVar("--muted"), grid = cssVar("--chart-grid"),
+red = cssVar("--red"), amber = cssVar("--amber");
+var NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) {
+var e = document.createElementNS(NS, tag);
+var styles = [];
+for (var k in attrs) {
+if (k === "style") { styles.push(attrs[k]);}
+else if ((k === "fill" || k === "stroke") && typeof attrs[k] === "string" && attrs[k].indexOf("var(") === 0) { styles.push(k + ":" + attrs[k]);}
+else e.setAttribute(k, attrs[k]);
+}
+if (styles.length) e.setAttribute("style", styles.join(";"));
+if (parent) parent.appendChild(e);
+return e;
+}
+function txt(x, y, s, attrs, parent) {
+var e = el("text", attrs || {}, parent || svg);
+e.setAttribute("x", x); e.setAttribute("y", y); e.textContent = s;
+return e;
+}
+
+/* 底色分区 */
+el("rect", { x: L, y: Y(90), width: iw, height: Y(30) - Y(90), fill: red, opacity: 0.07}, svg);
+el("rect", { x: L, y: Y(30), width: iw, height: Y(20) - Y(30), fill: amber, opacity: 0.10}, svg);
+el("rect", { x: L, y: Y(20), width: iw, height: Y(0) - Y(20), fill: cssVar("--teal"), opacity: 0.07}, svg);
+
+/* 网格 + Y 轴 */
+[0, 20, 40, 60, 80].forEach(function (v) {
+el("line", { x1: L, x2: L + iw, y1: Y(v), y2: Y(v), stroke: grid, "stroke-width": 1}, svg);
+txt(L - 10, Y(v) + 4, v, { "text-anchor": "end", "font-size": 12, fill: muted, "font-family": "IBM Plex Mono, monospace"});
+});
+txt(L + 6, Y(40) - 8, "40 · 恐慌线", { "text-anchor": "start", "font-size": 12, fill: red, "font-weight": 700});
+el("line", { x1: L, x2: L + iw, y1: Y(40), y2: Y(40), stroke: red, "stroke-width": 1.2, "stroke-dasharray": "5 4", opacity: 0.65}, svg);
+txt(L + 6, Y(24), "20–30 紧张", { "font-size": 11.5, fill: muted});
+txt(L + 6, Y(13), "10–20 平静常态", { "font-size": 11.5, fill: muted});
+
+/* X 轴 */
+[1990, 1995, 2000, 2005, 2010, 2015, 2020, 2025].forEach(function (yr) {
+txt(X(yr), H - 14, yr, { "text-anchor": "middle", "font-size": 12, fill: muted, "font-family": "IBM Plex Mono, monospace"});
+el("line", { x1: X(yr), x2: X(yr), y1: T + ih, y2: T + ih + 5, stroke: grid, "stroke-width": 1}, svg);
+});
+
+/* 趋势线：常态基线锚点 + 峰值锚点 */
+var base = [
+[1990, 17], [1990.6, 32], [1991.5, 15], [1994, 14], [1996, 12], [1997.8, 30],
+[1999.5, 22], [2000.5, 24], [2002.6, 40], [2003.5, 18], [2005, 12], [2007.2, 11],
+[2007.9, 26], [2009.8, 26], [2010.4, 40], [2012, 17], [2013.5, 13], [2016, 16],
+[2017, 10], [2019, 14], [2021, 18], [2023, 14], [2025, 16], [2026.2, 15]
+];
+var pts = base.slice();
+EVENTS.forEach(function (e) { pts.push([e.t, e.close]);});
+pts.sort(function (a, b) { return a[0] - b[0];});
+var d = pts.map(function (p, i) { return (i? "L": "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1);}).join(" ");
+el("path", { d: d, fill: "none", stroke: ink, "stroke-width": 2, "stroke-linejoin": "round", opacity: 0.85}, svg);
+
+/* 峰值点 + 关键标注 */
+var dots = [];
+EVENTS.forEach(function (e, i) {
+var c = el("circle", {
+cx: X(e.t), cy: Y(e.close), r: e.approx? 7: 6,
+fill: e.approx? amber: red, stroke: cssVar("--surface"), "stroke-width": 2,
+style: "cursor:pointer", tabindex: 0, role: "button",
+"aria-label": e.label + " VIX " + e.close
+}, svg);
+dots.push({ el: c, ev: e, idx: i});
+});
+function anno(t, v, label, val, anchor, dy) {
+txt(X(t), Y(v) + dy, label, { "text-anchor": anchor, "font-size": 13, "font-weight": 700, fill: ink});
+if (val) txt(X(t), Y(v) + dy + 19, val, { "text-anchor": anchor, "font-size": 13, "font-weight": 700, fill: red, "font-family": "IBM Plex Mono, monospace"});
+}
+anno(2008.88, 80.86, "2008 金融危机", "80.86", "middle", -38);
+anno(2020.21, 82.69, "2020 新冠", "82.69", "middle", -38);
+anno(2026.75, 40, "本轮 AI ≈40", "", "end", -14);
+
+/* 交互：tooltip + 详情面板 */
+var chipsBox = document.getElementById("eventChips");
+var detail = document.getElementById("eventDetail");
+chipsBox.innerHTML = "";
+var chipEls = [];
+function fmt(e) { return e.approx? "≈ " + e.close: e.close.toFixed(2);}
+function select(i) {
+var e = EVENTS[i];
+chipEls.forEach(function (c, j) { c.classList.toggle("chip-on", j === i);});
+dots.forEach(function (dt, j) {
+dt.el.setAttribute("r", j === i? 9: (EVENTS[j].approx? 7: 6));
+});
+detail.innerHTML =
+'<div class="ev-v mono" style="color:' + (e.approx? "var(--amber)": "var(--red)") + '">' + fmt(e) + "</div>" +
+'<div><div class="ev-t">' + e.label + " · VIX 收盘" + (e.approx? "（约数）": "") + "</div>" +
+'<div class="ev-d">' + e.desc + (e.intra? " <strong>" + e.intra + "。</strong>": "") + "</div></div>";
+}
+EVENTS.forEach(function (e, i) {
+var b = document.createElement("button");
+b.className = "chip"; b.type = "button";
+b.textContent = e.short + " · " + fmt(e);
+b.addEventListener("click", function () { select(i);});
+chipsBox.appendChild(b); chipEls.push(b);
+});
+dots.forEach(function (dt) {
+function show() {
+var e = dt.ev;
+tip.innerHTML = '<div class="tip-t">' + e.label + '</div><div class="tip-v">' + fmt(e) + '</div>' +
+(e.intra? '<div>' + e.intra + '</div>': "") + '<div style="opacity:.75">点击查看详解</div>';
+var wrap = svg.parentElement.getBoundingClientRect();
+var sx = wrap.width / W, sy = wrap.height / H;
+var px = X(e.t) * sx, py = Y(e.close) * sy;
+tip.style.left = Math.min(Math.max(px - 60, 4), wrap.width - 180) + "px";
+tip.style.top = Math.max(py - 118, 2) + "px";
+tip.style.opacity = 1;
+}
+function hide() { tip.style.opacity = 0;}
+dt.el.addEventListener("mouseenter", show);
+dt.el.addEventListener("mouseleave", hide);
+dt.el.addEventListener("focus", show);
+dt.el.addEventListener("blur", hide);
+dt.el.addEventListener("click", function () { select(dt.idx); hide();});
+});
+select(EVENTS.length - 1); /* 默认选中本轮 AI 回调 */
+};
+window.renderMainChart();
+
+/* ============ 排行榜条形图 ============ */
+(function () {
+var box = document.getElementById("barsCard");
+var max = 82.69;
+var html = "";
+BARS.forEach(function (b, i) {
+var pct = (b.v / max * 100).toFixed(1);
+html += '<div class="bar-row' + (i === BARS.length - 1? " bar-row-last": "") + '"><div class="bar-l">' + b.name + "<small>" + b.sub + "</small></div>" +
+'<div class="bar-track"><div class="bar-fill ' + b.cls + '" style="width:' + pct + '%"></div></div>' +
+'<div class="bar-v">' + (b.approx? "≈": "") + b.v.toFixed(b.v % 1? 2: 0) + "</div></div>";
+});
+box.innerHTML = html;
+})();
+
+/* ============ 反向关系示意图 ============ */
+window.renderInverseChart = function () {
+var svg = document.getElementById("inverseChart");
+svg.innerHTML = "";
+var NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs) { var e = document.createElementNS(NS, tag); var styles = []; for (var k in attrs) { if (k === "style") { styles.push(attrs[k]);} else if ((k === "fill" || k === "stroke") && typeof attrs[k] === "string" && attrs[k].indexOf("var(") === 0) { styles.push(k + ":" + attrs[k]);} else e.setAttribute(k, attrs[k]);} if (styles.length) e.setAttribute("style", styles.join(";")); svg.appendChild(e); return e;}
+function cssVar(n) { return "var(" + n + ")";}
+var spx = [150, 148, 140, 128, 112, 92, 70, 55, 62, 84, 108, 128, 142, 150];
+var vix = [26, 28, 36, 50, 70, 96, 122, 140, 130, 104, 78, 54, 38, 28];
+function path(arr) {
+return arr.map(function (v, i) { return (i? "L": "M") + (14 + i * (492 / (arr.length - 1))).toFixed(1) + " " + v;}).join(" ");
+}
+el("path", { d: path(spx), fill: "none", stroke: cssVar("--blue"), "stroke-width": 2.5, "stroke-linejoin": "round"});
+el("path", { d: path(vix), fill: "none", stroke: cssVar("--red"), "stroke-width": 2.5, "stroke-linejoin": "round"});
+var t1 = el("text", { x: 500, y: 152, "text-anchor": "end", "font-size": 12.5, "font-weight": 700, fill: cssVar("--blue")});
+t1.textContent = "跌得越深 →";
+var t2 = el("text", { x: 268, y: 24, "text-anchor": "middle", "font-size": 12.5, "font-weight": 700, fill: cssVar("--red")});
+t2.textContent = "VIX 冲得越高";
+};
+window.renderInverseChart();
+
+/* ============ 读数翻译器 ============ */
+(function () {
+var range = document.getElementById("trRange");
+var val = document.getElementById("trVal"), zone = document.getElementById("trZone");
+var month = document.getElementById("trMonth"), day = document.getElementById("trDay"),
+vs = document.getElementById("trVs"), desc = document.getElementById("trDesc");
+function zoneOf(v) {
+if (v < 15) return ["自满区", "var(--teal-soft)", "var(--teal)", "保险便宜到几乎没人买。历史上这种读数常出现在行情最顺、警惕性最低的时候——VIX 不预测转折，但它告诉你：一旦有事，所有人会同时冲向出口。"];
+if (v < 20) return ["常态区", "var(--teal-soft)", "var(--teal)", "长期均值附近，市场有正常水平的担忧。单日涨跌 1% 上下被视为平常事，不需要特别的故事来解释。"];
+if (v < 30) return ["紧张区", "var(--amber-soft)", "var(--amber)", "有明确的坏消息在发酵，机构开始加买对冲。这个区间是“出事了，但还在秩序内”——多数年份的高点都停在这里。"];
+if (v < 45) return ["恐慌区", "var(--amber-soft)", "var(--amber)", "本轮 AI 回调就在这里：抛售成规模、保险费较常态翻倍。市场在为两位数幅度的月度波动定价，但尚未定价系统性崩盘——40 和 80 的分界，是本页最想让你记住的一条线。"];
+if (v < 60) return ["危机区", "var(--red-soft)", "var(--red-ink)", "2011 年美债降级（48.00）的量级。市场开始定价失控式下跌，流动性变差，任何消息都能触发大幅跳动。"];
+return ["系统性崩盘区", "var(--red-soft)", "var(--red-ink)", "只有 2008 年（80.86）和 2020 年新冠（82.69）到过这里。市场定价的不再是某个板块的估值，而是金融系统和经济秩序本身——未来一个月 ±20% 以上的波动被视为“正常剧本”。"];
+}
+function render() {
+var v = parseFloat(range.value);
+val.textContent = (v % 1? v.toFixed(1): v);
+var z = zoneOf(v);
+zone.textContent = z[0]; zone.style.background = z[1]; zone.style.color = z[2];
+val.style.color = z[2];
+month.textContent = "±" + (v / Math.sqrt(12)).toFixed(1) + "%";
+day.textContent = "±" + (v / Math.sqrt(252)).toFixed(1) + "%";
+vs.textContent = (v / 20).toFixed(1) + "×";
+desc.innerHTML = "<strong>" + z[0] + "：</strong>" + z[3];
+}
+range.addEventListener("input", render);
+render();
+})();
+</script>
+<script>
+/* ============ 手动亮 / 暗主题切换（不持久化，跟随系统为默认） ============
+   整页颜色（含两张 SVG 图表）全部走 CSS 变量，切换只改 data-theme，
+   不再靠 JS 采样色值重绘图表，避免图表停留在旧主题。 */
+(function () {
+var root = document.documentElement;
+var btn = document.getElementById("themeToggle");
+var label = document.getElementById("themeToggleLabel");
+var iconMoon = document.getElementById("themeIconMoon");
+var iconSun = document.getElementById("themeIconSun");
+var mq = window.matchMedia("(prefers-color-scheme: dark)");
+function effective() {
+var t = root.getAttribute("data-theme");
+if (t === "dark" || t === "light") return t;
+return mq.matches ? "dark" : "light";
+}
+function update() {
+var isDark = effective() === "dark";
+label.textContent = isDark ? "亮色" : "暗色";
+btn.setAttribute("aria-label", isDark ? "切换到亮色主题" : "切换到暗色主题");
+btn.setAttribute("aria-pressed", isDark ? "true" : "false");
+iconMoon.style.display = isDark ? "none" : "";
+iconSun.style.display = isDark ? "" : "none";
+}
+btn.addEventListener("click", function () {
+var next = effective() === "dark" ? "light" : "dark";
+root.setAttribute("data-theme", next);
+update();
+});
+if (mq.addEventListener) {
+mq.addEventListener("change", function () {
+if (!root.getAttribute("data-theme")) update();
+});
+}
+update();
+})();
+</script>
+</body>
+</html>
