@@ -16,13 +16,18 @@ is the backend for the dashboard's two manual buttons:
   GET /api/job       -> {"running": "refresh"|"push"|null,
                         "last_result": {...}|null}; no auth needed
                         (read-only, and the page only reads it same-origin)
-  POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; "test"
-                        runs synchronously and returns per-channel results
-                        (fast, no fetch); "status" starts a background job
-                        like /api/refresh and returns {"status": "started"}
-                        (channels defaults to both; the dashboard has one
-                        button per channel, rate-limited per channel so
-                        the two buttons don't block each other)
+  POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; both
+                        run synchronously and return per-channel results
+                        (fast). "test" sends one test message; "status"
+                        sends the summary built from the cached data.json
+                        (MANUAL_PUSH=status-cached, no fetch: from a
+                        datacenter IP the Yahoo fetch takes minutes, so a
+                        push that fetches first takes 3+ minutes). The
+                        slow fetch-then-push path lives only in the GitHub
+                        workflow (MANUAL_PUSH=status). Channels default
+                        to both; the dashboard has one button per channel,
+                        rate-limited per channel so the two buttons don't
+                        block each other
 
 Auth: the X-Api-Token header must match the API_TOKEN env var. The token
 is ALSO in the dashboard page source (public), so it is NOT real
@@ -151,8 +156,17 @@ def _do_push(mode, channels):
             ["python3", "scripts/fetch_dashboard.py"], env)
         pushed = None
     elif mode == "status":
-        code, out, err = _run(["bash", "scripts/push_data.sh"], env)
-        pushed = "PUSH_OK" in out
+        # Cached: build the summary from the existing data.json without
+        # fetching. From a datacenter IP the Yahoo fetch takes minutes
+        # (429 retries), so a status push that fetches first takes 3+
+        # minutes and feels broken. data.json is refreshed twice daily
+        # by cron and by manual refresh; the message carries the data
+        # dates. Fast enough to answer synchronously (no background job).
+        code, out, err = _run(
+            ["python3", "scripts/fetch_dashboard.py"],
+            {"MANUAL_PUSH": "status-cached",
+             "MANUAL_CHANNELS": ",".join(channels)})
+        pushed = None
     else:
         return {"ok": False, "error": "mode must be test or status"}
     results = _parse_push_results(out)
@@ -300,16 +314,12 @@ class Handler(BaseHTTPRequestHandler):
             # tunnel timeout. Start the job and let the page poll /api/job.
             self._send_json(200, _start_job("refresh", _do_refresh))
         else:
+            # Both modes are fast and synchronous: "test" sends one test
+            # message, "status" sends the summary from the cached
+            # data.json (no fetch). The slow fetch-then-push path lives
+            # only in the GitHub workflow (MANUAL_PUSH=status).
             mode = str(body.get("mode", "")).lower()
-            if mode == "test":
-                # Fast (no fetch): answer synchronously.
-                self._send_json(200, _do_push("test", channels))
-            elif mode == "status":
-                self._send_json(200, _start_job(
-                    "push", lambda: _do_push("status", channels)))
-            else:
-                self._send_json(200, {"ok": False,
-                                      "error": "mode must be test or status"})
+            self._send_json(200, _do_push(mode, channels))
 
 
 def main():

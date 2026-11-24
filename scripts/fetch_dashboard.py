@@ -39,18 +39,25 @@ Alerts (Bark push, in parallel with Feishu):
     If BARK_URL is unset, Bark is skipped silently. If one channel fails,
     only a warning is logged and the other channel still sends.
 
-Manual push (MANUAL_PUSH env var, set by workflow_dispatch input):
+Manual push (MANUAL_PUSH env var, set by workflow_dispatch input or the
+VPS API):
   - Set by the GitHub Actions workflow's manual_push input (none/test/status).
   - "test" sends one test message on both channels and exits without
     touching data.json. "status" runs the normal fetch first, then sends
     one status summary (current values + 波动情况 labels, same rules as
-    the dashboard page's statusFor) on both channels. Manual pushes are
+    the dashboard page's statusFor) on both channels. "status-cached"
+    sends the same summary built from the existing data.json without
+    fetching first: the dashboard push buttons use this, because from a
+    datacenter IP the Yahoo fetch takes minutes (429 retries) and a push
+    that fetches first feels broken. data.json is refreshed twice daily
+    by cron and by manual refresh, and the message carries the data
+    dates, so the reader can see how fresh it is. Manual pushes are
     never deduped -- every explicit run sends. They do not touch
     alert_state.json, so they never interfere with threshold alerts.
-  - The dashboard page itself can never send a push: it holds no webhook
-    URL or Bark key (both live only in GitHub Secrets). Its "手动推送"
-    button opens the workflow page, where the user picks test/status and
-    clicks Run workflow.
+  - The dashboard page sends pushes through the VPS API
+    (https://api.infidea.app, see api/README.md); it holds no webhook
+    URL or Bark key itself (both live only on the VPS). If the API is
+    down, the page links to the GitHub workflow page as a fallback.
 """
 import csv
 import datetime as dt
@@ -719,9 +726,12 @@ def main():
     out_path = root / "dashboard" / "data.json"
     state_path = root / "dashboard" / "alert_state.json"
 
-    # Manual push from the workflow_dispatch input (dashboard "手动推送"
-    # button opens the workflow page). "test" sends one test message and
-    # exits; "status" fetches normally, then sends a status summary.
+    # Manual push from the workflow_dispatch input or the VPS API
+    # (dashboard push buttons). "test" sends one test message and exits;
+    # "status" fetches normally, then sends a status summary.
+    # "status-cached" sends the same summary from the existing data.json
+    # without fetching: the dashboard buttons use this, because from a
+    # datacenter IP the Yahoo fetch takes minutes (429 retries).
     # MANUAL_CHANNELS (comma-separated feishu/bark, default both) selects
     # which channels a manual push goes to; the dashboard has one button
     # per channel and passes it through the VPS API.
@@ -730,12 +740,20 @@ def main():
         c.strip().lower()
         for c in os.environ.get("MANUAL_CHANNELS", "feishu,bark").split(",")
         if c.strip().lower() in ("feishu", "bark")) or ("feishu", "bark")
-    if mode not in ("", "none", "test", "status"):
+    if mode not in ("", "none", "test", "status", "status-cached"):
         print("WARNING unknown MANUAL_PUSH=%r, ignoring" % (mode,),
               file=sys.stderr)
         mode = ""
     if mode == "test":
         send_manual_push("test", channels=channels)
+        return
+    if mode == "status-cached":
+        if not out_path.exists():
+            print("ERROR status-cached: no data.json to push from",
+                  file=sys.stderr)
+            sys.exit(1)
+        cached = json.loads(out_path.read_text(encoding="utf-8"))
+        send_manual_push("status", cached, channels=channels)
         return
 
     pairs = {}
