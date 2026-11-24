@@ -20,7 +20,10 @@ Base URL: `https://api.infidea.app` (tunnel hostname → `127.0.0.1:8080`).
 All POSTs need the `X-Api-Token` header. The token is also in the
 dashboard page source (public), so it is NOT real security. The real
 protections are rate limits — 1 call per minute per IP, 10 pushes / 30
-refreshes per day per IP, 20 pushes / 60 refreshes per day globally —
+refreshes per day per IP, 20 pushes / 60 refreshes per day globally
+(the real client IP comes from the `X-Forwarded-For` header: behind
+the Cloudflare Tunnel the TCP peer is always cloudflared on
+127.0.0.1, so without it per-IP limits would be global) —
 and the fact that these endpoints can only send to the owner's
 Feishu/Bark and fetch public market data. CORS allows only
 `https://mon.infidea.app`.
