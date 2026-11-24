@@ -37,7 +37,7 @@ if git diff --cached --quiet; then
   echo "PUSH_OK (nothing new to commit)"
   exit 0
 fi
-if git commit -m "chore: update dashboard data (vps)" >/dev/null 2>&1; then
+if git commit -m "chore: update dashboard data ($(hostname -s))" >/dev/null 2>&1; then
   if git push; then
     echo "PUSH_OK"
   else
