@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-11-24T07:27:00Z",
+  "updated_at_utc": "2026-11-24T14:47:31Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
@@ -8,8 +8,8 @@
     "yahoo": {
       "ok": true,
       "last_error": null,
-      "last_failed_at_utc": "2026-11-24T07:26:59Z",
-      "last_ok_at_utc": "2026-11-24T07:27:00Z"
+      "last_failed_at_utc": "2026-11-24T14:47:29Z",
+      "last_ok_at_utc": "2026-11-24T14:47:31Z"
     },
     "fred": {
       "ok": true,
@@ -26,15 +26,15 @@
       "date": "2026-11-24",
       "threshold": "-",
       "change": "Yahoo Finance（VIX / VVIX / SKEW / MOVE / 标普 500 / 期限结构）",
-      "last_sent_at_utc": "2026-11-24T07:26:59Z",
+      "last_sent_at_utc": "2026-11-24T14:47:29Z",
       "last_sent_value": "^VIX: HTTP Error 429: Too Many Requests",
       "channels": {
         "feishu": {
-          "last_sent_at_utc": "2026-11-24T07:26:59Z",
+          "last_sent_at_utc": "2026-11-24T14:47:29Z",
           "last_sent_value": "^VIX: HTTP Error 429: Too Many Requests"
         },
         "bark": {
-          "last_sent_at_utc": "2026-11-24T07:26:59Z",
+          "last_sent_at_utc": "2026-11-24T14:47:29Z",
           "last_sent_value": "^VIX: HTTP Error 429: Too Many Requests"
         }
       }
