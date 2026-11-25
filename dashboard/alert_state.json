@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-11-25T14:34:16Z",
+  "updated_at_utc": "2026-11-25T14:40:30Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
@@ -9,21 +9,21 @@
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T14:34:16Z",
+      "last_ok_at_utc": "2026-11-25T14:40:30Z",
       "provider": "fred_api"
     },
     "equities": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T14:34:16Z",
+      "last_ok_at_utc": "2026-11-25T14:40:30Z",
       "provider": "cboe+futu"
     },
     "move": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T14:34:16Z",
+      "last_ok_at_utc": "2026-11-25T14:40:30Z",
       "provider": "yahoo_cffi"
     }
   },
@@ -62,10 +62,10 @@
     "vix": {
       "level": "normal",
       "level_label": "正常",
-      "value": 32.52,
+      "value": 33.36,
       "date": "2026-11-25",
       "threshold": 35,
-      "change": "+23.37% vs 2026-11-24",
+      "change": "+26.56% vs 2026-11-24",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -82,10 +82,10 @@
     "vvix": {
       "level": "normal",
       "level_label": "正常",
-      "value": 125.92,
+      "value": 126.63,
       "date": "2026-11-25",
       "threshold": 140,
-      "change": "+10.39% vs 2026-11-24",
+      "change": "+11.01% vs 2026-11-24",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -162,7 +162,7 @@
     "cross": {
       "level": "normal",
       "level_label": "正常",
-      "value": 32.52,
+      "value": 33.36,
       "date": "2026-11-25",
       "threshold": 30,
       "change": "-",
