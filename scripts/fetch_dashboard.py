@@ -873,8 +873,47 @@ def main():
         send_manual_push("status", cached, channels=channels)
         return
 
+    # Per-symbol stale fallback (added 2026-11-25): a single Yahoo
+    # symbol failing (e.g. ^MOVE 429) used to abort the whole run and
+    # throw away the fresh Futu closes. Now a failed symbol falls back
+    # to its own history from the previous data.json, the run continues
+    # with the other fresh values, and the failed keys are listed in
+    # payload["stale_indicators"] and reported via a fetch-failure
+    # alert (24h dedup). Only a first run with no previous data to
+    # fall back to still fails hard.
+    prev_payload = None
+    if out_path.exists():
+        try:
+            prev_payload = json.loads(out_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            prev_payload = None
+
+    def prev_pairs(key):
+        if not prev_payload:
+            return None
+        if key in ("vix1d", "vix9d", "vix3m", "vix6m"):
+            ts = prev_payload.get("term_structure") or {}
+            if ts.get(key) is not None and ts.get("date"):
+                return [{"date": ts["date"], "value": ts[key]}]
+            return None
+        if key == "spx":
+            ind = prev_payload.get("spx") or {}
+        else:
+            ind = (prev_payload.get("indicators") or {}).get(key) or {}
+        hist = ind.get("history") or []
+        if len(hist) >= 2:
+            return [{"date": h["date"], "value": h["value"]}
+                    for h in hist]
+        if (ind.get("value") is not None
+                and ind.get("prev_close") is not None
+                and ind.get("date") and ind.get("prev_date")):
+            return [{"date": ind["prev_date"], "value": ind["prev_close"]},
+                    {"date": ind["date"], "value": ind["value"]}]
+        return None
+
     pairs = {}
     futu_used = []
+    failed_keys = []
     for key, symbol in YAHOO_SYMBOLS.items():
         if FUTU_ENABLED and key in FUTU_SYMBOLS:
             try:
@@ -887,41 +926,39 @@ def main():
         try:
             pairs[key] = fetch_yahoo(symbol)
         except Exception as exc:
-            # Yahoo 429s shared Actions-runner IPs. If we already have a
-            # good data.json, keep it and exit 0 — the dashboard keeps
-            # showing the last good close (with its date) instead of
-            # failing the run. Only fail hard on a first run with no
-            # previous data to fall back to.
+            # Yahoo 429s shared Actions-runner / datacenter IPs.
             print("ERROR fetching %s: %s" % (symbol, exc), file=sys.stderr)
-            if out_path.exists():
-                print("Keeping previous data.json; exiting 0.",
+            fallback = prev_pairs(key)
+            if fallback is not None:
+                pairs[key] = fallback
+                failed_keys.append(key)
+                print("  %s: using previous data.json values "
+                      "(date %s)" % (key, fallback[-1]["date"]),
                       file=sys.stderr)
-                # Alert the user that the data could not be fetched, so
-                # they can adjust in time (24h dedup per channel).
+            elif out_path.exists():
+                # No usable previous value for this symbol: keep the
+                # old whole-file behaviour (alert on stale data, exit 0).
                 _now = dt.datetime.now(dt.timezone.utc)
                 record_fetch_failure(
                     "yahoo", "%s: %s" % (symbol, exc),
                     state_path, _now)
-                # Still evaluate alerts on the last known closes, so
-                # alert_state.json (including channels_configured, which
-                # the dashboard displays) stays accurate even when
-                # Yahoo is rate-limiting us. Dedup prevents re-sends.
                 try:
-                    prev_payload = json.loads(
+                    prev_payload2 = json.loads(
                         out_path.read_text(encoding="utf-8"))
                     now_utc = dt.datetime.now(dt.timezone.utc)
                     new_state, sent = process_alerts(
-                        prev_payload, state_path, now_utc, hy_stale=True)
+                        prev_payload2, state_path, now_utc, hy_stale=True)
                     print("Wrote %s (stale-data alert check, sent: %s)"
                           % (state_path, sent or "none"))
                     if mode == "status":
-                        send_manual_push("status", prev_payload, stale=True,
+                        send_manual_push("status", prev_payload2, stale=True,
                                          channels=channels)
                 except Exception as exc2:  # noqa: BLE001
                     print("WARNING stale-data alert check failed: %s"
                           % (exc2,), file=sys.stderr)
                 return
-            sys.exit(1)
+            else:
+                sys.exit(1)
         time.sleep(1)  # don't burst 9 requests at Yahoo in 3 seconds
 
     try:
@@ -987,6 +1024,7 @@ def main():
         "updated_at_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updated_at_beijing": beijing.strftime("%Y-%m-%d %H:%M Beijing"),
         "source": source_text,
+        "stale_indicators": failed_keys,
         "market_status": "computed in browser from US ET time",
         "indicators": {
             "vix": indicator(pairs["vix"]),
@@ -1031,6 +1069,16 @@ def main():
 
     new_state, sent = process_alerts(payload, state_path, now_utc,
                                      hy_stale=hy_stale)
+    if failed_keys:
+        # process_alerts marks the Yahoo source healthy (it ran to
+        # completion); re-record the per-symbol failure afterwards so
+        # the dashboard keeps showing it until the source recovers,
+        # and the user gets the fetch-failure alert (24h dedup).
+        record_fetch_failure(
+            "yahoo", "failed symbols (kept previous values): %s"
+            % ", ".join(failed_keys), state_path,
+            dt.datetime.now(dt.timezone.utc))
+        print("  stale indicators this run: %s" % (failed_keys,))
     print("Wrote %s" % (state_path,))
     print("  channels configured: feishu=%s bark=%s"
           % (new_state["channels_configured"]["feishu"],
