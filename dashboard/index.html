@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>实时监控仪表盘 · 市场波动与信用监控</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,120 +12,152 @@
   :root {
     --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    
-    /* 亮色模式：现代高对比克制纸材质感 */
-    --bg: #f8fafc;
-    --bg-mesh: radial-gradient(at 0% 0%, rgba(226, 232, 240, 0.6) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(219, 234, 254, 0.45) 0px, transparent 50%);
+
+    /* 亮色主题：克制清爽的高对比金融纸面系统 */
+    --bg: #f5f7fb;
+    --bg-mesh:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(59, 130, 246, 0.08), transparent 60%),
+      radial-gradient(ellipse 70% 45% at 92% -5%, rgba(99, 102, 241, 0.07), transparent 55%);
     --surface: #ffffff;
-    --surface2: #f1f5f9;
-    --surface3: #e2e8f0;
-    --border: #e2e8f0;
-    --border-hover: #cbd5e1;
+    --surface-elevated: #ffffff;
+    --surface2: #f1f4f9;
+    --surface3: #e4e9f2;
+    --border: #e3e8f0;
+    --border-subtle: #edf1f7;
+    --border-hover: #c9d3e3;
+    --specular: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
     --text: #0f172a;
+    --text-secondary: #334155;
     --text-muted: #64748b;
     --text-dim: #94a3b8;
-    
-    --accent: #3b82f6;
-    --accent-glow: rgba(59, 130, 246, 0.15);
-    
-    --green: #10b981;
+
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.09);
+    --accent-border: rgba(37, 99, 235, 0.24);
+    --accent-glow: rgba(37, 99, 235, 0.16);
+
+    --green: #059669;
+    --green-solid: #10b981;
     --green-bg: #ecfdf5;
     --green-border: #a7f3d0;
     --green-text: #065f46;
-    
-    --amber: #f59e0b;
+
+    --amber: #d97706;
+    --amber-solid: #f59e0b;
     --amber-bg: #fffbeb;
     --amber-border: #fde68a;
     --amber-text: #92400e;
-    
-    --orange: #f97316;
+
+    --orange: #ea580c;
+    --orange-solid: #f97316;
     --orange-bg: #fff7ed;
     --orange-border: #fed7aa;
     --orange-text: #9a3412;
-    
-    --red: #ef4444;
+
+    --red: #dc2626;
+    --red-solid: #ef4444;
     --red-bg: #fef2f2;
     --red-border: #fecaca;
     --red-text: #991b1b;
-    
-    --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 10px 25px -5px rgba(15, 23, 42, 0.04);
-    --card-shadow-hover: 0 10px 30px -4px rgba(15, 23, 42, 0.10), 0 4px 6px -2px rgba(15, 23, 42, 0.05);
-    --nav-bg: rgba(255, 255, 255, 0.86);
 
-    /* 亮色主题下的 Hero 综合研判卡片 */
-    --hero-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #f1f5f9 100%);
-    --hero-border: #e2e8f0;
+    --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -6px rgba(15, 23, 42, 0.05);
+    --card-shadow-hover: 0 4px 10px rgba(15, 23, 42, 0.06), 0 18px 36px -8px rgba(15, 23, 42, 0.10);
+    --nav-bg: rgba(255, 255, 255, 0.82);
+    --nav-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 10px 28px -8px rgba(15, 23, 42, 0.07);
+
+    /* 亮色模式 Hero 综合研判卡片 */
+    --hero-bg: linear-gradient(145deg, #ffffff 0%, #fafcff 58%, #f3f6fc 100%);
+    --hero-border: #dfe6f2;
+    --hero-shadow: 0 2px 6px rgba(15, 23, 42, 0.04), 0 16px 40px -12px rgba(15, 23, 42, 0.08);
     --hero-text: #0f172a;
     --hero-desc: #475569;
     --hero-eyebrow: #2563eb;
-    --hero-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
     --hero-strip-bg: #ffffff;
     --hero-strip-border: #e2e8f0;
-    --hero-strip-text: #0f172a;
-    --hero-strip-hover-bg: #f8fafc;
-    --hero-panel-bg: rgba(255, 255, 255, 0.85);
-    --hero-panel-border: #e2e8f0;
-    --hero-panel-title: #64748b;
+    --hero-strip-hover: #f8fafc;
+    --hero-panel-bg: rgba(248, 250, 253, 0.85);
+    --hero-panel-border: #e4eaf3;
     --hero-meta-label: #64748b;
     --hero-meta-val: #0f172a;
+    --chart-grid: rgba(15, 23, 42, 0.07);
+    --tooltip-bg: #0f172a;
+    --tooltip-text: #f8fafc;
+    color-scheme: light;
   }
 
   [data-theme="dark"] {
-    /* 暗色模式：深邃金融终端黑钛质感 */
-    --bg: #090d16;
-    --bg-mesh: radial-gradient(at 0% 0%, rgba(15, 23, 42, 0.8) 0px, transparent 60%), radial-gradient(at 100% 0%, rgba(30, 27, 75, 0.5) 0px, transparent 60%);
-    --surface: #111827;
-    --surface2: #162032;
-    --surface3: #1f2d45;
+    /* 暗色主题：深邃黑钛量化终端系统 */
+    --bg: #070b12;
+    --bg-mesh:
+      radial-gradient(ellipse 80% 50% at 15% -10%, rgba(56, 189, 248, 0.09), transparent 55%),
+      radial-gradient(ellipse 70% 45% at 88% -8%, rgba(99, 102, 241, 0.11), transparent 55%);
+    --surface: #0e1422;
+    --surface-elevated: #131b2e;
+    --surface2: #141c2e;
+    --surface3: #1d2840;
     --border: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(255, 255, 255, 0.18);
-    --text: #f8fafc;
-    --text-muted: #94a3b8;
-    --text-dim: #64748b;
-    
-    --accent: #60a5fa;
-    --accent-glow: rgba(96, 165, 250, 0.25);
-    
-    --green: #34d399;
-    --green-bg: rgba(16, 185, 129, 0.14);
-    --green-border: rgba(16, 185, 129, 0.32);
-    --green-text: #a7f3d0;
-    
-    --amber: #fbbf24;
-    --amber-bg: rgba(245, 158, 11, 0.14);
-    --amber-border: rgba(245, 158, 11, 0.32);
-    --amber-text: #fde68a;
-    
-    --orange: #fb923c;
-    --orange-bg: rgba(249, 115, 22, 0.15);
-    --orange-border: rgba(249, 115, 22, 0.32);
-    --orange-text: #fed7aa;
-    
-    --red: #f87171;
-    --red-bg: rgba(239, 68, 68, 0.16);
-    --red-border: rgba(239, 68, 68, 0.35);
-    --red-text: #fecaca;
-    
-    --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
-    --card-shadow-hover: 0 12px 35px -4px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12);
-    --nav-bg: rgba(17, 24, 39, 0.88);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border-hover: rgba(255, 255, 255, 0.16);
+    --specular: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
-    /* 暗色主题下的 Hero 综合研判卡片 */
-    --hero-bg: linear-gradient(135deg, #090e17 0%, #131b2b 50%, #181433 100%);
-    --hero-border: rgba(255, 255, 255, 0.10);
-    --hero-text: #ffffff;
-    --hero-desc: #cbd5e1;
+    --text: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #8b9bb4;
+    --text-dim: #5e6f89;
+
+    --accent: #60a5fa;
+    --accent-soft: rgba(96, 165, 250, 0.13);
+    --accent-border: rgba(96, 165, 250, 0.30);
+    --accent-glow: rgba(96, 165, 250, 0.24);
+
+    --green: #34d399;
+    --green-solid: #10b981;
+    --green-bg: rgba(16, 185, 129, 0.13);
+    --green-border: rgba(52, 211, 153, 0.28);
+    --green-text: #a7f3d0;
+
+    --amber: #fbbf24;
+    --amber-solid: #f59e0b;
+    --amber-bg: rgba(245, 158, 11, 0.13);
+    --amber-border: rgba(251, 191, 36, 0.28);
+    --amber-text: #fde68a;
+
+    --orange: #fb923c;
+    --orange-solid: #f97316;
+    --orange-bg: rgba(249, 115, 22, 0.14);
+    --orange-border: rgba(251, 146, 60, 0.30);
+    --orange-text: #fed7aa;
+
+    --red: #f87171;
+    --red-solid: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.15);
+    --red-border: rgba(248, 113, 113, 0.32);
+    --red-text: #fecaca;
+
+    --card-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 14px 32px -8px rgba(0, 0, 0, 0.50);
+    --card-shadow-hover: 0 6px 14px rgba(0, 0, 0, 0.45), 0 22px 44px -10px rgba(0, 0, 0, 0.72);
+    --nav-bg: rgba(12, 18, 30, 0.82);
+    --nav-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+
+    /* 暗色模式 Hero 综合研判卡片 */
+    --hero-bg: linear-gradient(145deg, #0d1424 0%, #111a2e 55%, #161830 100%);
+    --hero-border: rgba(255, 255, 255, 0.09);
+    --hero-shadow: 0 18px 48px -12px rgba(0, 0, 0, 0.65);
+    --hero-text: #f8fafc;
+    --hero-desc: #b8c5d9;
     --hero-eyebrow: #93c5fd;
-    --hero-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.45);
-    --hero-strip-bg: rgba(255, 255, 255, 0.08);
-    --hero-strip-border: rgba(255, 255, 255, 0.14);
-    --hero-strip-text: #f1f5f9;
-    --hero-strip-hover-bg: rgba(255, 255, 255, 0.16);
-    --hero-panel-bg: rgba(15, 23, 42, 0.65);
-    --hero-panel-border: rgba(255, 255, 255, 0.12);
-    --hero-panel-title: #94a3b8;
-    --hero-meta-label: #94a3b8;
-    --hero-meta-val: #f8fafc;
+    --hero-strip-bg: rgba(255, 255, 255, 0.045);
+    --hero-strip-border: rgba(255, 255, 255, 0.10);
+    --hero-strip-hover: rgba(255, 255, 255, 0.09);
+    --hero-panel-bg: rgba(8, 12, 22, 0.56);
+    --hero-panel-border: rgba(255, 255, 255, 0.09);
+    --hero-meta-label: #8b9bb4;
+    --hero-meta-val: #f1f5f9;
+    --chart-grid: rgba(255, 255, 255, 0.06);
+    --tooltip-bg: #f8fafc;
+    --tooltip-text: #0f172a;
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
@@ -132,131 +165,160 @@
   body {
     margin: 0;
     font-family: var(--font-sans);
-    background: var(--bg);
+    background-color: var(--bg);
     background-image: var(--bg-mesh);
     background-attachment: fixed;
     color: var(--text);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.25s ease, color 0.25s ease;
+    transition: background-color .25s ease, color .25s ease;
   }
 
   a { color: var(--accent); text-decoration: none; transition: color .15s ease; }
-  a:hover { text-decoration: underline; }
+  a:hover { text-decoration: none; }
+  button { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* 宽屏响应式容器：在宽屏显示器上充分铺开 (最高 1720px，95% 屏幕宽) */
+  /* 宽屏自适应容器 */
   .wrap {
-    max-width: 1720px;
-    width: 95%;
+    max-width: 1740px;
+    width: 96%;
     margin: 0 auto;
-    padding: 16px 20px 80px;
+    padding: 14px 16px 76px;
   }
 
-  /* ---- 顶部导航栏 (Glassmorphism Sticky Bar) ---- */
+  /* ---- 顶部极简毛玻璃导航栏 (Single-Row Desktop) ---- */
   .nav-bar {
     position: sticky;
-    top: 12px;
-    z-index: 50;
+    top: 10px;
+    z-index: 60;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
     background: var(--nav-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 10px 18px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-    margin-bottom: 24px;
-    transition: border-color .2s ease, box-shadow .2s ease;
+    padding: 8px 14px;
+    box-shadow: var(--nav-shadow), var(--specular);
+    margin-bottom: 22px;
+    transition: border-color .2s ease, box-shadow .2s ease, background-color .25s ease;
   }
+
   .nav-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    min-width: 0;
+    flex-wrap: wrap;
   }
   .brand-badge {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     font-weight: 800;
-    font-size: 16px;
-    letter-spacing: -0.02em;
+    font-size: 15px;
+    letter-spacing: -0.025em;
     color: var(--text);
-    text-decoration: none;
+    white-space: nowrap;
   }
   .brand-icon {
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    display: flex;
-    align-items:center;
-    justify-content:center;
+    background: linear-gradient(135deg, #2563eb 0%, #6366f1 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255,255,255,0.28);
+    flex: none;
   }
   .brand-tag {
-    font-size: 11px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
     font-weight: 700;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 6px;
-    background: var(--accent-glow);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
     color: var(--accent);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .nav-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 2px;
+    flex: none;
   }
 
-  /* 顶部子页面导航菜单 */
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 6px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
+    gap: 2px;
+    padding: 2px;
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
   }
   .nav-links a {
     display: inline-flex;
     align-items: center;
-    font-size: 13px;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--text-muted);
-    padding: 5px 10px;
-    border-radius: 8px;
-    transition: all .15s ease;
+    border-radius: 7px;
+    white-space: nowrap;
+    transition: color .15s ease, background-color .15s ease, box-shadow .15s ease;
   }
   .nav-links a:hover {
     color: var(--text);
-    background: var(--surface2);
-    text-decoration: none;
+    background: var(--surface);
   }
   .nav-links a.active {
-    color: var(--accent);
-    background: var(--accent-glow);
+    color: var(--text);
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  }
+  [data-theme="dark"] .nav-links a.active {
+    background: var(--surface3);
+    color: #fff;
   }
 
   .nav-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     flex-wrap: wrap;
   }
 
-  /* 通用药丸状态徽章 */
+  /* 统一 32px 高度的状态药丸与控制按钮 */
   .pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 11px;
+    height: 32px;
+    padding: 0 11px;
     border-radius: 999px;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1;
     border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .pill-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: .75;
+    font-weight: 500;
   }
   .pulse-dot {
     width: 7px;
@@ -264,14 +326,21 @@
     border-radius: 50%;
     background: currentColor;
     flex: none;
+    position: relative;
   }
   .pill.open {
     background: var(--green-bg);
-    color: var(--green);
+    color: var(--green-text);
     border-color: var(--green-border);
   }
-  .pill.open .pulse-dot {
-    animation: pulse 1.8s infinite;
+  .pill.open .pulse-dot::after,
+  .pill.live .pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    animation: ring-pulse 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
   }
   .pill.closed {
     background: var(--surface2);
@@ -280,243 +349,989 @@
   }
   .pill.live {
     background: var(--green-bg);
-    color: var(--green);
+    color: var(--green-text);
     border-color: var(--green-border);
   }
   .pill.snapshot {
     background: var(--amber-bg);
-    color: var(--amber);
+    color: var(--amber-text);
     border-color: var(--amber-border);
   }
+
+  @keyframes ring-pulse {
+    0% { transform: scale(0.7); opacity: 0.9; }
+    100% { transform: scale(2.0); opacity: 0; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .spinning { animation: spin .75s linear infinite; }
+
+  /* 环形倒计时胶囊 */
   .timer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 999px;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--text-muted);
     background: var(--surface2);
     border: 1px solid var(--border);
-    padding: 4px 10px;
-    border-radius: 999px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .timer-ring {
+    width: 14px;
+    height: 14px;
+    transform: rotate(-90deg);
+    flex: none;
+  }
+  .timer-ring-bg {
+    fill: none;
+    stroke: var(--border-hover);
+    stroke-width: 2.2;
+  }
+  .timer-ring-fg {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    transition: stroke-dashoffset .35s linear;
   }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.35; transform: scale(0.85); }
-  }
-
-  /* 控制按钮 */
   .btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--surface);
-    color: var(--text);
-    border-radius: 999px;
-    padding: 5px 13px;
-    font-size: 13px;
+    color: var(--text-secondary);
+    font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    text-decoration: none;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     transition: all .15s ease;
   }
   .btn:hover {
-    border-color: var(--accent);
+    border-color: var(--accent-border);
     color: var(--accent);
-    transform: translateY(-1px);
-    text-decoration: none;
+    background: var(--accent-soft);
   }
-  .btn:active { transform: translateY(0); }
+  .btn:active { transform: scale(0.98); }
   .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-  .btn-primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-  .btn-primary:hover {
-    filter: brightness(1.1);
-    color: #fff;
-  }
+  .btn svg { flex: none; }
 
-  /* ---- 综合研判 HERO：宽屏双栏 Executive Dashboard 风格 ---- */
+  /* ---- Executive Hero 综合研判卡片 ---- */
   .hero {
     position: relative;
     overflow: hidden;
     background: var(--hero-bg);
     border: 1px solid var(--hero-border);
-    border-radius: 24px;
-    padding: 28px 32px;
+    border-radius: 22px;
+    padding: 26px 30px 24px;
     color: var(--hero-text);
-    box-shadow: var(--hero-shadow);
-    margin-bottom: 32px;
-    transition: background .25s ease, border-color .3s ease, color .25s ease, box-shadow .25s ease;
+    box-shadow: var(--hero-shadow), var(--specular);
+    margin-bottom: 28px;
+    transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
+    --hero-accent: var(--accent);
+    --hero-glow: rgba(59, 130, 246, 0.14);
+  }
+  /* 精致顶部 3px 渐变光带（取代畸变的厚 border-left） */
+  .hero::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--hero-accent) 0%, transparent 72%);
+    pointer-events: none;
   }
   .hero::before {
     content: "";
     position: absolute;
-    top: -80px;
-    right: -80px;
-    width: 320px;
-    height: 320px;
+    top: -120px;
+    right: -60px;
+    width: 420px;
+    height: 340px;
     border-radius: 50%;
-    background: radial-gradient(circle, var(--hero-glow, rgba(59, 130, 246, 0.16)) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--hero-glow) 0%, transparent 68%);
     pointer-events: none;
     transition: background .4s ease;
   }
-  .hero.hero-green { --hero-glow: rgba(16, 185, 129, 0.16); border-left: 6px solid #10b981; }
-  .hero.hero-amber { --hero-glow: rgba(245, 158, 11, 0.16); border-left: 6px solid #f59e0b; }
-  .hero.hero-orange { --hero-glow: rgba(249, 115, 22, 0.18); border-left: 6px solid #f97316; }
-  .hero.hero-red { --hero-glow: rgba(239, 68, 68, 0.20); border-left: 6px solid #ef4444; }
-
-  [data-theme="dark"] .hero.hero-green { --hero-glow: rgba(16, 185, 129, 0.28); }
-  [data-theme="dark"] .hero.hero-amber { --hero-glow: rgba(245, 158, 11, 0.28); }
-  [data-theme="dark"] .hero.hero-orange { --hero-glow: rgba(249, 115, 22, 0.32); }
-  [data-theme="dark"] .hero.hero-red { --hero-glow: rgba(239, 68, 68, 0.36); }
+  .hero.hero-green  { --hero-accent: #10b981; --hero-glow: rgba(16, 185, 129, 0.12); }
+  .hero.hero-amber  { --hero-accent: #f59e0b; --hero-glow: rgba(245, 158, 11, 0.13); }
+  .hero.hero-orange { --hero-accent: #f97316; --hero-glow: rgba(249, 115, 22, 0.14); }
+  .hero.hero-red    { --hero-accent: #ef4444; --hero-glow: rgba(239, 68, 68, 0.15); }
+  [data-theme="dark"] .hero.hero-green  { --hero-glow: rgba(16, 185, 129, 0.22); }
+  [data-theme="dark"] .hero.hero-amber  { --hero-glow: rgba(245, 158, 11, 0.20); }
+  [data-theme="dark"] .hero.hero-orange { --hero-glow: rgba(249, 115, 22, 0.24); }
+  [data-theme="dark"] .hero.hero-red    { --hero-glow: rgba(239, 68, 68, 0.28); }
 
   .hero-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 22px;
     align-items: center;
   }
-  @media (min-width: 1024px) {
+  @media (min-width: 1100px) {
     .hero-grid {
-      grid-template-columns: 1.6fr 1fr;
-      gap: 36px;
+      grid-template-columns: 1.65fr 1fr;
+      gap: 32px;
     }
   }
 
+  .hero-top-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
   .hero-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    font-size: 11.5px;
-    letter-spacing: .14em;
+    gap: 7px;
+    font-size: 11px;
+    letter-spacing: .13em;
     text-transform: uppercase;
     font-weight: 700;
     color: var(--hero-eyebrow);
-    margin-bottom: 8px;
   }
+
+  /* 4 档风险光谱仪 (Risk Spectrum Bar) */
+  .risk-spectrum {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .rs-step {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    color: var(--text-dim);
+    transition: all .2s ease;
+    line-height: 1.4;
+  }
+  .rs-step.active-green  { background: var(--green-bg);  color: var(--green-text);  box-shadow: inset 0 0 0 1px var(--green-border); }
+  .rs-step.active-amber  { background: var(--amber-bg);  color: var(--amber-text);  box-shadow: inset 0 0 0 1px var(--amber-border); }
+  .rs-step.active-orange { background: var(--orange-bg); color: var(--orange-text); box-shadow: inset 0 0 0 1px var(--orange-border); }
+  .rs-step.active-red    { background: var(--red-bg);    color: var(--red-text);    box-shadow: inset 0 0 0 1px var(--red-border); }
+
   .hero h1 {
-    font-size: 28px;
+    font-size: clamp(22px, 2vw, 28px);
     font-weight: 800;
-    letter-spacing: -0.02em;
-    margin: 0 0 10px;
+    letter-spacing: -0.025em;
+    margin: 0 0 8px;
     color: var(--hero-text);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
+    line-height: 1.25;
   }
   .verdict-tag {
-    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
     font-weight: 700;
-    padding: 3px 12px;
+    padding: 3px 11px;
     border-radius: 999px;
-    vertical-align: middle;
     border: 1px solid transparent;
+    letter-spacing: 0;
   }
-  .verdict-tag.b-green { background: var(--green-bg); color: var(--green-text); border-color: var(--green-border); }
-  .verdict-tag.b-amber { background: var(--amber-bg); color: var(--amber-text); border-color: var(--amber-border); }
+  .verdict-tag::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .verdict-tag.b-green  { background: var(--green-bg);  color: var(--green-text);  border-color: var(--green-border); }
+  .verdict-tag.b-amber  { background: var(--amber-bg);  color: var(--amber-text);  border-color: var(--amber-border); }
   .verdict-tag.b-orange { background: var(--orange-bg); color: var(--orange-text); border-color: var(--orange-border); }
-  .verdict-tag.b-red { background: var(--red-bg); color: var(--red-text); border-color: var(--red-border); }
+  .verdict-tag.b-red    { background: var(--red-bg);    color: var(--red-text);    border-color: var(--red-border); }
 
   .hero-desc {
     color: var(--hero-desc);
-    font-size: 15px;
+    font-size: 14.5px;
     line-height: 1.6;
-    margin: 0 0 18px;
+    margin: 0 0 16px;
+    max-width: 78ch;
   }
 
-  /* 核心指标态势快捷跳转胶囊排 */
+  /* 5 指标紧凑快照胶囊条 */
   .quick-strips {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     align-items: center;
+  }
+  .strip-caption {
+    font-size: 11.5px;
+    color: var(--hero-meta-label);
+    font-weight: 700;
+    margin-right: 2px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
   .strip-item {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: var(--hero-strip-bg);
     border: 1px solid var(--hero-strip-border);
     border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 12.5px;
-    color: var(--hero-strip-text);
-    text-decoration: none;
-    transition: all .15s ease;
+    padding: 3.5px 9px 3.5px 8px;
+    font-size: 12px;
+    color: var(--hero-text);
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+    transition: all .15s ease;
+    white-space: nowrap;
   }
   .strip-item:hover {
-    background: var(--hero-strip-hover-bg);
-    border-color: var(--accent);
-    color: var(--accent);
-    text-decoration: none;
+    background: var(--hero-strip-hover);
+    border-color: var(--accent-border);
     transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.07);
+  }
+  .strip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: none;
+  }
+  .strip-dot.b-green  { background: var(--green-solid); }
+  .strip-dot.b-amber  { background: var(--amber-solid); }
+  .strip-dot.b-orange { background: var(--orange-solid); }
+  .strip-dot.b-red    { background: var(--red-solid); }
+  .strip-name {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 11.5px;
   }
   .strip-val {
     font-family: var(--font-mono);
     font-weight: 700;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
   }
   .strip-state {
-    font-weight: 600;
-    font-size: 11px;
+    font-weight: 700;
+    font-size: 10.5px;
     padding: 1px 6px;
-    border-radius: 4px;
+    border-radius: 5px;
   }
 
-  /* 右侧系统与同步看板 (Hero Right Card) */
+  /* 右侧系统遥测面板 */
   .hero-panel {
     background: var(--hero-panel-bg);
     border: 1px solid var(--hero-panel-border);
-    border-radius: 18px;
-    padding: 18px 20px;
+    border-radius: 16px;
+    padding: 16px 18px;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
   .panel-title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: var(--hero-panel-title);
-    margin-bottom: 12px;
+    color: var(--hero-meta-label);
+    margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
+  }
+  .panel-title-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
   .meta-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
+    gap: 10px;
+    font-size: 12.5px;
     padding: 7px 0;
     border-bottom: 1px solid var(--hero-panel-border);
   }
-  .meta-row:last-child { border-bottom: none; }
-  .meta-label { color: var(--hero-meta-label); }
-  .meta-val { color: var(--hero-meta-val); font-weight: 600; text-align: right; }
-  .meta-val.mono { font-family: var(--font-mono); }
-  .status-tag {
+  .meta-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .meta-label { color: var(--hero-meta-label); font-weight: 500; white-space: nowrap; }
+  .meta-val {
+    color: var(--hero-meta-val);
+    font-weight: 600;
+    text-align: right;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .meta-val.mono { font-family: var(--font-mono); font-size: 12px; }
+  .mini-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+  }
+  .mini-chip.ok {
+    background: var(--green-bg);
+    color: var(--green-text);
+    border-color: var(--green-border);
+  }
+  .mini-chip.err {
+    background: var(--red-bg);
+    color: var(--red-text);
+    border-color: var(--red-border);
+  }
+  .mini-chip.off {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border-color: var(--border);
+  }
+  .mini-chip-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
   }
 
-  /* 预警推送专属按钮组 (置于标题后方) */
+  /* ---- 分区标题 ---- */
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin: 34px 0 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .section-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 3px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--text);
+  }
+  .section-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+  .section-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  /* ---- 五项核心指标网格 (宽屏 5 列平铺) ---- */
+  .grid-5 {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+  }
+  @media (max-width: 1420px) {
+    .grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  }
+  @media (max-width: 960px) {
+    .grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    .grid-5 { grid-template-columns: 1fr; }
+  }
+
+  /* ---- 指标卡片 (精工细节) ---- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 18px 15px;
+    box-shadow: var(--card-shadow), var(--specular);
+    transition: transform .2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow .2s ease, border-color .2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    --tone: var(--accent);
+    --tone-bg: var(--accent-soft);
+  }
+  .card.tone-green  { --tone: var(--green-solid);  --tone-bg: var(--green-bg); }
+  .card.tone-amber  { --tone: var(--amber-solid);  --tone-bg: var(--amber-bg); }
+  .card.tone-orange { --tone: var(--orange-solid); --tone-bg: var(--orange-bg); }
+  .card.tone-red    { --tone: var(--red-solid);    --tone-bg: var(--red-bg); }
+
+  /* 卡片顶部 2.5px 语义高光线 */
+  .card.has-tone::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+    background: linear-gradient(90deg, var(--tone) 0%, transparent 85%);
+    opacity: .9;
+    pointer-events: none;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover), var(--specular);
+    border-color: var(--border-hover);
+  }
+  .card.highlighted {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow), var(--card-shadow-hover);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .card-title-group { min-width: 0; }
+  .card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-title-group h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+  }
+  .card-title-group h3 a {
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .card-title-group h3 a:hover { color: var(--accent); }
+  .role-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+  }
+  .role-core {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .role-adv {
+    background: var(--surface2);
+    color: var(--text-muted);
+  }
+  .card-subtitle {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 语义状态徽章 */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    flex: none;
+  }
+  .badge::before {
+    content: "";
+    width: 5.5px;
+    height: 5.5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .b-green  { background: var(--green-bg);  color: var(--green-text);  border-color: var(--green-border); }
+  .b-amber  { background: var(--amber-bg);  color: var(--amber-text);  border-color: var(--amber-border); }
+  .b-orange { background: var(--orange-bg); color: var(--orange-text); border-color: var(--orange-border); }
+  .b-red    { background: var(--red-bg);    color: var(--red-text);    border-color: var(--red-border); }
+  .b-grey   { background: var(--surface2);  color: var(--text-muted);  border-color: var(--border); }
+
+  .t-green  { color: var(--green); }
+  .t-amber  { color: var(--amber); }
+  .t-orange { color: var(--orange); }
+  .t-red    { color: var(--red); }
+
+  /* 数值与变动区 */
+  .val-row { margin: 4px 0 10px; }
+  .value {
+    font-family: var(--font-mono);
+    font-size: clamp(30px, 2.25vw, 38px);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .value small {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    margin-left: 3px;
+    letter-spacing: 0;
+  }
+  .change-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 7px;
+  }
+  .prev-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+  .chip.up   { background: var(--red-bg);   color: var(--red-text);   border: 1px solid var(--red-border); }
+  .chip.down { background: var(--green-bg); color: var(--green-text); border: 1px solid var(--green-border); }
+  .chip.flat { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+
+  /* 动态读数精炼条 (Inset Accent Strip — 统一最小高度保证 5 列图表水平基线齐平) */
+  .reading-box {
+    margin-top: 8px;
+    padding: 8px 10px 8px 11px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--tone);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .grid-5 .reading-box {
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .reading-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .reading-body {
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  /* 交互式平滑 Sparkline (几何精准圆点 + 防裁剪浮层) */
+  .spark-box {
+    position: relative;
+    margin-top: 14px;
+    cursor: crosshair;
+  }
+  .spark-stage {
+    position: relative;
+    width: 100%;
+    height: 62px;
+  }
+  .spark-stage.tall {
+    height: 112px;
+  }
+  .spark-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+  }
+  .spark-line {
+    fill: none;
+    stroke: var(--spark-color, var(--accent));
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .spark-ref-line {
+    stroke: var(--border-hover);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    vector-effect: non-scaling-stroke;
+  }
+  /* HTML 绝对定位的几何正圆点，彻底告别 SVG 拉伸变椭圆！ */
+  .spark-dot-end {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--spark-color, var(--accent));
+    border: 2px solid var(--surface);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-shadow: 0 0 0 3px var(--spark-glow, var(--accent-soft));
+  }
+  .spark-hover-v {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    border-left: 1px dashed var(--text-dim);
+    pointer-events: none;
+    display: none;
+  }
+  .spark-hover-dot {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--spark-color, var(--accent));
+    border: 2px solid var(--surface);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    z-index: 4;
+  }
+  .spark-tooltip {
+    position: absolute;
+    top: -28px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    transform: translateX(-50%);
+    z-index: 12;
+    display: none;
+  }
+  .spark-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    font-family: var(--font-mono);
+  }
+
+  /* 精密分段阈值刻度尺 (Segmented Gauge) */
+  .scale-box {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .scalebar-wrap {
+    position: relative;
+    margin: 18px 0 4px;
+  }
+  .scalebar-segs {
+    display: flex;
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+    gap: 2px;
+  }
+  .scalebar-seg {
+    height: 100%;
+    border-radius: 2px;
+    opacity: .88;
+  }
+  .scalebar-seg.s-green  { background: var(--green-solid); }
+  .scalebar-seg.s-amber  { background: var(--amber-solid); }
+  .scalebar-seg.s-orange { background: var(--orange-solid); }
+  .scalebar-seg.s-red    { background: var(--red-solid); }
+
+  .markdot {
+    position: absolute;
+    top: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2.5px solid var(--text);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.30);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .markval {
+    position: absolute;
+    top: -19px;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 0 5px;
+    border-radius: 4px;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .scale-ticks {
+    position: relative;
+    height: 14px;
+    margin-top: 3px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-dim);
+  }
+  .scale-tick {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .scale-text {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 2px;
+    letter-spacing: -0.015em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-foot {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .tv-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: all .15s ease;
+    white-space: nowrap;
+  }
+  .tv-link:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
+  }
+
+  /* ---- 宽屏双栏：标普 500 背景 + VIX 期限结构曲线 ---- */
+  .grid-context {
+    display: grid;
+    grid-template-columns: 1fr 1.38fr;
+    gap: 18px;
+    align-items: stretch;
+  }
+  @media (max-width: 1080px) {
+    .grid-context { grid-template-columns: 1fr; }
+  }
+
+  .spx-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .spx-stat {
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .spx-stat-k {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .spx-stat-v {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 2px;
+  }
+
+  /* VIX 期限结构专业曲线图 */
+  .term-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+  }
+  .term-ratio-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 14px;
+  }
+  .ratio-gauge-wrap {
+    flex: 1;
+    min-width: 190px;
+    max-width: 300px;
+  }
+  .ratio-gauge-bar {
+    position: relative;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--green-solid) 0% 50%, var(--amber-solid) 50% 62.5%, var(--red-solid) 62.5% 100%);
+  }
+  .ratio-gauge-pin {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2.5px solid var(--text);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  }
+  .ratio-gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  .term-chart-wrap {
+    position: relative;
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 14px 14px 10px;
+  }
+  .term-svg {
+    width: 100%;
+    height: 190px;
+    display: block;
+    overflow: visible;
+  }
+  .term-tenor-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 34px;
+    padding-right: 12px;
+  }
+  .tenor-pill {
+    text-align: center;
+    padding: 5px 4px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all .15s ease;
+    cursor: default;
+  }
+  .tenor-pill:hover,
+  .tenor-pill.is-spot {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+  .tenor-pill.is-spot {
+    border-color: var(--accent-border);
+  }
+  .tenor-lbl {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .tenor-spread {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  /* ---- 预警状态监控中心 + 标题后飞书/Bark专属推送按钮 ---- */
   .title-with-actions {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     flex-wrap: wrap;
   }
   .push-btn-group {
@@ -526,41 +1341,44 @@
     flex-wrap: wrap;
   }
   .btn-push {
-    padding: 4px 12px;
-    font-size: 12.5px;
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
     font-weight: 700;
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     text-decoration: none;
+    cursor: pointer;
+    font-family: inherit;
     transition: all .18s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   }
+  .btn-push:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+  .btn-push svg { flex: none; }
   .btn-feishu {
-    background: #e6f9f6;
+    background: #e6faf6;
     color: #0f766e;
     border: 1px solid #99f6e4;
   }
   .btn-feishu:hover {
-    background: #0f766e;
+    background: #0d9488;
     color: #ffffff;
-    border-color: #0f766e;
-    box-shadow: 0 3px 10px rgba(15, 118, 110, 0.25);
-    text-decoration: none;
+    border-color: #0d9488;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.28);
     transform: translateY(-1px);
   }
   [data-theme="dark"] .btn-feishu {
-    background: rgba(15, 118, 110, 0.20);
+    background: rgba(20, 184, 166, 0.14);
     color: #2dd4bf;
-    border: 1px solid rgba(45, 212, 191, 0.35);
+    border: 1px solid rgba(45, 212, 191, 0.32);
   }
   [data-theme="dark"] .btn-feishu:hover {
     background: #14b8a6;
-    color: #ffffff;
+    color: #042f2e;
     border-color: #14b8a6;
-    box-shadow: 0 3px 12px rgba(20, 184, 166, 0.4);
-    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(20, 184, 166, 0.35);
     transform: translateY(-1px);
   }
 
@@ -573,509 +1391,120 @@
     background: #e11d48;
     color: #ffffff;
     border-color: #e11d48;
-    box-shadow: 0 3px 10px rgba(225, 29, 72, 0.25);
-    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.28);
     transform: translateY(-1px);
   }
   [data-theme="dark"] .btn-bark {
-    background: rgba(225, 29, 72, 0.20);
+    background: rgba(244, 63, 94, 0.14);
     color: #fb7185;
-    border: 1px solid rgba(251, 113, 133, 0.35);
+    border: 1px solid rgba(251, 113, 133, 0.32);
   }
   [data-theme="dark"] .btn-bark:hover {
     background: #f43f5e;
     color: #ffffff;
     border-color: #f43f5e;
-    box-shadow: 0 3px 12px rgba(244, 63, 94, 0.4);
-    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(244, 63, 94, 0.38);
     transform: translateY(-1px);
   }
-  .status-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 700;
-  }
 
-  /* ---- 分区标题 ---- */
-  .section-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin: 36px 0 18px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .section-eyebrow {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 4px;
-  }
-  .section-title {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    margin: 0;
-    color: var(--text);
-  }
-  .section-sub {
-    font-size: 13.5px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
-
-  /* ---- 宽屏核心指标网格 (5 列平铺) ---- */
-  .grid-5 {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 20px;
-  }
-  @media (max-width: 1440px) {
-    .grid-5 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 960px) {
-    .grid-5 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 600px) {
-    .grid-5 {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* ---- 指标卡片基础样式 (Card Design) ---- */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 20px 22px;
-    box-shadow: var(--card-shadow);
-    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    position: relative;
-    overflow: hidden;
-  }
-  .card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--card-shadow-hover);
-    border-color: var(--border-hover);
-  }
-  .card.highlighted {
-    outline: 2px solid var(--accent);
-    box-shadow: 0 0 25px var(--accent-glow);
-  }
-
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .card-title-group h3 {
-    margin: 0;
-    font-size: 19px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .card-title-group h3 a {
-    color: var(--text);
-  }
-  .card-title-group h3 a:hover {
-    color: var(--accent);
-    text-decoration: none;
-  }
-  .card-subtitle {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 2px;
-  }
-
-  /* 状态徽章 */
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11.5px;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 999px;
-    white-space: nowrap;
-    border: 1px solid transparent;
-  }
-  .badge::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    flex: none;
-  }
-  .b-green { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
-  .b-amber { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
-  .b-orange { background: var(--orange-bg); color: var(--orange); border-color: var(--orange-border); }
-  .b-red { background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
-  .b-grey { background: var(--surface2); color: var(--text-muted); border-color: var(--border); }
-
-  .t-green { color: var(--green); }
-  .t-amber { color: var(--amber); }
-  .t-orange { color: var(--orange); }
-  .t-red { color: var(--red); }
-
-  /* 主数值与涨跌行 */
-  .val-row {
-    margin: 6px 0 10px;
-  }
-  .value {
-    font-family: var(--font-mono);
-    font-size: 42px;
-    font-weight: 800;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-  }
-  .value small {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text-muted);
-    font-family: var(--font-sans);
-    margin-left: 2px;
-  }
-  .change-row {
-    font-size: 12.5px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 6px;
-  }
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-weight: 700;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    font-family: var(--font-mono);
-  }
-  .chip.up { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
-  .chip.down { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
-  .chip.flat { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
-
-  /* 动态读数行 (Readout Box) */
-  .reading-box {
-    margin-top: 10px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    font-size: 12.5px;
-    line-height: 1.45;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .reading-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: var(--text-muted);
-  }
-  .reading-body {
-    font-weight: 500;
-    color: var(--text);
-  }
-
-  /* 交互式 Sparkline */
-  .spark-box {
-    position: relative;
-    margin-top: 14px;
-    padding: 4px 0 0;
-  }
-  .spark-svg {
-    width: 100%;
-    height: 58px;
-    display: block;
-    overflow: visible;
-  }
-  .spark-line {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 2.2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .spark-latest-dot {
-    fill: var(--accent);
-    stroke: var(--surface);
-    stroke-width: 2;
-  }
-  .spark-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 5px;
-    font-family: var(--font-mono);
-  }
-  /* Sparkline 悬停浮层 */
-  .spark-tooltip {
-    position: absolute;
-    top: -24px;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: #0f172a;
-    color: #fff;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    pointer-events: none;
-    white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-    transform: translateX(-50%);
-    z-index: 10;
-    display: none;
-  }
-
-  /* 阈值刻度标尺 (Scalebar) */
-  .scale-box {
-    margin-top: 16px;
-    padding-top: 10px;
-    border-top: 1px dashed var(--border);
-  }
-  .scalebar-wrap {
-    position: relative;
-    margin: 18px 0 6px;
-  }
-  .scalebar {
-    height: 7px;
-    border-radius: 999px;
-  }
-  .markdot {
-    position: absolute;
-    top: 50%;
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    background: var(--surface);
-    border: 2.5px solid var(--text);
-    transform: translate(-50%, -50%);
-    box-shadow: 0 2px 6px rgba(0,0,0,.35);
-    pointer-events: none;
-  }
-  .markval {
-    position: absolute;
-    top: -19px;
-    transform: translateX(-50%);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text);
-    white-space: nowrap;
-    pointer-events: none;
-  }
-  .scale-text {
-    font-size: 11px;
-    color: var(--text-muted);
-    line-height: 1.4;
-  }
-
-  .card-foot {
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .tv-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: var(--text-muted);
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    transition: all .15s ease;
-  }
-  .tv-link:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-    text-decoration: none;
-  }
-
-  /* ---- 宽屏双栏：标普 500 背景 & VIX 期限结构 ---- */
-  .grid-context {
-    display: grid;
-    grid-template-columns: 1fr 1.35fr;
-    gap: 20px;
-    align-items: stretch;
-  }
-  @media (max-width: 1080px) {
-    .grid-context {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* 期限结构可视化条柱区 */
-  .term-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    height: 100%;
-  }
-  .term-kpi-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .term-bars-wrap {
-    display: flex;
-    align-items: flex-end;
-    gap: 12px;
-    height: 160px;
-    padding: 12px 10px 0;
-    margin: 10px 0;
-    position: relative;
-    background: var(--surface2);
-    border-radius: 14px;
-    border: 1px solid var(--border);
-  }
-  .term-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100%;
-    justify-content: flex-end;
-    position: relative;
-    z-index: 2;
-  }
-  .term-bar-fill {
-    width: 70%;
-    max-width: 48px;
-    border-radius: 6px 6px 0 0;
-    background: linear-gradient(180deg, var(--accent) 0%, rgba(59, 130, 246, 0.4) 100%);
-    transition: height .3s ease;
-  }
-  .term-col.is-spot .term-bar-fill {
-    background: linear-gradient(180deg, #ec4899 0%, #ef4444 100%);
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-  }
-  .term-val {
-    font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: 14px;
-    margin-bottom: 6px;
-    color: var(--text);
-  }
-  .term-lbl {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin-top: 8px;
-    padding-bottom: 6px;
-    white-space: nowrap;
-  }
-  .term-col.is-spot .term-lbl {
-    color: var(--text);
-    font-weight: 700;
-  }
-
-  /* 期限结构趋势连线 SVG 叠加 */
-  .term-curve-svg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 3;
-  }
-
-  /* ---- 报警状态监控中心 (Alerts Section) ---- */
   .alerts-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 24px;
-    box-shadow: var(--card-shadow);
+    padding: 20px 22px;
+    box-shadow: var(--card-shadow), var(--specular);
   }
   .alerts-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 20px;
+    gap: 12px;
+    margin-bottom: 18px;
   }
-  @media (max-width: 1100px) {
-    .alerts-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+  @media (max-width: 1120px) {
+    .alerts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 680px) {
-    .alerts-grid {
-      grid-template-columns: 1fr;
-    }
+    .alerts-grid { grid-template-columns: 1fr; }
   }
   .alert-box {
     background: var(--surface2);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 8px;
-    transition: all .15s ease;
+    gap: 9px;
+    transition: border-color .15s ease, transform .15s ease;
   }
   .alert-box:hover {
     border-color: var(--border-hover);
     transform: translateY(-2px);
   }
+  .alert-box.lvl-warning  { border-color: var(--amber-border); background: var(--amber-bg); }
+  .alert-box.lvl-critical { border-color: var(--red-border);   background: var(--red-bg); }
   .alert-box-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
   }
   .alert-name {
     font-weight: 800;
-    font-size: 15px;
+    font-size: 14.5px;
     color: var(--text);
   }
-  .alert-details {
-    font-size: 12.5px;
+  .alert-metrics {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12px;
     color: var(--text-muted);
   }
+  .alert-cur {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .alert-thr {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+  }
+  /* 触发逼近度细条 */
+  .prox-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .prox-track {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--surface3);
+    overflow: hidden;
+  }
+  .prox-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .4s ease;
+  }
+  .prox-pct {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    min-width: 34px;
+    text-align: right;
+  }
   .alert-last {
-    font-size: 11.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
     color: var(--text-dim);
     font-family: var(--font-mono);
   }
@@ -1086,84 +1515,151 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-muted);
+  }
+  .meta-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
   .alerts-subnote {
     font-size: 12px;
     color: var(--text-dim);
-    line-height: 1.5;
+    line-height: 1.55;
     margin-top: 12px;
   }
+  .alerts-subnote a { color: var(--accent); font-weight: 600; }
 
-  /* ---- 底部信息栏 (Footer) ---- */
+  /* ---- 页脚 ---- */
   .footer {
-    margin-top: 60px;
-    padding-top: 28px;
+    margin-top: 52px;
+    padding-top: 26px;
     border-top: 1px solid var(--border);
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-muted);
   }
   .footer-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 1.8fr 1.2fr 1fr;
     gap: 32px;
-    margin-bottom: 24px;
+    margin-bottom: 22px;
   }
   @media (max-width: 900px) {
-    .footer-grid {
-      grid-template-columns: 1fr;
-      gap: 20px;
-    }
+    .footer-grid { grid-template-columns: 1fr; gap: 20px; }
   }
   .footer h4 {
-    margin: 0 0 10px;
-    font-size: 14px;
+    margin: 0 0 8px;
+    font-size: 13.5px;
     color: var(--text);
     font-weight: 700;
   }
-  .footer p { margin: 6px 0; line-height: 1.55; }
+  .footer p { margin: 5px 0; line-height: 1.6; }
+  .footer code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
   .footer-links {
     list-style: none;
     margin: 0;
     padding: 0;
+    display: grid;
+    gap: 6px;
   }
-  .footer-links li { margin: 6px 0; }
-  .footer-links a { color: var(--text-muted); }
+  .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
   .footer-links a:hover { color: var(--accent); }
   .footer-bottom {
-    border-top: 1px solid var(--border);
-    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    font-size: 12px;
+    gap: 10px;
+    font-size: 11.5px;
     color: var(--text-dim);
+  }
+
+  /* ---- 右下角微交互 Toast ---- */
+  .toast {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 100;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    border-radius: 12px;
+    background: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    transform: translateY(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity .25s ease;
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* 入场动效 */
+  @keyframes fadeSlideUp {
+    from { opacity: 0.25; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .anim-in {
+    animation: fadeSlideUp .26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .anim-in, .spinning, .pill.open .pulse-dot::after, .pill.live .pulse-dot::after { animation: none !important; }
+  }
+
+  @media (max-width: 720px) {
+    .wrap { width: 100%; padding: 10px 12px 60px; }
+    .nav-bar { padding: 8px 10px; border-radius: 14px; }
+    .nav-divider { display: none; }
+    .nav-links { overflow-x: auto; max-width: 100%; }
+    .hero { padding: 20px 18px; border-radius: 18px; }
+    .spx-stats-grid { grid-template-columns: 1fr; }
+    .term-tenor-row { padding-left: 24px; padding-right: 4px; }
   }
 </style>
 </head>
 <body>
 
 <div class="wrap">
-  <!-- 顶部玻璃导航栏 -->
+  <!-- 顶部极简毛玻璃导航栏 -->
   <header class="nav-bar">
     <div class="nav-left">
       <a href="./index.html" class="brand-badge">
-        <span class="brand-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
         </span>
         <span>Monitoring Metrics</span>
       </a>
-      <span class="brand-tag">3+2 监控组合</span>
-      
-      <!-- 快速导航入口 -->
-      <nav class="nav-links" aria-label="子指标页面">
+      <span class="brand-tag">3+2</span>
+      <span class="nav-divider" aria-hidden="true"></span>
+
+      <nav class="nav-links" aria-label="指标页面导航">
         <a href="./index.html" class="active">仪表盘</a>
         <a href="../metrics/vix/index.html">VIX</a>
         <a href="../metrics/vix-term-structure/index.html">期限结构</a>
@@ -1174,35 +1670,74 @@
     </div>
 
     <div class="nav-right">
-      <span id="marketPill" class="pill closed"><span class="pulse-dot"></span>美股状态：计算中…</span>
-      <span id="livePill" class="pill live"><span class="pulse-dot"></span>实时同步</span>
-      <span id="countdown" class="timer-pill">下次刷新：30:00</span>
-      <button id="refreshBtn" class="btn" type="button" title="立刻从 Yahoo / FRED 重新拉一次数据（经 VPS 接口），页面马上显示新数据">🔄 刷新数据</button>
-      <button id="themeToggle" class="btn" type="button" aria-label="切换亮色 / 暗色主题">🌙 暗色</button>
+      <span id="marketPill" class="pill closed" title="美股常规交易时段：美东时间周一至周五 9:30–16:00（节假日除外）">
+        <span class="pulse-dot"></span>
+        <span>美股状态计算中</span>
+      </span>
+      <span id="livePill" class="pill live">
+        <span class="pulse-dot"></span>
+        <span>实时同步</span>
+      </span>
+      <span class="timer-pill" title="平时每 30 分钟自动刷新，收盘拉取时段（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新">
+        <svg class="timer-ring" viewBox="0 0 18 18" aria-hidden="true">
+          <circle class="timer-ring-bg" cx="9" cy="9" r="7"></circle>
+          <circle id="timerArc" class="timer-ring-fg" cx="9" cy="9" r="7" stroke-dasharray="43.98" stroke-dashoffset="0"></circle>
+        </svg>
+        <span id="countdown">30:00</span>
+      </span>
+      <button id="refreshBtn" class="btn" type="button" title="立刻从 Yahoo / FRED 重新拉一次数据（经 VPS 接口），页面马上显示新数据">
+        <svg id="refreshIcon" width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+          <polyline points="21 3 21 9 15 9"></polyline>
+        </svg>
+        <span id="refreshLabel">刷新</span>
+      </button>
+      <button id="themeToggle" class="btn" type="button" aria-label="切换亮色 / 暗色主题">
+        <svg id="themeIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
+        <span id="themeLabel">暗色</span>
+      </button>
     </div>
   </header>
 
-  <!-- 综合研判态势 HERO (宽屏双栏布局) -->
+  <!-- Executive Hero：综合风险态势看板 (支持亮/暗双主题) -->
   <div class="hero" id="heroBlock">
     <div class="hero-grid">
       <div>
-        <div class="hero-eyebrow">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          MARKET RISK OVERVIEW · 综合风险态势
+        <div class="hero-top-meta">
+          <div class="hero-eyebrow">
+            <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>MARKET RISK OVERVIEW · 综合风险态势</span>
+          </div>
+          <div class="risk-spectrum" id="riskSpectrum" aria-label="风险等级光谱">
+            <span class="rs-step" data-tier="b-green">平静</span>
+            <span class="rs-step" data-tier="b-amber">警惕</span>
+            <span class="rs-step" data-tier="b-orange">紧张</span>
+            <span class="rs-step" data-tier="b-red">恐慌</span>
+          </div>
         </div>
+
         <div id="verdict">
           <h1>综合判断：加载中…</h1>
-          <p class="hero-desc">正在读取最新市场收盘与信用利差数据…</p>
+          <p class="hero-desc">正在读取最新市场收盘与高收益信用利差数据…</p>
         </div>
-        <!-- 核心五项状态胶囊排 (点击可快速锚点滚动) -->
+
         <div class="quick-strips" id="quickStrips"></div>
       </div>
 
-      <!-- 右侧系统运行态势看板 -->
+      <!-- 右侧系统遥测面板 -->
       <div class="hero-panel">
         <div class="panel-title">
-          <span>系统同步与风控通道</span>
-          <span id="refreshMsg" style="font-size:11px;color:var(--accent);font-weight:600;"></span>
+          <span class="panel-title-left">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            系统同步与风控遥测
+          </span>
+          <span id="etClock" style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">ET --:--</span>
         </div>
         <div class="meta-row">
           <span class="meta-label">最新收盘更新</span>
@@ -1210,15 +1745,19 @@
         </div>
         <div class="meta-row">
           <span class="meta-label">行情数据源</span>
-          <span class="meta-val" id="sourceStatus">Yahoo Finance (延迟15m) + FRED</span>
+          <span class="meta-val">
+            <span class="mini-chip">Futu / CBOE</span>
+            <span class="mini-chip">MOVE 多源</span>
+            <span class="mini-chip">FRED API</span>
+          </span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">数据拉取状态</span>
-          <span class="meta-val" id="fetchSummary">Yahoo 正常 · FRED 正常</span>
+          <span class="meta-label">拉取健康度</span>
+          <span class="meta-val" id="fetchSummary"><span class="mini-chip">检测中…</span></span>
         </div>
         <div class="meta-row">
-          <span class="meta-label">告警通知通道</span>
-          <span class="meta-val" id="channelSummary">飞书 · Bark</span>
+          <span class="meta-label">告警通道</span>
+          <span class="meta-val" id="channelSummary"><span class="mini-chip">检测中…</span></span>
         </div>
       </div>
     </div>
@@ -1230,59 +1769,79 @@
       <div>
         <div class="section-eyebrow">CORE INDICATORS · 3+2 组合</div>
         <h2 class="section-title">五项核心监控指标</h2>
-        <div class="section-sub">标普隐含波动（VIX）· 波动之波动（VVIX）· 尾部风险（SKEW）· 债市波动（MOVE）· 信用利差（HY OAS）</div>
+        <div class="section-sub">必看 3 项（VIX / MOVE / HY OAS）交叉确认股债与信用压力，进阶 2 项（VVIX / SKEW）观测波动率弹性与尾部定价</div>
+      </div>
+      <div class="section-legend">
+        <span class="role-tag role-core">必看</span> 决定综合判断主档位
+        <span style="opacity:.4">·</span>
+        <span class="role-tag role-adv">进阶</span> 辅助结构确认
       </div>
     </div>
     <div class="grid-5" id="cards"></div>
   </section>
 
-  <!-- 宽屏并排双栏：标普 500 背景 + VIX 期限结构 -->
-  <section style="margin-top: 40px;">
+  <!-- 宽屏双栏：标普 500 背景 + VIX 期限结构曲线 -->
+  <section style="margin-top: 38px;">
     <div class="section-head">
       <div>
-        <div class="section-eyebrow">MACRO CONTEXT & TERM STRUCTURE · 宏观背景与结构</div>
+        <div class="section-eyebrow">MACRO CONTEXT &amp; TERM STRUCTURE · 宏观背景与期限结构</div>
         <h2 class="section-title">市场背景对比与期限风险定价</h2>
       </div>
     </div>
-    
+
     <div class="grid-context">
       <!-- 左：标普 500 市场背景 -->
       <div class="card" id="spxCard"></div>
 
-      <!-- 右：VIX 期限结构 -->
-      <div class="card">
+      <!-- 右：VIX 期限结构曲线 -->
+      <div class="card" id="termCard">
         <div class="term-container">
           <div>
             <div class="card-top">
               <div class="card-title-group">
-                <h3>
-                  <a href="../metrics/vix-term-structure/index.html">VIX 期限结构</a>
-                  <span style="font-size:12px;font-weight:500;color:var(--text-muted);">(现货 + 远期形态)</span>
-                </h3>
-                <div class="card-subtitle">1D / 9D / 30D(现货) / 3M / 6M 波动率曲线形态</div>
+                <div class="card-title-row">
+                  <h3><a href="../metrics/vix-term-structure/index.html">VIX 期限结构</a></h3>
+                  <span class="role-tag role-core">必看结构</span>
+                </div>
+                <div class="card-subtitle">1D / 9D / 30D(现货) / 3M / 6M 隐含波动率期限曲线</div>
               </div>
-              <span id="termShapeBadge" class="badge b-green">形态计算中</span>
+              <span id="termShapeBadge" class="badge b-green">计算中</span>
             </div>
 
-            <div class="term-kpi-row">
+            <!-- VIX/VIX3M 比率仪表条 -->
+            <div class="term-ratio-panel">
               <div>
-                <span style="font-size:12px;color:var(--text-muted);">期限倒挂监控比率：</span>
-                <span id="termRatioBadge" class="chip flat" style="font-size:13px;padding:3px 10px;">VIX / VIX3M = —</span>
+                <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:3px;">倒挂监控比率 (VIX / VIX3M)</div>
+                <span id="termRatioBadge" class="chip flat" style="font-size:13px;padding:3px 9px;">—</span>
               </div>
-              <div style="font-size:12px;color:var(--text-muted);">
-                基准线：&gt;1.00 倒挂 · &gt;1.05 明显倒挂
+              <div class="ratio-gauge-wrap">
+                <div class="ratio-gauge-bar">
+                  <span id="ratioPin" class="ratio-gauge-pin" style="left:50%;"></span>
+                </div>
+                <div class="ratio-gauge-labels">
+                  <span>0.80 升水</span>
+                  <span>1.00 倒挂</span>
+                  <span>1.05+</span>
+                  <span>1.20</span>
+                </div>
               </div>
             </div>
 
-            <!-- 条柱与曲线图表 -->
-            <div class="term-bars-wrap" id="termStrip"></div>
+            <!-- 金融级 SVG 期限曲线图 -->
+            <div class="term-chart-wrap" id="termChartWrap">
+              <svg class="term-svg" id="termSvg" viewBox="0 0 600 190" preserveAspectRatio="none" aria-label="VIX 期限结构曲线"></svg>
+              <div class="term-tenor-row" id="termTenors"></div>
+            </div>
           </div>
 
-          <div style="margin-top: 14px;">
-            <p class="reading-box" id="termNote" style="margin:0;"></p>
+          <div style="margin-top: 12px;">
+            <div class="reading-box" id="termNote" style="margin:0;"></div>
             <div class="card-foot" style="margin-top:12px;">
-              <span>升水（远贵近便宜）为常态；贴水（近贵远便宜）为恐慌集中。</span>
-              <a href="../metrics/vix-term-structure/index.html" class="tv-link">期限结构详解 ↗</a>
+              <span>升水（近低远高）为常态；贴水（近高远低）代表恐慌集中在眼前</span>
+              <a href="../metrics/vix-term-structure/index.html" class="tv-link">
+                <span>期限结构详解</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M7 17L17 7M7 7h10v10"/></svg>
+              </a>
             </div>
           </div>
         </div>
@@ -1290,23 +1849,23 @@
     </div>
   </section>
 
-  <!-- 预警状态中心 (Alerts Section) -->
-  <section id="alertSection" style="margin-top: 40px;">
+  <!-- 实时预警监控与推送状态 (飞书推送 + Bark 推送置于标题后方) -->
+  <section id="alertSection" style="margin-top: 38px;">
     <div class="section-head">
       <div>
-        <div class="section-eyebrow">RISK THRESHOLDS & ALERTS · 风控中心</div>
+        <div class="section-eyebrow">RISK THRESHOLDS &amp; ALERTS · 风控中心</div>
         <div class="title-with-actions">
           <h2 class="section-title">实时预警监控与推送状态</h2>
           <div class="push-btn-group">
             <button id="feishuPushBtn" class="btn-push btn-feishu" type="button" title="把当前五项指标的状态汇总立刻发到飞书（经 VPS 接口）">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M22 2L11 13"></path>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
               </svg>
               <span>飞书推送</span>
             </button>
             <button id="barkPushBtn" class="btn-push btn-bark" type="button" title="把当前五项指标的状态汇总立刻发到 Bark（经 VPS 接口）">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
@@ -1314,63 +1873,75 @@
             </button>
           </div>
         </div>
-        <div class="section-sub">服务端定时拉取时根据预警阈值自动触发飞书与 Bark 推送，24 小时去重防刷屏</div>
+        <div class="section-sub">服务端定时拉取时根据预警阈值自动触发飞书与 Bark 推送，进度条直观展示当前读数距触发线的逼近度</div>
       </div>
     </div>
 
     <div class="alerts-card">
       <div class="alerts-grid" id="alertList">加载中…</div>
-      
+
       <div class="alerts-meta-bar">
-        <div id="channelLine">推送通道：加载中…</div>
-        <div id="fetchLine">数据拉取通道：加载中…</div>
+        <div class="meta-group" id="channelLine">推送通道：加载中…</div>
+        <div class="meta-group" id="fetchLine">数据拉取：加载中…</div>
       </div>
       <div class="alerts-subnote">
-        报警由服务端定时任务在拉取数据时进行判定与推送，页面只同源读取并展示状态，不直接外连第三方。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警。详见 <a href="README.md">dashboard/README.md</a>。上方的“飞书推送 / Bark 推送”按钮是手动推送：点一下就把当前五项指标的状态汇总立刻发到对应通道（经 VPS 接口），不用等定时任务。
+        报警由服务端定时任务在拉取数据时进行判定与推送，页面仅同源读取并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；同级 24 小时去重防刷屏。详见 <a href="README.md">dashboard/README.md</a>。上方的“飞书推送 / Bark 推送”按钮支持手动即时推送当前五项指标汇总（经 VPS 接口）。
       </div>
     </div>
   </section>
 
-  <!-- 现代化页脚 (Footer) -->
+  <!-- 现代化页脚 -->
   <footer class="footer">
     <div class="footer-grid">
       <div>
-        <h4>关于本监控仪表盘</h4>
-        <p>市场波动与信用监控组合（3+2 框架）聚焦于跨市场交叉验证：股债共振、情绪与信用利差配合确认。单看单一指标容易产生噪音与假突破，多维验证方能确认系统性压力。</p>
-        <p><strong>更新节奏：</strong>服务端每天收盘后拉取两次（UTC 21:30 和 23:30），写入 <code>data.json</code>；前端页面平时每 30 分钟自动刷新一次，收盘拉取时段（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新一次，所以新收盘数据出来后一分钟内就能看到。本页面不直接访问外部 API，杜绝浏览器跨域拦截（CORS）。点“🔄 刷新数据”会立刻从 Yahoo / FRED 重新拉一次（经 VPS 接口 <code>api.infidea.app</code>），页面马上显示新数据；“飞书推送 / Bark 推送”把当前状态汇总立刻发到对应通道。如果 VPS 接口不可用，也可以在 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a>手动触发（选 test 或 status 再点 Run workflow）。</p>
+        <h4>关于 3+2 监控仪表盘</h4>
+        <p>聚焦跨市场交叉验证：以股债波动（VIX / MOVE）与高收益信用利差（HY OAS）确认系统性压力，以 VVIX 与 SKEW 捕捉波动率弹性与机构尾部风险定价。</p>
+        <p><strong>更新节奏：</strong>服务端每日美股收盘后拉取两次（UTC 21:30 / 23:30）写入 <code>data.json</code>；页面平时每 30 分钟自动刷新，收盘拉取窗口（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新。点“刷新”经 VPS 接口（<code>api.infidea.app</code>）实时拉取；若接口不可用，也可前往 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a> 手动触发。</p>
       </div>
       <div>
-        <h4>数据源规范</h4>
-        <p><strong>Yahoo Finance：</strong>提供 VIX、VVIX、SKEW、MOVE、标普 500 及期限结构数据（约 15 分钟延迟）。</p>
-        <p><strong>FRED 经济数据库：</strong>提供 ICE BofA 美国高收益利差（BAMLH0A0HYM2，日度收盘数据）。</p>
-        <p id="sourceNote" style="font-size:12px;color:var(--text-dim);"></p>
+        <h4>数据源与口径</h4>
+        <p><strong>Futu CLI / CBOE CDN：</strong>美区 VPS 优先通过 Futu CLI 获取 VIX / VVIX / SKEW / 标普 500，期限结构（1D/9D/3M/6M）与兜底直连 CBOE 官方日线 CSV。</p>
+        <p><strong>MOVE / FRED：</strong>MOVE 走 Yahoo（<code>curl_cffi</code>）→ TradingView → CSV 三级兜底；HY OAS 走 FRED 官方 API（<code>BAMLH0A0HYM2</code>，日度更新）。</p>
+        <p id="sourceNote" style="font-size:11.5px;color:var(--text-dim);"></p>
       </div>
       <div>
-        <h4>指标独立科普页</h4>
+        <h4>独立科普与历史回放</h4>
         <ul class="footer-links">
           <li><a href="../metrics/vix/index.html">CBOE VIX 恐慌指数 ↗</a></li>
           <li><a href="../metrics/vix-term-structure/index.html">VIX 期限结构深度解析 ↗</a></li>
           <li><a href="../metrics/vvix/index.html">VVIX 波动率的波动率 ↗</a></li>
-          <li><a href="../metrics/move/index.html">MOVE 债市恐慌指数 ↗</a></li>
+          <li><a href="../metrics/move/index.html">MOVE 美债波动率指数 ↗</a></li>
           <li><a href="../metrics/hy-oas/index.html">HY OAS 高收益信用利差 ↗</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-bottom">
-      <div>© Monitoring Metrics · 本页面为科普与量化风控监控工具，不构成任何投资建议。</div>
-      <div>数据仅供参考 · 市场有风险，投资需谨慎</div>
+      <div>© Monitoring Metrics · 本页面为科普与风险观测工具，阈值区间仅供经验参考，不构成任何投资建议。</div>
+      <div>市场有风险 · 请结合多维信号交叉验证</div>
     </div>
   </footer>
 </div>
 
+<!-- 悬浮微交互 Toast -->
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
 <script>
-/* ---- 主题切换：跟随系统并支持用户覆盖，持久化在 localStorage ---- */
+/* ---- SVG 图标常量 ---- */
+const ICON_SUN = '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>';
+const ICON_MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+const ICON_EXT = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M7 7h10v10"/></svg>';
+const ICON_CLOCK = '<svg width="11.5" height="11.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+
+/* ---- 主题切换：默认跟随系统，手动切换后持久化在 localStorage ---- */
 (function(){
   const root = document.documentElement;
   const btn = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
   function apply(t){
     root.setAttribute('data-theme', t);
-    if(btn) btn.innerHTML = t === 'dark' ? '☀️ 亮色' : '🌙 暗色';
+    if(icon) icon.innerHTML = t === 'dark' ? ICON_SUN : ICON_MOON;
+    if(label) label.textContent = t === 'dark' ? '亮色' : '暗色';
     try { localStorage.setItem('mm-theme', t); } catch(e){}
   }
   let saved = null;
@@ -1383,7 +1954,19 @@
   }
 })();
 
-/* ---- 兜底快照：仅在无法读取 data.json 时使用（如本地 file:// 打开） ---- */
+/* ---- Toast 提示 ---- */
+let toastTimer = null;
+function showToast(text, isErr){
+  const el = document.getElementById('toast');
+  if(!el) return;
+  const dotColor = isErr ? '#f87171' : '#34d399';
+  el.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex:none;"></span><span>${text}</span>`;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ---- 兜底快照：仅在 data.json 读取失败时使用（明确标注日期） ---- */
 const SNAPSHOT = {
   updated_at_utc: "2026-11-23T16:00:00Z",
   updated_at_beijing: "2026-11-24 00:00 北京时间",
@@ -1417,7 +2000,7 @@ const SNAPSHOT = {
   term_structure: { vix1d: 26.69, vix9d: 27.76, vix: 26.62, vix3m: 25.50, vix6m: 25.96, date: "2026-11-23" }
 };
 
-/* ---- 波动情况：水平定档 + 异动覆盖 (完全保留项目核心风控定档逻辑) ---- */
+/* ---- 波动情况：先按水平定档，再加“异动”覆盖 ---- */
 const STATUS_BANDS = {
   vix: { bands: [[20,"平静","b-green"],[30,"警惕","b-amber"],[40,"紧张","b-orange"],[Infinity,"恐慌","b-red"]], calm: v => v < 20 },
   vvix: { bands: [[70,"偏低","b-green"],[120,"正常","b-green"],[140,"偏高","b-amber"],[Infinity,"极端","b-red"]], calm: v => v >= 70 && v < 120 },
@@ -1442,7 +2025,19 @@ function statusFor(key, value, changePct){
   return out;
 }
 
-/* ---- 动态读法拼句：准确映射区间与幅度 ---- */
+/* 胶囊条简写标签（保持 Hero 快捷定位条 5 项单行齐平，完整文案见 title 与卡片） */
+function shortLabel(key, label){
+  if(key === 'skew'){
+    if(label.includes('正常')) return '正常';
+    if(label.includes('略高')) return '略高';
+    if(label.includes('偏高')) return '偏高';
+  }
+  if(key === 'move') return label.replace(/^债市/, '');
+  if(key === 'hy_oas') return label.replace(/^信用/, '');
+  return label;
+}
+
+/* ---- 动态读法拼句 ---- */
 function readingFor(key, st, value, absChg, pct){
   const dir = (pct === null || pct === undefined) ? null : (pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat');
   const p1 = (pct === null || pct === undefined) ? null : Math.abs(pct).toFixed(1);
@@ -1490,256 +2085,436 @@ function readingFor(key, st, value, absChg, pct){
   return '';
 }
 
-/* ---- 指标元数据 ---- */
+/* ---- 指标元数据（包含精确分段刻度与 3+2 角色标识） ---- */
 const META = {
   vix: {
-    name: "VIX",
-    unit: "",
+    name: "VIX", unit: "", role: "core", roleLabel: "必看",
     sub: "标普 500 隐含波动率",
     link: "../metrics/vix/index.html",
     tv: "https://cn.tradingview.com/symbols/CBOE-VIX/",
-    desc: "标普 500 未来 30 天隐含波动率",
-    scale: "<20 平静 · 20–30 警惕 · 30–40 紧张 · >40 恐慌",
+    scale: "<20 平静 · 20–30 警惕 · 30–40 紧张 · ≥40 恐慌",
     scaleMin: 0, scaleMax: 50,
-    scaleGrad: "linear-gradient(90deg, var(--green) 0 40%, var(--amber) 40% 60%, var(--orange) 60% 80%, var(--red) 80% 100%)"
+    segs: [[0,20,"s-green"],[20,30,"s-amber"],[30,40,"s-orange"],[40,50,"s-red"]],
+    ticks: [20, 30, 40]
   },
   vvix: {
-    name: "VVIX",
-    unit: "",
+    name: "VVIX", unit: "", role: "adv", roleLabel: "进阶",
     sub: "波动率的波动率",
     link: "../metrics/vvix/index.html",
     tv: "https://cn.tradingview.com/symbols/CBOE-VVIX/",
-    desc: "VIX 本身的预期波动（波动率的波动率）",
-    scale: "<70 偏低 · 70–120 正常 · 120–140 偏高 · >140 极端",
+    scale: "<70 偏低 · 70–120 正常 · 120–140 偏高 · ≥140 极端",
     scaleMin: 50, scaleMax: 160,
-    scaleGrad: "linear-gradient(90deg, var(--green) 0 64%, var(--amber) 64% 82%, var(--red) 82% 100%)"
+    segs: [[50,120,"s-green"],[120,140,"s-amber"],[140,160,"s-red"]],
+    ticks: [70, 120, 140]
   },
   skew: {
-    name: "SKEW",
-    unit: "",
-    sub: "黑天鹅尾部定价",
+    name: "SKEW", unit: "", role: "adv", roleLabel: "进阶",
+    sub: "黑天鹅尾部风险定价",
     link: "../metrics/vvix/index.html",
     tv: "https://cn.tradingview.com/symbols/CBOE-SKEW/",
-    desc: "尾部黑天鹅风险定价（100 为中性）",
     scale: "<120 正常 · 120–140 略高 · ≥140 偏高",
     scaleMin: 100, scaleMax: 160,
-    scaleGrad: "linear-gradient(90deg, var(--green) 0 33%, var(--amber) 33% 67%, var(--red) 67% 100%)"
+    segs: [[100,120,"s-green"],[120,140,"s-amber"],[140,160,"s-red"]],
+    ticks: [120, 140]
   },
   move: {
-    name: "MOVE",
-    unit: "",
+    name: "MOVE", unit: "", role: "core", roleLabel: "必看",
     sub: "美债收益率隐含波动",
     link: "../metrics/move/index.html",
     tv: "https://cn.tradingview.com/symbols/TVC-MOVE/",
-    desc: "美债收益率未来一个月隐含波动（bp）",
-    scale: "<60 债市平静 · 60–140 债市常态 · ≥140 债市紧张",
-    scaleMin: 0, scaleMax: 160,
-    scaleGrad: "linear-gradient(90deg, var(--green) 0 87.5%, var(--red) 87.5% 100%)"
+    scale: "<60 平静 · 60–140 常态 · ≥140 紧张",
+    scaleMin: 0, scaleMax: 170,
+    segs: [[0,140,"s-green"],[140,170,"s-red"]],
+    ticks: [60, 140]
   },
   hy_oas: {
-    name: "HY OAS",
-    unit: " bp",
+    name: "HY OAS", unit: "bp", role: "core", roleLabel: "必看",
     sub: "高收益债信用利差",
     link: "../metrics/hy-oas/index.html",
     tv: "https://cn.tradingview.com/symbols/FRED-BAMLH0A0HYM2/",
-    desc: "高收益债相对美债利差（违约担忧）",
-    scale: "<300 偏紧 · 300–500 常态 · 500–800 走阔 · ≥800 紧张",
+    scale: "<300 紧 · 300–500 常态 · 500–800 走阔 · ≥800 紧张",
     scaleMin: 0, scaleMax: 1100,
-    scaleGrad: "linear-gradient(90deg, var(--green) 0 45%, var(--amber) 45% 73%, var(--orange) 73% 91%, var(--red) 91% 100%)"
+    segs: [[0,500,"s-green"],[500,800,"s-amber"],[800,1000,"s-orange"],[1000,1100,"s-red"]],
+    ticks: [300, 500, 800, 1000]
   }
 };
 
-/* ---- 交互式 SVG Sparkline 构建器 ---- */
-function buildSparkline(history, key){
-  if(!history || history.length < 2) {
-    return `<div style="padding:16px 0;font-size:12px;color:var(--text-muted);text-align:center;">暂无近期走势点位</div>`;
+/* ---- 平滑三次贝塞尔路径计算 (Catmull-Rom 转 Cubic Bezier) ---- */
+function buildSmoothPath(pts){
+  if(pts.length < 2) return '';
+  let d = `M ${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+  for(let i = 0; i < pts.length - 1; i++){
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+  }
+  return d;
+}
+
+function shortDate(d){
+  return (d && d.length >= 10) ? d.slice(5) : (d || '');
+}
+
+const TONE_COLOR = {
+  'b-green':  ['var(--green-solid)',  'var(--green-bg)'],
+  'b-amber':  ['var(--amber-solid)',  'var(--amber-bg)'],
+  'b-orange': ['var(--orange-solid)', 'var(--orange-bg)'],
+  'b-red':    ['var(--red-solid)',    'var(--red-bg)'],
+  'b-grey':   ['var(--accent)',       'var(--accent-soft)']
+};
+
+/* ---- 交互式平滑 SVG Sparkline（几何正圆节点 + 防边界裁剪浮层） ---- */
+function buildSparkline(history, key, toneCls, prevVal, isTall){
+  if(!history || history.length < 2){
+    return `<div style="padding:18px 0;font-size:11.5px;color:var(--text-dim);text-align:center;">暂无近期走势数据</div>`;
   }
   const vals = history.map(h => h.value);
   const min = Math.min(...vals), max = Math.max(...vals);
-  const w = 320, h = 60;
+  const w = 320, h = isTall ? 112 : 62;
+  const padX = 4, padTop = 8, padBot = 8;
   const span = (max - min) || 1;
   const pts = history.map((p, i) => [
-    8 + i * (w - 16) / (history.length - 1),
-    h - 8 - (p.value - min) / span * (h - 18)
+    padX + i * (w - padX * 2) / (history.length - 1),
+    h - padBot - (p.value - min) / span * (h - padTop - padBot)
   ]);
-  const linePoints = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
-  const areaPoints = `8,${h} ` + linePoints + ` ${w - 8},${h}`;
-  const lastPt = pts[pts.length - 1];
 
-  // 序列化点位用于交互
-  const dataPayload = JSON.stringify(history.map((h, i) => ({
-    x: pts[i][0],
-    y: pts[i][1],
-    date: h.date,
-    val: h.value
+  const linePath = buildSmoothPath(pts);
+  const lastPt = pts[pts.length - 1];
+  const firstPt = pts[0];
+  const areaPath = `${linePath} L ${lastPt[0].toFixed(2)},${h} L ${firstPt[0].toFixed(2)},${h} Z`;
+
+  // 前收参考虚线
+  let refLine = '';
+  if(prevVal !== null && prevVal !== undefined && prevVal >= min && prevVal <= max){
+    const ry = h - padBot - (prevVal - min) / span * (h - padTop - padBot);
+    refLine = `<line class="spark-ref-line" x1="0" y1="${ry.toFixed(1)}" x2="${w}" y2="${ry.toFixed(1)}"/>`;
+  }
+
+  const [strokeCol, glowCol] = TONE_COLOR[toneCls] || TONE_COLOR['b-grey'];
+  const endLeftPct = (lastPt[0] / w * 100).toFixed(2);
+  const endTopPct = (lastPt[1] / h * 100).toFixed(2);
+
+  const payload = JSON.stringify(history.map((item, i) => ({
+    xp: +(pts[i][0] / w * 100).toFixed(2),
+    yp: +(pts[i][1] / h * 100).toFixed(2),
+    date: item.date,
+    val: item.value
   }))).replace(/"/g, '&quot;');
 
+  const fmtMM = v => (key === 'spx' ? v.toLocaleString('en-US') : v);
+
   return `
-    <div class="spark-box" data-history="${dataPayload}">
-      <svg class="spark-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="sg-${key}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.32"/>
-            <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.00"/>
-          </linearGradient>
-        </defs>
-        <polygon points="${areaPoints}" fill="url(#sg-${key})"/>
-        <polyline class="spark-line" points="${linePoints}"/>
-        <circle class="spark-latest-dot" cx="${lastPt[0].toFixed(1)}" cy="${lastPt[1].toFixed(1)}" r="3.5"/>
-        <line class="spark-hover-line" x1="0" y1="0" x2="0" y2="${h}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="2 2" style="display:none;"/>
-        <circle class="spark-hover-circle" cx="0" cy="0" r="4.5" fill="var(--accent)" stroke="#fff" stroke-width="2" style="display:none;"/>
-      </svg>
-      <div class="spark-tooltip"></div>
+    <div class="spark-box" style="--spark-color:${strokeCol};--spark-glow:${glowCol};" data-history="${payload}" data-key="${key}">
+      <div class="spark-stage${isTall ? ' tall' : ''}">
+        <svg class="spark-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="sg-${key}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${strokeCol}" stop-opacity="0.26"/>
+              <stop offset="100%" stop-color="${strokeCol}" stop-opacity="0.00"/>
+            </linearGradient>
+          </defs>
+          ${refLine}
+          <path d="${areaPath}" fill="url(#sg-${key})"/>
+          <path class="spark-line" d="${linePath}"/>
+        </svg>
+        <span class="spark-dot-end" style="left:${endLeftPct}%;top:${endTopPct}%;"></span>
+        <span class="spark-hover-v"></span>
+        <span class="spark-hover-dot"></span>
+        <div class="spark-tooltip"></div>
+      </div>
       <div class="spark-meta">
-        <span>${history[0].date} → ${history[history.length - 1].date}</span>
-        <span>区间: ${min} ~ ${max}</span>
+        <span>${shortDate(history[0].date)} → ${shortDate(history[history.length - 1].date)} (${history.length}日)</span>
+        <span>L ${fmtMM(min)} · H ${fmtMM(max)}</span>
       </div>
     </div>
   `;
 }
 
-/* 涨跌徽章行 */
-function renderChangePill(absChg, pct, unit){
-  if(absChg === null || absChg === undefined || pct === null || pct === undefined) {
+/* 涨跌徽章（HY OAS 使用整数 bp，其余保留两位小数） */
+function renderChangePill(absChg, pct, unit, isInt){
+  if(absChg === null || absChg === undefined || pct === null || pct === undefined){
     return `<span class="chip flat">较前收 —</span>`;
   }
   const cls = pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat');
   const signA = absChg > 0 ? '+' : '';
   const signP = pct > 0 ? '+' : '';
   const arrow = pct > 0 ? '▲' : (pct < 0 ? '▼' : '—');
-  return `<span class="chip ${cls}">${arrow} ${signA}${absChg.toFixed(2)}${unit||''}（${signP}${pct.toFixed(2)}%）</span>`;
+  const absStr = isInt ? Math.round(absChg).toString() : absChg.toFixed(2);
+  return `<span class="chip ${cls}">${arrow} ${signA}${absStr}${unit||''} (${signP}${pct.toFixed(2)}%)</span>`;
 }
 
-/* 标普涨跌徽章 */
-function renderSpxChange(pct){
+/* 标普 500 涨跌徽章（权益指数：上涨 = 绿 / 风险缓和，下跌 = 红 / 风险升温） */
+function renderSpxChange(absChg, pct){
   if(pct === null || pct === undefined) return '<span class="chip flat">较前收 —</span>';
-  const cls = pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat');
-  const sign = pct > 0 ? '+' : '';
+  const cls = pct > 0 ? 'down' : (pct < 0 ? 'up' : 'flat');
+  const signP = pct > 0 ? '+' : '';
   const arrow = pct > 0 ? '▲' : (pct < 0 ? '▼' : '—');
-  return `<span class="chip ${cls}">${arrow} ${sign}${pct.toFixed(2)}%</span>`;
+  const absPart = (absChg !== null && absChg !== undefined)
+    ? `${absChg > 0 ? '+' : ''}${absChg.toFixed(2)} (` : '';
+  const endPart = (absChg !== null && absChg !== undefined) ? ')' : '';
+  return `<span class="chip ${cls}">${arrow} ${absPart}${signP}${pct.toFixed(2)}%${endPart}</span>`;
 }
 
-/* 阈值刻度标尺 HTML */
+/* 精密分段阈值刻度尺 HTML */
 function renderScaleHTML(key, value){
   const m = META[key];
-  const pct = Math.max(0, Math.min(100, (value - m.scaleMin) / (m.scaleMax - m.scaleMin) * 100));
-  const pos = Math.max(3, Math.min(97, pct));
+  const span = m.scaleMax - m.scaleMin;
+  const pct = Math.max(0, Math.min(100, (value - m.scaleMin) / span * 100));
+  const pos = Math.max(4, Math.min(96, pct));
+
+  const segsHTML = m.segs.map(([s, e, cls]) => {
+    const w = ((e - s) / span * 100).toFixed(2);
+    return `<div class="scalebar-seg ${cls}" style="flex:0 0 ${w}%;"></div>`;
+  }).join('');
+
+  const ticksHTML = m.ticks.map(tv => {
+    const tp = ((tv - m.scaleMin) / span * 100).toFixed(1);
+    return `<span class="scale-tick" style="left:${tp}%">${tv}</span>`;
+  }).join('');
+
   return `
     <div class="scale-box">
       <div class="scalebar-wrap">
         <span class="markval" style="left:${pos}%">${value}</span>
-        <div class="scalebar" style="background:${m.scaleGrad}"></div>
+        <div class="scalebar-segs">${segsHTML}</div>
         <span class="markdot" style="left:${pos}%"></span>
       </div>
+      <div class="scale-ticks">${ticksHTML}</div>
       <div class="scale-text">${m.scale}</div>
     </div>
   `;
 }
 
+/* ---- VIX 期限结构专业 SVG 曲线渲染 ---- */
+function renderTermStructure(t){
+  const pts = [
+    { key: '1D', lbl: '1天', full: 'VIX1D', val: t.vix1d, spot: false },
+    { key: '9D', lbl: '9天', full: 'VIX9D', val: t.vix9d, spot: false },
+    { key: '30D', lbl: '30天 现货', full: 'VIX', val: t.vix, spot: true },
+    { key: '3M', lbl: '3个月', full: 'VIX3M', val: t.vix3m, spot: false },
+    { key: '6M', lbl: '6个月', full: 'VIX6M', val: t.vix6m, spot: false }
+  ];
+  const ratioNum = t.vix / t.vix3m;
+  const ratio = ratioNum.toFixed(2);
+  const isInverted = t.vix > t.vix3m;
+  const isSevere = ratioNum > 1.05;
+
+  const shapeBadge = document.getElementById('termShapeBadge');
+  if(isInverted){
+    shapeBadge.className = 'badge b-red';
+    shapeBadge.textContent = isSevere ? '明显贴水 / 倒挂' : '贴水 / 倒挂';
+  } else {
+    shapeBadge.className = 'badge b-green';
+    shapeBadge.textContent = '升水 (Contango)';
+  }
+
+  const ratioBadge = document.getElementById('termRatioBadge');
+  ratioBadge.className = `chip ${isSevere ? 'up' : (isInverted ? 'up' : 'down')}`;
+  ratioBadge.textContent = `${ratio} · ${isSevere ? '明显倒挂' : (isInverted ? '轻度倒挂' : '正常升水')}`;
+
+  // 比率仪表条指针 (范围 0.80 ~ 1.20)
+  const pinPct = Math.max(2, Math.min(98, (ratioNum - 0.80) / 0.40 * 100));
+  const pinEl = document.getElementById('ratioPin');
+  if(pinEl) pinEl.style.left = pinPct.toFixed(1) + '%';
+
+  // 动态 Y 轴域，让曲线斜率清晰可辨
+  const vals = pts.map(p => p.val);
+  const rawMin = Math.min(...vals), rawMax = Math.max(...vals);
+  const rawSpan = Math.max(1.5, rawMax - rawMin);
+  const yMin = Math.max(0, rawMin - rawSpan * 0.45);
+  const yMax = rawMax + rawSpan * 0.40;
+  const ySpan = yMax - yMin;
+
+  const W = 600, H = 190;
+  const padL = 44, padR = 26, padT = 28, padB = 14;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const coords = pts.map((p, i) => {
+    const x = padL + (i + 0.5) * (chartW / pts.length);
+    const y = padT + (yMax - p.val) / ySpan * chartH;
+    return [x, y];
+  });
+
+  const strokeCol = isInverted ? 'var(--red-solid)' : 'var(--green-solid)';
+  const smoothCurve = buildSmoothPath(coords);
+  const areaD = `${smoothCurve} L ${coords[coords.length - 1][0].toFixed(1)},${H - padB} L ${coords[0][0].toFixed(1)},${H - padB} Z`;
+
+  // 4 条水平网格线
+  let gridHTML = '';
+  for(let g = 0; g <= 3; g++){
+    const frac = g / 3;
+    const gy = padT + frac * chartH;
+    const gv = (yMax - frac * ySpan).toFixed(1);
+    gridHTML += `
+      <line x1="${padL}" y1="${gy.toFixed(1)}" x2="${W - padR}" y2="${gy.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1"/>
+      <text x="${padL - 8}" y="${(gy + 3.5).toFixed(1)}" text-anchor="end" fill="var(--text-dim)" font-family="var(--font-mono)" font-size="10.5">${gv}</text>
+    `;
+  }
+
+  // 柱状半透明引导与节点
+  let nodesHTML = '';
+  pts.forEach((p, i) => {
+    const [cx, cy] = coords[i];
+    const barH = Math.max(4, (H - padB) - cy);
+    const colFill = p.spot ? strokeCol : 'var(--accent)';
+    nodesHTML += `
+      <rect x="${(cx - 18).toFixed(1)}" y="${cy.toFixed(1)}" width="36" height="${barH.toFixed(1)}" rx="5" fill="${colFill}" fill-opacity="${p.spot ? '0.16' : '0.07'}"/>
+      ${p.spot ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="10" fill="${strokeCol}" fill-opacity="0.18"/>` : ''}
+      <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${p.spot ? 5.5 : 4.2}" fill="${p.spot ? strokeCol : 'var(--surface)'}" stroke="${strokeCol}" stroke-width="2.4"/>
+      <text x="${cx.toFixed(1)}" y="${(cy - 11).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-family="var(--font-mono)" font-size="${p.spot ? '13' : '12'}" font-weight="700">${p.val.toFixed(2)}</text>
+    `;
+  });
+
+  document.getElementById('termSvg').innerHTML = `
+    <defs>
+      <linearGradient id="termGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${strokeCol}" stop-opacity="0.24"/>
+        <stop offset="100%" stop-color="${strokeCol}" stop-opacity="0.01"/>
+      </linearGradient>
+    </defs>
+    ${gridHTML}
+    <path d="${areaD}" fill="url(#termGrad)"/>
+    <path d="${smoothCurve}" fill="none" stroke="${strokeCol}" stroke-width="2.6" stroke-linecap="round"/>
+    ${nodesHTML}
+  `;
+
+  // 底部 5 个期限标签 + 相对现货价差
+  document.getElementById('termTenors').innerHTML = pts.map(p => {
+    const diff = p.val - t.vix;
+    const diffText = p.spot ? '现货基准' : `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}`;
+    return `
+      <div class="tenor-pill${p.spot ? ' is-spot' : ''}" title="${p.full}: ${p.val}">
+        <div class="tenor-lbl">${p.lbl}</div>
+        <div class="tenor-spread">${diffText}</div>
+      </div>
+    `;
+  }).join('');
+
+  const termCard = document.getElementById('termCard');
+  if(termCard){
+    termCard.className = `card has-tone ${isInverted ? 'tone-red' : 'tone-green'}`;
+  }
+
+  const shapeDesc = isInverted
+    ? `贴水（Backwardation）：近端波动率高于远端，恐慌情绪集中在眼前（VIX / VIX3M = ${ratio}）。`
+    : `升水（Contango）：近低远高呈正常期限溢价形态（VIX / VIX3M = ${ratio}）。`;
+  document.getElementById('termNote').innerHTML = `
+    <div class="reading-head">期限形态解读 · ${t.date}</div>
+    <div class="reading-body">${shapeDesc}</div>
+  `;
+}
+
 /* ---- 核心数据渲染主函数 ---- */
+let hasAnimated = false;
 function render(data, isSnapshot){
   const ind = data.indicators;
   const cards = document.getElementById('cards');
 
-  // 更新时间与状态标签
   document.getElementById('updatedAt').textContent =
-    (data.updated_at_beijing || data.updated_at_utc || '') + (isSnapshot ? ` (快照: ${data.snapshot_date})` : '');
-  
+    (data.updated_at_beijing || data.updated_at_utc || '—') + (isSnapshot ? ` · 快照 ${data.snapshot_date}` : '');
+
   const livePill = document.getElementById('livePill');
   if(isSnapshot){
     livePill.className = 'pill snapshot';
-    livePill.innerHTML = `<span class="pulse-dot"></span>快照模式（${data.snapshot_date}）`;
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>快照 (${data.snapshot_date})</span>`;
   } else {
     livePill.className = 'pill live';
-    livePill.innerHTML = `<span class="pulse-dot"></span>实时同步`;
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>实时同步</span>`;
   }
 
-  if(data.source) {
-    document.getElementById('sourceNote').textContent = `数据来源说明：${data.source}`;
+  if(data.source){
+    document.getElementById('sourceNote').textContent = `当前来源：${data.source}`;
   }
 
-  /* 综合研判：以 VIX / MOVE / HY OAS 三大核心的最严重者为准 */
+  /* 综合判断：以 VIX / MOVE / HY OAS 三个必看指标最严重者为准 */
   const sev = { 'b-green': 0, 'b-amber': 1, 'b-orange': 2, 'b-red': 3 };
   const hyPct = (ind.hy_oas.change_bp !== null && ind.hy_oas.change_bp !== undefined && ind.hy_oas.prev_value_bp)
     ? (ind.hy_oas.change_bp / ind.hy_oas.prev_value_bp * 100) : null;
-  
-  const stVix = statusFor('vix', ind.vix.value, ind.vix.change_pct),
+
+  const stVix  = statusFor('vix', ind.vix.value, ind.vix.change_pct),
         stMove = statusFor('move', ind.move.value, ind.move.change_pct),
-        stHy = statusFor('hy_oas', ind.hy_oas.value_bp, hyPct),
+        stHy   = statusFor('hy_oas', ind.hy_oas.value_bp, hyPct),
         stVvix = statusFor('vvix', ind.vvix.value, ind.vvix.change_pct),
         stSkew = statusFor('skew', ind.skew.value, ind.skew.change_pct);
 
-  const worst = [stVix, stMove, stHy].sort((a,b) => sev[b.cls] - sev[a.cls])[0];
-  
-  const verdictMap = {
-    'b-green': ['整体平静', '五项指标均在常态区间，股债两市波动与高收益信用利差未见异动报警。', 'hero-green'],
-    'b-amber': ['有所升温 · 保持警惕', '个别指标进入偏高区间或呈现快速单日异动，值得密切追踪，但暂未触发系统性共振报警。', 'hero-amber'],
-    'b-orange': ['压力明显 · 密切防范', '至少一个必看指标进入紧张区间，跨市场股债波动或信用利差面临同向压力。', 'hero-orange'],
-    'b-red': ['高度紧张 · 触及极端', '核心必看指标触及恐慌/极端警报，请对照历史极端回放交叉确认，防范流动性冲击。', 'hero-red']
-  };
+  const worst = [stVix, stMove, stHy].sort((a, b) => sev[b.cls] - sev[a.cls])[0];
 
+  const verdictMap = {
+    'b-green':  ['整体平静', '五项指标都在正常区间，股债波动与高收益信用利差均未报警。', 'hero-green', 'active-green'],
+    'b-amber':  ['有所升温 · 保持警惕', '个别指标进入偏高区间或出现单日异动，值得紧盯，但暂未触发系统性报警。', 'hero-amber', 'active-amber'],
+    'b-orange': ['压力明显 · 密切防范', '至少一个必看指标进入紧张区间，需观察股债波动与信用利差是否同向确认。', 'hero-orange', 'active-orange'],
+    'b-red':    ['高度紧张 · 触及极端', '至少一个必看指标触及极端区间，请对照历史回放交叉确认，避免单日误判。', 'hero-red', 'active-red']
+  };
   const vInfo = verdictMap[worst.cls];
   const heroBlock = document.getElementById('heroBlock');
   heroBlock.className = `hero ${vInfo[2]}`;
 
+  // 更新 4 档光谱仪激活态
+  document.querySelectorAll('#riskSpectrum .rs-step').forEach(el => {
+    el.className = 'rs-step' + (el.dataset.tier === worst.cls ? ' ' + vInfo[3] : '');
+  });
+
   document.getElementById('verdict').innerHTML = `
     <h1>
-      综合判断：${vInfo[0]}
+      <span>综合判断：${vInfo[0]}</span>
       <span class="verdict-tag ${worst.cls}">${worst.label}</span>
     </h1>
-    <p class="hero-desc">${vInfo[1]}</p>
+    <p class="hero-desc">${vInfo[1]} 当前核心读数：VIX ${ind.vix.value}（${stVix.label}）· MOVE ${ind.move.value}（${stMove.label}）· HY OAS ${ind.hy_oas.value_bp}bp（${stHy.label}）· VVIX ${ind.vvix.value}（${stVvix.label}）。</p>
   `;
 
-  // 快速导航胶囊条
-  const quickStrips = document.getElementById('quickStrips');
-  quickStrips.innerHTML = `
-    <span style="font-size:12px;color:var(--hero-meta-label);font-weight:600;margin-right:4px;">指标快照：</span>
-    <div class="strip-item" onclick="scrollToMetric('vix')">
-      <span>VIX</span>
-      <span class="strip-val">${ind.vix.value}</span>
-      <span class="strip-state ${stVix.cls}">${stVix.label}</span>
-    </div>
-    <div class="strip-item" onclick="scrollToMetric('vvix')">
-      <span>VVIX</span>
-      <span class="strip-val">${ind.vvix.value}</span>
-      <span class="strip-state ${stVvix.cls}">${stVvix.label}</span>
-    </div>
-    <div class="strip-item" onclick="scrollToMetric('skew')">
-      <span>SKEW</span>
-      <span class="strip-val">${ind.skew.value}</span>
-      <span class="strip-state ${stSkew.cls}">${stSkew.label}</span>
-    </div>
-    <div class="strip-item" onclick="scrollToMetric('move')">
-      <span>MOVE</span>
-      <span class="strip-val">${ind.move.value}</span>
-      <span class="strip-state ${stMove.cls}">${stMove.label}</span>
-    </div>
-    <div class="strip-item" onclick="scrollToMetric('hy_oas')">
-      <span>HY OAS</span>
-      <span class="strip-val">${ind.hy_oas.value_bp}bp</span>
-      <span class="strip-state ${stHy.cls}">${stHy.label}</span>
-    </div>
-  `;
+  // 紧凑型 5 指标快速跳转条
+  const stripItems = [
+    { key: 'vix',    name: 'VIX',    val: ind.vix.value,            st: stVix },
+    { key: 'vvix',   name: 'VVIX',   val: ind.vvix.value,           st: stVvix },
+    { key: 'skew',   name: 'SKEW',   val: ind.skew.value,           st: stSkew },
+    { key: 'move',   name: 'MOVE',   val: ind.move.value,           st: stMove },
+    { key: 'hy_oas', name: 'HY OAS', val: ind.hy_oas.value_bp+'bp', st: stHy }
+  ];
+  document.getElementById('quickStrips').innerHTML =
+    `<span class="strip-caption">快捷定位</span>` +
+    stripItems.map(item => `
+      <button type="button" class="strip-item" onclick="scrollToMetric('${item.key}')" title="${item.name}：${item.st.label}（点击定位卡片）">
+        <span class="strip-dot ${item.st.cls}"></span>
+        <span class="strip-name">${item.name}</span>
+        <span class="strip-val">${item.val}</span>
+        <span class="strip-state ${item.st.cls}">${shortLabel(item.key, item.st.label)}</span>
+      </button>
+    `).join('');
 
   /* 五张核心指标卡片 */
   const order = ['vix', 'vvix', 'skew', 'move', 'hy_oas'];
-  cards.innerHTML = order.map(k => {
+  const animCls = hasAnimated ? '' : ' anim-in';
+  cards.innerHTML = order.map((k, idx) => {
     const m = META[k];
+    const delayStyle = hasAnimated ? '' : `style="animation-delay:${idx * 45}ms"`;
+    const roleCls = m.role === 'core' ? 'role-core' : 'role-adv';
+
     if(k === 'hy_oas'){
       const h = ind.hy_oas;
       const st = statusFor(k, h.value_bp, hyPct);
+      const toneName = 'tone-' + st.cls.slice(2);
       const read = readingFor(k, st, h.value_bp, h.change_bp, hyPct);
       const chgPill = (h.change_bp === null || h.change_bp === undefined || hyPct === null)
         ? (h.change_bp === null || h.change_bp === undefined ? '<span class="chip flat">较前收 —</span>'
           : `<span class="chip ${h.change_bp>0?'up':h.change_bp<0?'down':'flat'}">${h.change_bp>0?'+':''}${h.change_bp}bp</span>`)
-        : renderChangePill(h.change_bp, hyPct, 'bp');
+        : renderChangePill(h.change_bp, hyPct, 'bp', true);
 
       return `
-        <div class="card" id="card-${k}">
+        <article class="card has-tone ${toneName}${animCls}" id="card-${k}" ${delayStyle}>
           <div>
             <div class="card-top">
               <div class="card-title-group">
-                <h3><a href="${m.link}">${m.name}</a></h3>
+                <div class="card-title-row">
+                  <h3><a href="${m.link}">${m.name}</a></h3>
+                  <span class="role-tag ${roleCls}">${m.roleLabel}</span>
+                </div>
                 <div class="card-subtitle">${m.sub}</div>
               </div>
               <span class="badge ${st.cls}">${st.label}</span>
@@ -1749,41 +2524,45 @@ function render(data, isSnapshot){
               <div class="value">${h.value_bp}<small>bp</small></div>
               <div class="change-row">
                 ${chgPill}
-                <span>· 前值 ${h.prev_value_bp}bp (${h.prev_date})</span>
+                <span class="prev-meta">前值 ${h.prev_value_bp}bp</span>
               </div>
             </div>
 
             <div class="reading-box">
               <div class="reading-head">
-                <span>波动定档：</span>
-                <span class="t-${st.cls.slice(2)}" style="font-weight:700;">${st.label}</span>
+                <span>波动情况</span>
+                <span class="t-${st.cls.slice(2)}">· ${st.label}</span>
               </div>
               <div class="reading-body">${read}</div>
             </div>
 
-            ${buildSparkline(h.history, k)}
+            ${buildSparkline(h.history, k, st.cls, h.prev_value_bp, false)}
             ${renderScaleHTML(k, h.value_bp)}
           </div>
 
           <div class="card-foot">
-            <span>${h.date} (FRED 日度)</span>
-            <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ↗</a>
+            <span>${h.date} · FRED 日度</span>
+            <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
           </div>
-        </div>
+        </article>
       `;
     }
 
     const d = ind[k];
     const st = statusFor(k, d.value, d.change_pct);
+    const toneName = 'tone-' + st.cls.slice(2);
     const absChg = (d.prev_close === null || d.prev_close === undefined) ? null : (d.value - d.prev_close);
     const read = readingFor(k, st, d.value, absChg, d.change_pct);
 
     return `
-      <div class="card" id="card-${k}">
+      <article class="card has-tone ${toneName}${animCls}" id="card-${k}" ${delayStyle}>
         <div>
           <div class="card-top">
             <div class="card-title-group">
-              <h3><a href="${m.link}">${m.name}</a></h3>
+              <div class="card-title-row">
+                <h3><a href="${m.link}">${m.name}</a></h3>
+                <span class="role-tag ${roleCls}">${m.roleLabel}</span>
+              </div>
               <div class="card-subtitle">${m.sub}</div>
             </div>
             <span class="badge ${st.cls}">${st.label}</span>
@@ -1792,203 +2571,197 @@ function render(data, isSnapshot){
           <div class="val-row">
             <div class="value">${d.value}<small>${m.unit}</small></div>
             <div class="change-row">
-              ${renderChangePill(absChg, d.change_pct, m.unit)}
-              <span>· 前收 ${d.prev_close !== null && d.prev_close !== undefined ? d.prev_close : '—'}</span>
+              ${renderChangePill(absChg, d.change_pct, m.unit, false)}
+              <span class="prev-meta">前收 ${d.prev_close !== null && d.prev_close !== undefined ? d.prev_close : '—'}</span>
             </div>
           </div>
 
           <div class="reading-box">
             <div class="reading-head">
-              <span>波动定档：</span>
-              <span class="t-${st.cls.slice(2)}" style="font-weight:700;">${st.label}</span>
+              <span>波动情况</span>
+              <span class="t-${st.cls.slice(2)}">· ${st.label}</span>
             </div>
             <div class="reading-body">${read}</div>
           </div>
 
-          ${buildSparkline(d.history, k)}
+          ${buildSparkline(d.history, k, st.cls, d.prev_close, false)}
           ${renderScaleHTML(k, d.value)}
         </div>
 
         <div class="card-foot">
-          <span>${d.date} 收盘</span>
-          <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ↗</a>
+          <span>${d.date} · 收盘</span>
+          <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
         </div>
-      </div>
+      </article>
     `;
   }).join('');
 
-  /* 标普 500 背景卡片 */
+  /* 标普 500 市场背景卡片 */
   const s = data.spx;
-  document.getElementById('spxCard').innerHTML = `
+  const spxAbs = (s.prev_close !== null && s.prev_close !== undefined) ? (s.value - s.prev_close) : null;
+  const spxTone = (s.change_pct === null || s.change_pct === undefined) ? 'b-grey' : (s.change_pct >= 0 ? 'b-green' : 'b-red');
+  const spxVals = (s.history || []).map(x => x.value);
+  const spxHigh = spxVals.length ? Math.max(...spxVals) : s.value;
+  const spxLow = spxVals.length ? Math.min(...spxVals) : s.value;
+  const spxFromHigh = spxHigh ? (((s.value - spxHigh) / spxHigh) * 100).toFixed(2) : '0.00';
+
+  // VIX 与 SPX 反向联动自动判断
+  const inverseConfirmed = (s.change_pct !== null && ind.vix.change_pct !== null) &&
+    ((s.change_pct > 0 && ind.vix.change_pct < 0) || (s.change_pct < 0 && ind.vix.change_pct > 0));
+  const corrText = (s.change_pct !== null && ind.vix.change_pct !== null)
+    ? `${inverseConfirmed ? '典型负相关确认' : '罕见同向波动'}：SPX ${s.change_pct > 0 ? '+' : ''}${s.change_pct.toFixed(2)}% · VIX ${ind.vix.change_pct > 0 ? '+' : ''}${ind.vix.change_pct.toFixed(2)}%。单看 VIX 不看指数位置易误判。`
+    : 'VIX 与标普 500 通常呈反向变动：指数反弹时 VIX 回落，反之亦然。';
+
+  const spxEl = document.getElementById('spxCard');
+  spxEl.className = `card has-tone ${s.change_pct >= 0 ? 'tone-green' : 'tone-red'}`;
+  spxEl.innerHTML = `
     <div>
       <div class="card-top">
         <div class="card-title-group">
-          <h3>标普 500 <span style="font-size:12px;font-weight:500;color:var(--text-muted);">(S&amp;P 500 指数)</span></h3>
-          <div class="card-subtitle">大盘核心资产价格基准与方向参考</div>
+          <div class="card-title-row">
+            <h3>标普 500</h3>
+            <span class="role-tag role-adv">S&amp;P 500</span>
+          </div>
+          <div class="card-subtitle">美股核心权益基准与方向交叉验证</div>
         </div>
-        <span class="badge b-grey">权益基准</span>
+        <span class="badge ${spxTone}">${s.change_pct >= 0 ? '收涨' : '收跌'}</span>
       </div>
 
       <div class="val-row">
         <div class="value">${s.value.toLocaleString('en-US')}</div>
         <div class="change-row">
-          ${renderSpxChange(s.change_pct)}
-          <span>· 前收 ${s.prev_close ? s.prev_close.toLocaleString('en-US') : '—'} (${s.prev_date})</span>
+          ${renderSpxChange(spxAbs, s.change_pct)}
+          <span class="prev-meta">前收 ${s.prev_close ? s.prev_close.toLocaleString('en-US') : '—'} (${shortDate(s.prev_date)})</span>
         </div>
       </div>
 
-      <div class="reading-box">
-        <div class="reading-head">股指与波动率反向关系：</div>
-        <div class="reading-body">VIX 与标普 500 通常反向变动：指数反弹时 VIX 大概率回落，反之亦然。脱离指数位置看 VIX 易产生误判。</div>
+      ${buildSparkline(s.history, 'spx', spxTone, s.prev_close, true)}
+
+      <div class="spx-stats-grid">
+        <div class="spx-stat">
+          <div class="spx-stat-k">区间最高</div>
+          <div class="spx-stat-v">${spxHigh.toLocaleString('en-US')}</div>
+        </div>
+        <div class="spx-stat">
+          <div class="spx-stat-k">区间最低</div>
+          <div class="spx-stat-v">${spxLow.toLocaleString('en-US')}</div>
+        </div>
+        <div class="spx-stat">
+          <div class="spx-stat-k">距区间高点</div>
+          <div class="spx-stat-v">${spxFromHigh}%</div>
+        </div>
       </div>
 
-      ${buildSparkline(s.history, 'spx')}
+      <div class="reading-box" style="margin-top:12px;">
+        <div class="reading-head">股指与波动率联动验证</div>
+        <div class="reading-body">${corrText}</div>
+      </div>
     </div>
 
     <div class="card-foot">
-      <span>${s.date} 收盘快照</span>
-      <a href="https://cn.tradingview.com/symbols/SPX/" target="_blank" rel="noopener" class="tv-link">TradingView ↗</a>
+      <span>${s.date} · 收盘快照</span>
+      <a href="https://cn.tradingview.com/symbols/SPX/" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
     </div>
   `;
 
-  /* VIX 期限结构可视化渲染 */
-  const t = data.term_structure;
-  const pts = [
-    ['1天', t.vix1d, false],
-    ['9天', t.vix9d, false],
-    ['30天', t.vix, true],
-    ['3个月', t.vix3m, false],
-    ['6个月', t.vix6m, false]
-  ];
-  const maxT = Math.max(t.vix1d, t.vix9d, t.vix, t.vix3m, t.vix6m) * 1.15;
-  const ratio = (t.vix / t.vix3m).toFixed(2);
-  const isInverted = t.vix > t.vix3m;
-  const isSevereInverted = ratio > 1.05;
+  /* VIX 期限结构曲线 */
+  renderTermStructure(data.term_structure);
 
-  const shapeBadge = document.getElementById('termShapeBadge');
-  if(isInverted){
-    shapeBadge.className = 'badge b-red';
-    shapeBadge.textContent = '贴水 / 倒挂 (恐慌集中)';
-  } else {
-    shapeBadge.className = 'badge b-green';
-    shapeBadge.textContent = '升水 (Contango 常态)';
-  }
-
-  const ratioBadge = document.getElementById('termRatioBadge');
-  ratioBadge.className = `chip ${isSevereInverted ? 'up' : (isInverted ? 'flat' : 'down')}`;
-  ratioBadge.textContent = `VIX / VIX3M = ${ratio} · ${isInverted ? '倒挂' : '正常升水'}`;
-
-  // 构建条柱
-  const barHTML = pts.map(([lbl, val, isSpot]) => {
-    const barHeight = Math.max(22, (val / maxT) * 120);
-    return `
-      <div class="term-col ${isSpot ? 'is-spot' : ''}">
-        <span class="term-val">${val}</span>
-        <div class="term-bar-fill" style="height:${barHeight}px;"></div>
-        <span class="term-lbl">${lbl}${isSpot ? ' (现货)' : ''}</span>
-      </div>
-    `;
-  }).join('');
-
-  document.getElementById('termStrip').innerHTML = barHTML;
-
-  const shapeDesc = isInverted
-    ? `贴水（Backwardation）：近端波动率显著高于远端，市场恐慌情绪集中在眼前。倒挂比率 ${ratio}。`
-    : `升水（Contango）：近端便宜远端贵，波动率预期呈现正常期限溢价形态。比率 ${ratio}。`;
-
-  document.getElementById('termNote').innerHTML = `
-    <span class="reading-head">期限形态解读：</span>
-    <span class="reading-body">${t.date} · ${shapeDesc}</span>
-  `;
-
-  // 挂载 Sparkline 交互监听
   initSparklineInteractivity();
+  hasAnimated = true;
 }
 
-/* 锚点平滑滚动与高亮 */
+/* 锚点平滑滚动并脉冲高亮卡片 */
 function scrollToMetric(key){
   const el = document.getElementById('card-' + key);
   if(el){
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.classList.add('highlighted');
-    setTimeout(() => el.classList.remove('highlighted'), 1800);
+    setTimeout(() => el.classList.remove('highlighted'), 1600);
   }
 }
 
-/* ---- Sparkline 交互悬停浮层 ---- */
+/* ---- Sparkline 交互悬停浮层（支持边界钳制，永不裁剪） ---- */
 function initSparklineInteractivity(){
   document.querySelectorAll('.spark-box').forEach(box => {
     const raw = box.getAttribute('data-history');
     if(!raw) return;
     try {
       const data = JSON.parse(raw);
-      const svg = box.querySelector('.spark-svg');
-      const hoverLine = box.querySelector('.spark-hover-line');
-      const hoverCircle = box.querySelector('.spark-hover-circle');
+      const key = box.getAttribute('data-key');
+      const stage = box.querySelector('.spark-stage');
+      const vLine = box.querySelector('.spark-hover-v');
+      const hDot = box.querySelector('.spark-hover-dot');
       const tooltip = box.querySelector('.spark-tooltip');
-      if(!svg || !hoverLine || !tooltip) return;
+      if(!stage || !vLine || !hDot || !tooltip) return;
 
-      box.addEventListener('mousemove', e => {
-        const rect = svg.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const pct = Math.max(0, Math.min(1, mouseX / rect.width));
+      stage.addEventListener('mousemove', e => {
+        const rect = stage.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
         const idx = Math.round(pct * (data.length - 1));
         const p = data[idx];
         if(!p) return;
 
-        hoverLine.style.display = 'block';
-        hoverLine.setAttribute('x1', p.x);
-        hoverLine.setAttribute('x2', p.x);
+        vLine.style.display = 'block';
+        vLine.style.left = p.xp + '%';
 
-        hoverCircle.style.display = 'block';
-        hoverCircle.setAttribute('cx', p.x);
-        hoverCircle.setAttribute('cy', p.y);
+        hDot.style.display = 'block';
+        hDot.style.left = p.xp + '%';
+        hDot.style.top = p.yp + '%';
 
+        const valStr = key === 'spx' ? p.val.toLocaleString('en-US') : (key === 'hy_oas' ? p.val + 'bp' : p.val);
         tooltip.style.display = 'block';
-        tooltip.style.left = (p.x / 320 * 100) + '%';
-        tooltip.textContent = `${p.date}: ${p.val}`;
+        tooltip.textContent = `${shortDate(p.date)} · ${valStr}`;
+        // 边界钳制，防止最左或最右节点悬停浮层被卡片裁剪
+        const clampedX = Math.max(18, Math.min(82, p.xp));
+        tooltip.style.left = clampedX + '%';
       });
 
-      box.addEventListener('mouseleave', () => {
-        hoverLine.style.display = 'none';
-        hoverCircle.style.display = 'none';
+      stage.addEventListener('mouseleave', () => {
+        vLine.style.display = 'none';
+        hDot.style.display = 'none';
         tooltip.style.display = 'none';
       });
     } catch(e){}
   });
 }
 
-/* ---- 美股开闭市状态计算 (美东时间) ---- */
+/* ---- 美股开闭市与美东时钟 (America/New_York) ---- */
 function updateMarketStatus(){
   const now = new Date();
   const et = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     weekday: 'short',
-    hour: 'numeric',
-    minute: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
     hour12: false
   }).formatToParts(now);
   const get = t => et.find(p => p.type === t).value;
-  const wd = get('weekday'), mins = (+get('hour')) * 60 + (+get('minute'));
+  const wd = get('weekday'), hh = get('hour'), mm = get('minute');
+  const mins = (+hh) * 60 + (+mm);
   const isOpen = (wd !== 'Sat' && wd !== 'Sun' && mins >= 570 && mins < 960);
-  
+
   const el = document.getElementById('marketPill');
   if(el){
     el.className = 'pill ' + (isOpen ? 'open' : 'closed');
-    el.innerHTML = `<span class="pulse-dot"></span>` + (isOpen ? '美股：开盘中 (美东 9:30–16:00)' : '美股：已收市 (美东 9:30–16:00)');
+    el.innerHTML = `<span class="pulse-dot"></span><span>${isOpen ? '美股开盘中' : '美股已收市'}</span><span class="pill-sub">ET ${hh}:${mm}</span>`;
+  }
+  const clockEl = document.getElementById('etClock');
+  if(clockEl){
+    clockEl.textContent = `美东 ${wd} ${hh}:${mm}`;
   }
 }
 updateMarketStatus();
-setInterval(updateMarketStatus, 300000);
+setInterval(updateMarketStatus, 30000);
 
-/* ---- 报警状态面板渲染 ---- */
+/* ---- 报警状态面板与触发逼近度渲染 ---- */
 const ALERT_META = {
-  vix: { name: "VIX 恐慌指数", thr: "≥35 预警 / ≥40 严重" },
-  vvix: { name: "VVIX 波动率", thr: "≥140 预警" },
-  skew: { name: "SKEW 黑天鹅", thr: "≥150 预警" },
-  move: { name: "MOVE 债市波动", thr: "≥140 预警" },
-  hy_oas: { name: "HY OAS 信用利差", thr: "≥500bp 预警 / ≥1000bp 严重" },
-  cross: { name: "股债综合预警", thr: "VIX ≥30 且 (VVIX≥140 或 MOVE≥140)" }
+  vix:    { name: "VIX 恐慌指数",  thr: "≥35 预警 / ≥40 严重", warn: 35 },
+  vvix:   { name: "VVIX 波动率",   thr: "≥140 预警",           warn: 140 },
+  skew:   { name: "SKEW 黑天鹅",   thr: "≥150 预警",           warn: 150 },
+  move:   { name: "MOVE 债市波动", thr: "≥140 预警",           warn: 140 },
+  hy_oas: { name: "HY OAS 信用利差", thr: "≥500bp 预警 / ≥1000bp 严重", warn: 500 },
+  cross:  { name: "股债综合预警",  thr: "VIX≥30 且 (VVIX≥140 或 MOVE≥140)", warn: 30 }
 };
 
 function alertLevel(key, d){
@@ -2005,6 +2778,17 @@ function alertLevel(key, d){
   return 'normal';
 }
 
+function alertProximity(key, d){
+  const ind = d.indicators;
+  if(key === 'cross'){
+    const pVix = ind.vix.value / 30;
+    const pSec = Math.max(ind.vvix.value / 140, ind.move.value / 140);
+    return Math.min(100, Math.round(Math.min(pVix, pSec) * 100));
+  }
+  const val = key === 'hy_oas' ? ind.hy_oas.value_bp : ind[key].value;
+  return Math.min(100, Math.round((val / ALERT_META[key].warn) * 100));
+}
+
 function fmtBJ(utcStr){
   if(!utcStr) return '从未报警';
   try {
@@ -2016,32 +2800,47 @@ function renderAlerts(data, state){
   const el = document.getElementById('alertList');
   const st = (state && state.alerts) || {};
 
-  // 推送通道与抓取状态
+  // 推送通道状态胶囊
   const chLine = document.getElementById('channelLine');
   const chSummary = document.getElementById('channelSummary');
   if(state && state.channels_configured){
     const c = state.channels_configured;
-    const txt = `飞书: ${c.feishu ? '已配置 ✓' : '未配置'} · Bark: ${c.bark ? '已配置 ✓' : '未配置'}`;
-    chLine.textContent = `推送通知通道：${txt}`;
-    if(chSummary) chSummary.textContent = `${c.feishu ? '飞书✓' : '飞书-'} · ${c.bark ? 'Bark✓' : 'Bark-'}`;
+    const chipHTML = `
+      <span class="mini-chip ${c.feishu ? 'ok' : 'off'}"><span class="mini-chip-dot"></span>飞书 ${c.feishu ? '已配置' : '未配置'}</span>
+      <span class="mini-chip ${c.bark ? 'ok' : 'off'}"><span class="mini-chip-dot"></span>Bark ${c.bark ? '已配置' : '未配置'}</span>
+    `;
+    chLine.innerHTML = `<span style="font-weight:600;">推送通道</span>${chipHTML}`;
+    if(chSummary) chSummary.innerHTML = chipHTML;
   } else {
-    chLine.textContent = '推送通知通道：等待服务端运行生成状态';
+    chLine.innerHTML = `<span style="font-weight:600;">推送通道</span><span class="mini-chip off">等待服务端首次生成</span>`;
+    if(chSummary) chSummary.innerHTML = `<span class="mini-chip off">待同步</span>`;
   }
 
+  // 数据源拉取健康度胶囊
   const fs = state && state.fetch_status;
   const fetchLine = document.getElementById('fetchLine');
   const fetchSummary = document.getElementById('fetchSummary');
   if(fetchLine){
     if(!fs){
-      fetchLine.textContent = '数据源同步状态：等待首次运行';
+      fetchLine.innerHTML = `<span style="font-weight:600;">数据拉取</span><span class="mini-chip off">等待首次运行</span>`;
+      if(fetchSummary) fetchSummary.innerHTML = `<span class="mini-chip off">待同步</span>`;
     } else {
-      const fmt = s => (!s ? '未知' : (s.ok ? '正常 ✓' : `失败 (${s.last_error||'异常'})`));
-      fetchLine.textContent = `数据源状态：Yahoo ${fmt(fs.yahoo)} · FRED ${fmt(fs.fred)}`;
-      if(fetchSummary) fetchSummary.textContent = `Yahoo ${fs.yahoo&&fs.yahoo.ok?'正常✓':'失败'} · FRED ${fs.fred&&fs.fred.ok?'正常✓':'失败'}`;
+      const mkChip = (name, s) => {
+        if(!s) return `<span class="mini-chip off">${name} 未知</span>`;
+        if(s.ok) return `<span class="mini-chip ok" title="${s.provider ? '来源: ' + s.provider : '正常'}"><span class="mini-chip-dot"></span>${name} 正常</span>`;
+        return `<span class="mini-chip err" title="${s.last_error || '未知错误'}"><span class="mini-chip-dot"></span>${name} 失败</span>`;
+      };
+      const labelMap = { equities: '波动/股指', move: 'MOVE', fred: 'FRED', yahoo: 'Yahoo' };
+      const order = ['equities', 'move', 'fred', 'yahoo'].filter(k => fs[k]);
+      const html = order.length
+        ? order.map(k => mkChip(labelMap[k] || k, fs[k])).join('')
+        : mkChip('Yahoo', fs.yahoo) + mkChip('FRED', fs.fred);
+      fetchLine.innerHTML = `<span style="font-weight:600;">数据拉取</span>${html}`;
+      if(fetchSummary) fetchSummary.innerHTML = html;
     }
   }
 
-  // 6 项报警方块
+  // 6 项预警状态卡（含阈值逼近进度条）
   el.innerHTML = Object.keys(ALERT_META).map(key => {
     const lvl = alertLevel(key, data);
     const cls = lvl === 'critical' ? 'b-red' : lvl === 'warning' ? 'b-amber' : 'b-green';
@@ -2050,33 +2849,38 @@ function renderAlerts(data, state){
       : key === 'cross' ? ('VIX ' + data.indicators.vix.value)
       : data.indicators[key].value;
     const last = st[key] ? fmtBJ(st[key].last_sent_at_utc) : '从未报警';
+    const prox = alertProximity(key, data);
+    const proxCol = lvl === 'critical' ? 'var(--red-solid)'
+      : (lvl === 'warning' || prox >= 88) ? 'var(--amber-solid)' : 'var(--green-solid)';
 
     return `
-      <div class="alert-box">
+      <div class="alert-box lvl-${lvl}">
         <div class="alert-box-top">
           <span class="alert-name">${ALERT_META[key].name}</span>
           <span class="badge ${cls}">${label}</span>
         </div>
-        <div class="alert-details">
-          <span>当前值：<strong>${cur}</strong></span>
-          <span style="margin: 0 4px;">·</span>
-          <span>阈值：${ALERT_META[key].thr}</span>
+        <div class="alert-metrics">
+          <span class="alert-cur">${cur}</span>
+          <span class="alert-thr">${ALERT_META[key].thr}</span>
         </div>
-        <div class="alert-last">上次告警：${last}</div>
+        <div class="prox-wrap" title="当前值占预警触发线的比例：${prox}%">
+          <div class="prox-track">
+            <div class="prox-fill" style="width:${prox}%;background:${proxCol};"></div>
+          </div>
+          <span class="prox-pct">${prox}%</span>
+        </div>
+        <div class="alert-last">${ICON_CLOCK}<span>上次告警：${last}</span></div>
       </div>
     `;
   }).join('');
 }
 
-/* ---- 数据拉取与自动刷新倒计时 ---- */
-/* 自动刷新按数据实际变化的时间来：服务端每天只在收盘后拉取两次
-   （UTC 21:30 和 23:30，即北京时间 05:30 和 07:30），拉取要几分钟，
-   所以平时 30 分钟拉一次，只在两个拉取窗口内（05:30–06:00、07:30–08:00）
-   每 1 分钟拉一次，新收盘数据出来后一分钟内就能看到；窗口快到时就等到
-   窗口开始再拉。手动刷新和推送走异步任务（轮询 /api/job），不依赖这个定时器。 */
-const NORMAL_INTERVAL_MS = 30 * 60 * 1000;   // 平时：30 分钟
-const WINDOW_INTERVAL_MS = 60 * 1000;        // 拉取窗口内：1 分钟
-const UPDATE_WINDOWS = [[5 * 60 + 30, 6 * 60], [7 * 60 + 30, 8 * 60]]; // 北京时间分钟数
+/* ---- 智能自动刷新与环形倒计时（平时 30 分钟，收盘窗口 05:30–06:00 / 07:30–08:00 每 1 分钟） ---- */
+const NORMAL_INTERVAL_MS = 30 * 60 * 1000;
+const WINDOW_INTERVAL_MS = 60 * 1000;
+const UPDATE_WINDOWS = [[5 * 60 + 30, 6 * 60], [7 * 60 + 30, 8 * 60]];
+const RING_CIRC = 2 * Math.PI * 7; // 43.98
+
 function beijingMinutes(){
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Shanghai', hour: 'numeric', minute: 'numeric', hour12: false
@@ -2092,13 +2896,29 @@ function nextIntervalMs(){
   }
   return NORMAL_INTERVAL_MS;
 }
-let countdown = 30 * 60, refreshTimer = null;
+
+let countdown = 30 * 60, totalIntervalSec = 30 * 60, refreshTimer = null;
+function fmtCountdown(s){
+  return s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s + 's';
+}
+function updateTimerUI(){
+  const cd = document.getElementById('countdown');
+  const arc = document.getElementById('timerArc');
+  if(cd) cd.textContent = fmtCountdown(countdown);
+  if(arc && totalIntervalSec > 0){
+    const offset = RING_CIRC * (1 - countdown / totalIntervalSec);
+    arc.setAttribute('stroke-dashoffset', Math.max(0, Math.min(RING_CIRC, offset)).toFixed(2));
+  }
+}
 function scheduleNext(){
   if(refreshTimer) clearTimeout(refreshTimer);
   const ms = nextIntervalMs();
-  countdown = Math.round(ms / 1000);
+  totalIntervalSec = Math.max(1, Math.round(ms / 1000));
+  countdown = totalIntervalSec;
+  updateTimerUI();
   refreshTimer = setTimeout(() => { load(); }, ms);
 }
+
 async function load(){
   let data = null, isSnapshot = false, state = null;
   try {
@@ -2120,52 +2940,50 @@ async function load(){
   render(data, isSnapshot);
   renderAlerts(data, state);
   scheduleNext();
+  return !isSnapshot;
 }
 
 load();
 
-/* 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md）。
-   API_TOKEN 也写在页面代码里（公开），真正的保护是服务端的限流
-   （每分钟 1 次、每天每通道推送 10 次 / 刷新 30 次）；推送地址只存在 VPS 上，
-   页面本身不保存任何推送地址。
-   刷新和状态推送是异步的：从机房 IP 拉 Yahoo 经常要重试，整个拉取可能
-   超过 Cloudflare 隧道约 100 秒的超时，同步等会 524。所以接口只返回
-   {"status": "started"}，页面轮询 GET /api/job 等任务完成再更新。
-   接口不可用时，刷新退回重新读取 data.json，推送则提示去 GitHub 工作流
-   页面手动触发（备用入口）。 */
+/* ---- 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md） ----
+   刷新和状态推送支持异步轮询 /api/job 避免 Cloudflare 524 超时；
+   接口不可用时，刷新回退读取 data.json，推送提示可前往 GitHub 工作流手动触发。 */
 const API_BASE = 'https://api.infidea.app';
 const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
 async function apiPost(path, body){
-  const r = await fetch(API_BASE + path, { method: 'POST',
+  const r = await fetch(API_BASE + path, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Api-Token': API_TOKEN },
-    body: body ? JSON.stringify(body) : undefined });
+    body: body ? JSON.stringify(body) : undefined
+  });
   if(!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
-/* 轮询 /api/job 直到任务完成（每 15 秒一次，最多约 5 分钟），返回任务结果，
-   超时返回 null。 */
 async function waitForJob(){
   for(let i = 0; i < 20; i++){
     await new Promise(r => setTimeout(r, 15000));
-    try{
+    try {
       const r = await fetch(API_BASE + '/api/job');
       if(!r.ok) continue;
       const j = await r.json();
       if(!j.running) return j.last_result;
-    }catch(e){}
+    } catch(e){}
   }
   return null;
 }
+
 async function manualRefresh(){
   const btn = document.getElementById('refreshBtn');
-  const msg = document.getElementById('refreshMsg');
-  if(!btn) return;
+  const icon = document.getElementById('refreshIcon');
+  const lbl = document.getElementById('refreshLabel');
+  if(!btn || btn.disabled) return;
   btn.disabled = true;
-  btn.textContent = '正在刷新…';
+  if(icon) icon.classList.add('spinning');
+  if(lbl) lbl.textContent = '拉取中';
   try {
     const res = await apiPost('/api/refresh');
     if(res.status === 'started'){
-      if(msg) msg.textContent = '正在后台拉取，预计 1-2 分钟，完成后自动更新';
+      showToast('正在后台拉取最新收盘数据，预计 1–2 分钟后自动更新…');
       const result = await waitForJob();
       if(result && result.ok && result.data){
         render(result.data, false);
@@ -2173,13 +2991,13 @@ async function manualRefresh(){
           const rs = await fetch('./alert_state.json', { cache: 'no-store' });
           if(rs.ok) renderAlerts(result.data, await rs.json());
         } catch(e){}
-        if(msg) msg.textContent = '已刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
-          + (result.pushed ? '' : '（注意：数据已取回但未推到仓库）');
+        const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        showToast(`已刷新最新数据 · ${t}` + (result.pushed ? '' : '（未推到仓库）'));
       } else if(result && !result.ok){
         await load();
-        if(msg) msg.textContent = '拉取失败：' + (result.error || '未知错误') + '，显示的仍是上次数据';
+        showToast('拉取失败：' + (result.error || '未知错误') + '，仍显示上次数据', true);
       } else {
-        if(msg) msg.textContent = '拉取时间较长，页面会在下次定时刷新时自动更新';
+        showToast('拉取时间较长，将在下次定时刷新时自动更新');
       }
     } else if(res.ok && res.data){
       render(res.data, false);
@@ -2187,51 +3005,57 @@ async function manualRefresh(){
         const rs = await fetch('./alert_state.json', { cache: 'no-store' });
         if(rs.ok) renderAlerts(res.data, await rs.json());
       } catch(e){}
-      if(msg) msg.textContent = '已刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
-        + (res.pushed ? '' : '（注意：数据已取回但未推到仓库）');
+      const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      showToast(`已刷新最新数据 · ${t}` + (res.pushed ? '' : '（未推到仓库）'));
     } else {
       throw new Error(res.error || 'refresh failed');
     }
   } catch(e){
-    await load();
-    if(msg) msg.textContent = '接口不可用，已重新读取上次数据';
+    const ok = await load();
+    const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    showToast(ok ? `接口不可用，已重新读取 data.json · ${t}` : `已回退本地快照 · ${t}`, !ok);
+  } finally {
+    btn.disabled = false;
+    if(icon) icon.classList.remove('spinning');
+    if(lbl) lbl.textContent = '刷新';
   }
-  btn.disabled = false;
-  btn.textContent = '🔄 刷新数据';
 }
+
 async function manualPush(channel){
   const btn = document.getElementById(channel === 'feishu' ? 'feishuPushBtn' : 'barkPushBtn');
   const other = document.getElementById(channel === 'feishu' ? 'barkPushBtn' : 'feishuPushBtn');
   const label = btn ? btn.querySelector('span') : null;
-  const msg = document.getElementById('refreshMsg');
   const name = channel === 'feishu' ? '飞书' : 'Bark';
-  if(!btn) return;
-  btn.disabled = true; if(other) other.disabled = true;
+  const defaultTxt = channel === 'feishu' ? '飞书推送' : 'Bark 推送';
+  if(!btn || btn.disabled) return;
+  btn.disabled = true;
+  if(other) other.disabled = true;
   if(label) label.textContent = '发送中…';
   try {
     const res = await apiPost('/api/push', { mode: 'status', channels: [channel] });
     if(res.status === 'started'){
-      if(msg) msg.textContent = name + '正在拉取并推送，消息到达即完成';
+      showToast(`${name}正在推送状态汇总，消息到达即完成…`);
       const result = await waitForJob();
       const ok = result && result.ok && result[channel] === true;
-      if(label) label.textContent = ok ? '已推送 ✓' : '失败 ✗';
-      if(msg) msg.textContent = name + (ok ? '已推送 ' : (result ? '推送失败 ' : '推送超时，请检查是否收到 '))
-        + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      if(label) label.textContent = ok ? '已推送' : '发送失败';
+      const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      showToast(ok ? `${name}推送成功 · ${t}` : `${name}${result ? '推送失败' : '推送超时，请检查是否收到'} · ${t}`, !ok);
     } else if(res.ok){
       const ok = res[channel] === true;
-      if(label) label.textContent = ok ? '已推送 ✓' : '发送失败 ✗';
-      if(msg) msg.textContent = name + (ok ? '已推送 ' : '推送失败 ')
-        + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      if(label) label.textContent = ok ? '已推送' : '发送失败';
+      const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      showToast(ok ? `${name}推送成功 · ${t}` : `${name}推送失败 · ${t}`, !ok);
     } else {
       throw new Error(res.error || 'push failed');
     }
   } catch(e){
-    if(label) label.textContent = '失败 ✗';
-    if(msg) msg.textContent = name + '推送失败：' + e.message + '。也可以去 GitHub 工作流页面手动触发。';
+    if(label) label.textContent = '发送失败';
+    showToast(`${name}推送失败（${e.message}），可前往 GitHub 工作流手动触发`, true);
   }
   setTimeout(() => {
-    if(label) label.textContent = name + '推送';
-    btn.disabled = false; if(other) other.disabled = false;
+    if(label) label.textContent = defaultTxt;
+    btn.disabled = false;
+    if(other) other.disabled = false;
   }, 3000);
 }
 
@@ -2244,14 +3068,9 @@ async function manualPush(channel){
   if(bb) bb.addEventListener('click', () => manualPush('bark'));
 })();
 
-/* 倒计时计时器（≥60 秒显示为 m:ss） */
-function fmtCountdown(s){
-  return s >= 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : s + 's';
-}
 setInterval(() => {
   countdown = Math.max(0, countdown - 1);
-  const cd = document.getElementById('countdown');
-  if(cd) cd.textContent = '下次刷新：' + fmtCountdown(countdown);
+  updateTimerUI();
 }, 1000);
 </script>
 </body>
