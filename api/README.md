@@ -2,9 +2,9 @@
 
 The dashboard page is static (GitHub Pages) and holds no secrets, so it
 cannot fetch data or send a push by itself. This service runs on the
-user's VPS (proud-pipes-7, behind the existing Cloudflare Tunnel) and is
-the backend for the dashboard's manual buttons. It also replaces the
-twice-daily GitHub Actions fetch once it proves reliable.
+user's VPS (proud-pipes-7, behind the existing Cloudflare Tunnel) and
+handles both the twice-daily scheduled data fetch (via cron) and the
+dashboard's manual refresh/push buttons.
 
 ## Endpoints
 
@@ -105,12 +105,3 @@ curl -s -X POST https://api.infidea.app/api/push \
 curl -s -X POST https://api.infidea.app/api/refresh \
   -H "X-Api-Token: $TOKEN"
 ```
-
-## Replacing GitHub Actions
-
-While the VPS cron is being proven, the Actions schedule stays on —
-but two writers to `data.json` can conflict on `git push`, so once the
-VPS cron has run cleanly for a couple of days, disable the schedule in
-`.github/workflows/update-dashboard.yml` (leave `workflow_dispatch`
-there as an emergency fallback). The dashboard page keeps working
-either way: it only reads `data.json` from GitHub Pages.

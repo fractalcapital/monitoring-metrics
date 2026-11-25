@@ -1896,7 +1896,7 @@
       <div>
         <h4>关于 3+2 监控仪表盘</h4>
         <p>聚焦跨市场交叉验证：以股债波动（VIX / MOVE）与高收益信用利差（HY OAS）确认系统性压力，以 VVIX 与 SKEW 捕捉波动率弹性与机构尾部风险定价。</p>
-        <p><strong>更新节奏：</strong>服务端每日美股收盘后拉取两次（UTC 21:30 / 23:30）写入 <code>data.json</code>；页面平时每 30 分钟自动刷新，收盘拉取窗口（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新。点“刷新”经 VPS 接口（<code>api.infidea.app</code>）实时拉取；若接口不可用，也可前往 <a href="https://github.com/fractalcapital/monitoring-metrics/actions/workflows/update-dashboard.yml" target="_blank" rel="noopener">GitHub 工作流页面</a> 手动触发。</p>
+        <p><strong>更新节奏：</strong>美国 VPS 每日美股收盘后定时拉取两次（UTC 21:30 / 23:30）写入 <code>data.json</code>；页面平时每 30 分钟自动刷新，收盘拉取窗口（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新。点“刷新”经 VPS 接口（<code>api.infidea.app</code>）实时拉取。</p>
       </div>
       <div>
         <h4>数据源与口径</h4>

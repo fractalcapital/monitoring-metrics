@@ -63,25 +63,24 @@ open dashboard/index.html
 仪表盘不直接调行情接口（浏览器跨域拿不到 Yahoo / FRED 的数据），而是由一个服务端拉取脚本每天收盘后更新两次，再把结果写进 `dashboard/data.json`，页面同源读取：
 
 - 拉取脚本：`scripts/fetch_dashboard.py`，每天北京时间 05:30 和 07:30 各跑一次（美股收盘后 30 分钟，及之后的一次重试）
-- 数据源：VIX、VVIX、SKEW、MOVE、标普 500 和期限结构走 Yahoo（`query1 / query2.finance.yahoo.com` 的 v8 chart API）；HY OAS 走 FRED（`BAMLH0A0HYM2`）
-- 产物：`dashboard/data.json`（最新收盘价）和 `dashboard/alert_state.json`（预警去重状态），都提交进仓库
+- 数据源：VIX / VVIX / SKEW / 标普 500 优先走美区 VPS 的 Futu CLI（CBOE CDN / FRED 兜底）；VIX 期限结构走 CBOE 官方 CDN CSV；MOVE 走 Yahoo（`curl_cffi`）→ TradingView → CSV 三级兜底；HY OAS 走 FRED 官方 JSON API（`BAMLH0A0HYM2`）
+- 产物：`dashboard/data.json`（最新收盘价）和 `dashboard/alert_state.json`（预警去重状态），由 VPS 定时提交进仓库
 
-### 已知的两个滞后
+### 已知滞后
 
-- **Yahoo 限流（429）**：Yahoo 会限流机房 IP，VPS 和 GitHub Actions 都会被 429。拉取失败时仪表盘保留上一次的数据，飞书 / Bark 会报一次“数据获取失败”（24 小时内同一来源不重复报）。目前在观察期，暂未改数据源。
-- **HY OAS 慢一天**：FRED 的数据要到下一个工作日的美国白天才贴出来，所以 HY OAS 的日期通常比 VIX 晚一个工作日（比如 VIX 是 11-23，HY OAS 还是 11-20）。这是数据源本身的节奏，不是拉取故障；页面上 HY OAS 旁边标了日期。
+- **HY OAS 慢一天**：FRED 的数据要到下一个工作日的美国白天才贴出来，所以 HY OAS 的日期通常比 VIX 晚一个工作日（比如 VIX 是 11-24，HY OAS 是 11-23）。这是数据源本身的节奏，不是拉取故障；页面上 HY OAS 旁边标了日期。
 
 ### 波动情况与预警
 
 每张卡片都有一个“波动情况”状态：先按区间定级（比如 VIX <20 平静、20–30 警惕、30–40 紧张、≥40 恐慌），再看单日异动（处在常态区间但单日涨跌 ≥10% 的记为“异动”）。预警阈值：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重。预警只在新触发或升级时发，同一级别 24 小时内不重复。
 
-预警走两个通道（服务端发，密钥只放在 GitHub Secrets 和服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败也会预警，注明来源、错误和时间。
+预警走两个通道（由 VPS 服务端发，密钥只放在服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败也会预警，注明来源、错误和时间。
 
 ### 手动刷新与推送
 
 仪表盘上有三个按钮，走 VPS 上的 API（`https://api.infidea.app`）：
 
-- 刷新数据：重新拉取并更新 `data.json`（异步，约 2–3 分钟）
+- 刷新数据：重新拉取并更新 `data.json`（异步）
 - 推送到飞书 / 推送到 Bark：用已缓存的数据发一份当前状态汇总（不重新拉取，1–2 秒）
 
 API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/push`、`GET /api/job`，有 token 鉴权和限速。
@@ -89,8 +88,7 @@ API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/pus
 ### 拉取跑在哪
 
 - **VPS**（主力）：`proud-pipes-7` 上的定时任务（cron）+ API 服务（`api/`，systemd），部署见 `api/deploy.sh`
-- **GitHub Actions**：`.github/workflows/update-dashboard.yml`，同一时间表 + 手动触发，作备用
-- **Mac Studio**（可选）：家里宽带 IP 不会被 Yahoo 限流，部署见 `api/deploy-mac.sh`（launchd，每天 05:30 / 07:30），适合在 VPS 长期被 429 时接手拉取
+- **Mac Studio**（可选备用）：部署见 `api/deploy-mac.sh`（launchd，每天 05:30 / 07:30）
 
 ### 仓库结构
 
@@ -99,7 +97,6 @@ API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/pus
 - `scripts/`：拉取脚本（`fetch_dashboard.py`）与发布脚本（`push_data.sh`）
 - `alert/`：飞书 + Bark 发送模块（`notify.py`）
 - `api/`：VPS 上的 API 服务与部署脚本
-- `.github/workflows/`：定时拉取的 Actions 配置
 
 ## 数据口径与免责
 

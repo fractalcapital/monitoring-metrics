@@ -50,20 +50,20 @@
 | 标普 500 | Yahoo Finance（`^GSPC`） | 同上 |
 | HY OAS | FRED `BAMLH0A0HYM2`（ICE BofA 美国高收益利差） | **每日一次**，盘中不会变 |
 
-- GitHub Actions 每天收盘后运行两次（UTC 21:30 和 23:30，即北京时间次日 05:30 和 07:30），运行 `scripts/fetch_dashboard.py`，拉取后写入 `dashboard/data.json`，有变化才提交。
+- 美区 VPS 定时任务每天收盘后运行两次（UTC 21:30 和 23:30，即北京时间次日 05:30 和 07:30），运行 `scripts/fetch_dashboard.py`，拉取后写入 `dashboard/data.json`，有变化才提交。
 - 页面平时每 30 分钟同源拉取一次 `./data.json` 刷新显示，收盘拉取时段（北京时间 05:30–06:00、07:30–08:00）每 1 分钟拉一次——数据每天只在收盘后更新两次，没必要一直高频拉；手动刷新和推送走异步任务，不依赖这个定时器。
 - “实时”指**每天自动更新到最新收盘**，不是盘中逐笔跳动：收盘价在交易时段内不会变，HY OAS 更是日度数据。
 
 ## 为什么不用浏览器直接拉 Yahoo / FRED
 
 已实测：浏览器直接请求 Yahoo / FRED / CBOE 会被 CORS 拦截（无 `Access-Control-Allow-Origin`，CBOE 直接 403）。
-所以数据必须在**服务端**（这里是 GitHub Actions）拉好、写成 `data.json`，页面只同源读取。不要把 Yahoo / FRED 的 URL 写进页面 JS 里——在浏览器里跑不通。
+所以数据必须在**服务端**（美区 VPS）拉好、写成 `data.json`，页面只同源读取。不要把 Yahoo / FRED 的 URL 写进页面 JS 里——在浏览器里跑不通。
 
 ## 备用方案：Cloudflare Workers 代理（未启用，仅作备选）
 
 如果以后想要**盘中**刷新（而不是等收盘），可以加一个 Cloudflare Workers 做代理：
 Worker 服务端请求 Yahoo（不受 CORS 限制），页面请求 Worker 的 URL。注意 Workers 免费版每天 10 万次请求、每次 10ms CPU，
-一个页面加载会产生多次请求，流量大了会先触顶。当前需求（每天看一次收盘）用 Actions + `data.json` 已足够，所以 Workers 只作备选，不建。
+一个页面加载会产生多次请求，流量大了会先触顶。当前需求（每天看一次收盘）用 VPS 定时任务 + `data.json` 已足够，所以 Workers 只作备选，不建。
 
 ## 阈值（与各指标页面一致，即上面“波动情况”的水平定档）
 
