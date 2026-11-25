@@ -5,6 +5,17 @@ Sources (server-side only -- browsers are blocked by CORS on Yahoo/FRED):
   - Yahoo Finance v8 chart API (query1.finance.yahoo.com), range=1mo, interval=1d
     for ^VIX, ^VVIX, ^SKEW, ^MOVE, ^VIX1D, ^VIX9D, ^VIX3M, ^VIX6M, ^GSPC
   - FRED fredgraph.csv?id=BAMLH0A0HYM2 for HY OAS (ICE BofA US High Yield OAS)
+  - Futu CLI (optional, VPS only): `futu kline` daily closes for VIX /
+    VVIX / SKEW, enabled with FUTU_SOURCE=1 in the environment (e.g. the
+    VPS .env). Futu index codes are US..VIX / US..VVIX / US..SKEW
+    (NOT US.VIX -- that returns INVALID_SYMBOL). Futu is tried first
+    for those three only; on any Futu failure the script falls back to
+    Yahoo for that indicator, so a Futu outage never blocks a run.
+    GitHub Actions has no Futu login, so it never sets FUTU_SOURCE and
+    keeps using Yahoo. MOVE / SPX / term structure / HY OAS have no
+    Futu source and always use Yahoo / FRED.
+    The Futu token lives in ~/.futu/token.json, so the cron job must
+    run as the same user who logged in (root on proud-pipes-7).
 
 Rules:
   - Last close + previous close are taken from the timestamp/close arrays
@@ -64,6 +75,7 @@ import datetime as dt
 import io
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -94,6 +106,23 @@ YAHOO_SYMBOLS = {
 }
 
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2"
+
+# Futu CLI source (VPS only, opt-in via FUTU_SOURCE=1). Verified
+# 2026-11-25 on proud-pipes-7: `futu quote 'US..VIX' 'US..VVIX'
+# 'US..SKEW' --format json` returns last_price / prev_close_price,
+# and `futu kline 'US..VIX' --ktype 2 --num 5 --format json` returns
+# {"kline_list": [{"date": 20261124, "close_price": 26.36, ...}]}
+# with closes matching Yahoo (2026-11-23 VIX 26.62, 11-24 26.36;
+# VVIX prev 117.36, SKEW prev 140.37). The kline date is an int
+# YYYYMMDD; close_price is the daily close.
+FUTU_SYMBOLS = {
+    "vix": "US..VIX",
+    "vvix": "US..VVIX",
+    "skew": "US..SKEW",
+}
+FUTU_BIN = os.environ.get("FUTU_BIN", "futu")
+FUTU_ENABLED = os.environ.get("FUTU_SOURCE", "").strip().lower() in (
+    "1", "true", "yes", "on")
 
 DASHBOARD_URL = "https://mon.infidea.app/dashboard/"
 
@@ -188,6 +217,66 @@ def fetch_yahoo(symbol):
     if len(pairs) < 2:
         raise RuntimeError("too few closes for %s: %s" % (symbol, pairs))
     return pairs
+
+
+def parse_futu_kline(data):
+    """Parse `futu kline --format json` output into [{date, value}].
+
+    Accepts the verified shape {"kline_list": [{"date": 20261124,
+    "close_price": 26.36, ...}]}. `date` is an int YYYYMMDD.
+    """
+    items = []
+    if isinstance(data, dict):
+        items = data.get("kline_list") or data.get("data") or []
+    pairs = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        date_raw = item.get("date")
+        close = item.get("close_price")
+        if date_raw is None or close is None:
+            continue
+        ds = str(date_raw).strip()
+        if len(ds) != 8 or not ds.isdigit():
+            continue
+        pairs.append({"date": "%s-%s-%s" % (ds[:4], ds[4:6], ds[6:]),
+                      "value": round(float(close), 2)})
+    pairs.sort(key=lambda p: p["date"])
+    # De-duplicate by date, keeping the last occurrence.
+    deduped = {}
+    for pair in pairs:
+        deduped[pair["date"]] = pair
+    pairs = [deduped[d] for d in sorted(deduped)]
+    if len(pairs) < 2:
+        raise RuntimeError("too few Futu closes: %s" % (pairs,))
+    return pairs
+
+
+def fetch_futu_kline(symbol, num=30):
+    """Daily closes for one Futu symbol via `futu kline --ktype 2`.
+
+    Runs the local CLI (needs a logged-in token in ~/.futu/token.json
+    for the user running this script). The keyring warning on stderr
+    is harmless and ignored; only a non-zero exit is an error.
+    """
+    cmd = [FUTU_BIN, "kline", symbol, "--ktype", "2",
+           "--num", str(num), "--format", "json"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError("futu kline %s failed to run: %s"
+                           % (symbol, exc))
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError("futu kline %s exited %d: %s"
+                           % (symbol, proc.returncode, detail[-300:]))
+    try:
+        data = json.loads(proc.stdout)
+    except ValueError as exc:
+        raise RuntimeError("futu kline %s returned bad JSON: %s"
+                           % (symbol, exc))
+    return parse_futu_kline(data)
 
 
 def fetch_fred_hy_oas():
@@ -785,7 +874,16 @@ def main():
         return
 
     pairs = {}
+    futu_used = []
     for key, symbol in YAHOO_SYMBOLS.items():
+        if FUTU_ENABLED and key in FUTU_SYMBOLS:
+            try:
+                pairs[key] = fetch_futu_kline(FUTU_SYMBOLS[key], num=30)
+                futu_used.append(key)
+                continue
+            except Exception as exc:  # noqa: BLE001 - fall back to Yahoo
+                print("WARNING Futu %s failed (%s); falling back to Yahoo"
+                      % (key, exc), file=sys.stderr)
         try:
             pairs[key] = fetch_yahoo(symbol)
         except Exception as exc:
@@ -867,13 +965,28 @@ def main():
     now_utc = dt.datetime.now(dt.timezone.utc)
     beijing = now_utc.astimezone(dt.timezone(dt.timedelta(hours=8)))
 
+    if futu_used:
+        source_text = (
+            "Futu CLI (futu kline, daily closes) for %s; "
+            "Yahoo Finance (v8 chart API, ~15-min delayed) for "
+            "MOVE/term structure/SPX%s; "
+            "FRED BAMLH0A0HYM2 (ICE BofA US High Yield OAS, daily) "
+            "for HY OAS" % (
+                "/".join(k.upper() for k in futu_used),
+                " and " + "/".join(
+                    k.upper() for k in ("vix", "vvix", "skew")
+                    if k not in futu_used) if len(futu_used) < 3 else ""))
+    else:
+        source_text = (
+            "Yahoo Finance (v8 chart API, ~15-min delayed) for "
+            "VIX/VVIX/SKEW/MOVE/term structure/SPX; "
+            "FRED BAMLH0A0HYM2 (ICE BofA US High Yield OAS, daily) "
+            "for HY OAS")
+
     payload = {
         "updated_at_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updated_at_beijing": beijing.strftime("%Y-%m-%d %H:%M Beijing"),
-        "source": "Yahoo Finance (v8 chart API, ~15-min delayed) for "
-                  "VIX/VVIX/SKEW/MOVE/term structure/SPX; "
-                  "FRED BAMLH0A0HYM2 (ICE BofA US High Yield OAS, daily) "
-                  "for HY OAS",
+        "source": source_text,
         "market_status": "computed in browser from US ET time",
         "indicators": {
             "vix": indicator(pairs["vix"]),
