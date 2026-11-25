@@ -1,6 +1,6 @@
 {
-  "updated_at_utc": "2026-11-25T14:40:30Z",
-  "updated_at_beijing": "2026-11-25 22:40 Beijing",
+  "updated_at_utc": "2026-11-25T14:52:02Z",
+  "updated_at_beijing": "2026-11-25 22:52 Beijing",
   "source": "Futu CLI (VIX/VVIX/SKEW/SPX); CBOE CDN (期限结构); Yahoo Finance (MOVE); FRED API (HY OAS)",
   "sources_used": {
     "vix": "futu",
@@ -18,11 +18,11 @@
   "market_status": "computed in browser from US ET time",
   "indicators": {
     "vix": {
-      "value": 33.36,
+      "value": 33.71,
       "date": "2026-11-25",
       "prev_close": 26.36,
       "prev_date": "2026-11-24",
-      "change_pct": 26.56,
+      "change_pct": 27.88,
       "history": [
         {
           "date": "2026-10-15",
@@ -142,17 +142,17 @@
         },
         {
           "date": "2026-11-25",
-          "value": 33.36
+          "value": 33.71
         }
       ],
       "source": "futu"
     },
     "vvix": {
-      "value": 126.63,
+      "value": 127.04,
       "date": "2026-11-25",
       "prev_close": 114.07,
       "prev_date": "2026-11-24",
-      "change_pct": 11.01,
+      "change_pct": 11.37,
       "history": [
         {
           "date": "2026-10-15",
@@ -272,7 +272,7 @@
         },
         {
           "date": "2026-11-25",
-          "value": 126.63
+          "value": 127.04
         }
       ],
       "source": "futu"
@@ -408,11 +408,11 @@
       "source": "futu"
     },
     "move": {
-      "value": 98.84,
-      "date": "2026-11-24",
-      "prev_close": 100.91,
-      "prev_date": "2026-11-23",
-      "change_pct": -2.05,
+      "value": 99.61,
+      "date": "2026-11-25",
+      "prev_close": 98.84,
+      "prev_date": "2026-11-24",
+      "change_pct": 0.78,
       "history": [
         {
           "date": "2026-10-26",
@@ -497,6 +497,10 @@
         {
           "date": "2026-11-24",
           "value": 98.84
+        },
+        {
+          "date": "2026-11-25",
+          "value": 99.61
         }
       ],
       "source": "yahoo_cffi"
@@ -635,11 +639,11 @@
     }
   },
   "spx": {
-    "value": 6997.72,
+    "value": 6993.05,
     "date": "2026-11-25",
     "prev_close": 7201.09,
     "prev_date": "2026-11-24",
-    "change_pct": -2.82,
+    "change_pct": -2.89,
     "history": [
       {
         "date": "2026-10-15",
@@ -759,7 +763,7 @@
       },
       {
         "date": "2026-11-25",
-        "value": 6997.72
+        "value": 6993.05
       }
     ],
     "source": "futu"
@@ -767,7 +771,7 @@
   "term_structure": {
     "vix1d": 23.76,
     "vix9d": 26.68,
-    "vix": 33.36,
+    "vix": 33.71,
     "vix3m": 25.47,
     "vix6m": 26.19,
     "date": "2026-11-25"
