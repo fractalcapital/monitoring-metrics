@@ -1282,49 +1282,352 @@
     background: var(--surface2);
     border: 1px solid var(--border-subtle);
     border-radius: 14px;
-    padding: 14px 14px 10px;
+    padding: 12px 14px 12px;
+  }
+  .term-chart-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .term-live-readout {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 24px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .term-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .term-live-ticker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .term-live-name {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 11.5px;
+  }
+  .term-live-val {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .term-live-delta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .term-live-delta.is-base {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+  }
+  .term-live-delta.is-pos {
+    background: var(--green-bg);
+    color: var(--green-text);
+    border: 1px solid var(--green-border);
+  }
+  .term-live-delta.is-neg {
+    background: var(--red-bg);
+    color: var(--red-text);
+    border: 1px solid var(--red-border);
+  }
+
+  .term-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .term-seg {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .term-seg-btn {
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s ease;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .term-seg-btn:hover {
+    color: var(--text);
+  }
+  .term-seg-btn.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+  }
+  .term-reset-btn {
+    display: none;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all .15s ease;
+    white-space: nowrap;
+  }
+  .term-reset-btn.show {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .term-reset-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
+  }
+
+  .term-stage {
+    position: relative;
+    width: 100%;
+    height: 214px;
+    cursor: crosshair;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
   }
   .term-svg {
     width: 100%;
-    height: 190px;
+    height: 100%;
     display: block;
     overflow: visible;
   }
+  .term-col-band {
+    transition: fill-opacity .15s ease;
+  }
+  .term-node-group {
+    cursor: pointer;
+    outline: none;
+  }
+  .term-node-dot,
+  .term-node-halo,
+  .term-node-val {
+    transition: all .15s ease;
+  }
+
+  /* 期限结构交互悬浮提示卡 */
+  .term-tooltip {
+    position: absolute;
+    top: 8px;
+    left: 0;
+    min-width: 214px;
+    max-width: 256px;
+    padding: 10px 12px;
+    border-radius: 11px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-hover);
+    box-shadow: 0 10px 28px -6px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.08);
+    color: var(--text);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity .14s ease, transform .14s ease;
+    z-index: 20;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  [data-theme="dark"] .term-tooltip {
+    box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .term-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .tt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .tt-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .tt-code {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .tt-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .tt-main {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+  .tt-val {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .tt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding-top: 7px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 11px;
+  }
+  .tt-kv-k {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-bottom: 1px;
+  }
+  .tt-kv-v {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .tt-desc {
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-subtle);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+  .tt-hint {
+    margin-top: 5px;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
   .term-tenor-row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 6px;
     margin-top: 8px;
-    padding-left: 34px;
-    padding-right: 12px;
+    padding-left: 46px;
+    padding-right: 18px;
   }
   .tenor-pill {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
     text-align: center;
-    padding: 5px 4px;
-    border-radius: 8px;
+    padding: 6px 4px;
+    border-radius: 9px;
     border: 1px solid transparent;
     transition: all .15s ease;
-    cursor: default;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
   }
   .tenor-pill:hover,
-  .tenor-pill.is-spot {
+  .tenor-pill.is-hover {
     background: var(--surface);
-    border-color: var(--border);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    border-color: var(--border-hover);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
   }
-  .tenor-pill.is-spot {
+  .tenor-pill.is-base {
+    background: var(--surface);
     border-color: var(--accent-border);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.10);
   }
   .tenor-lbl {
     font-size: 11.5px;
     font-weight: 700;
     color: var(--text);
+    line-height: 1.25;
+  }
+  .tenor-code {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    color: var(--text-dim);
   }
   .tenor-spread {
     font-family: var(--font-mono);
     font-size: 10.5px;
+    font-weight: 700;
     color: var(--text-muted);
-    margin-top: 1px;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tenor-spread.is-pos { color: var(--green); }
+  .tenor-spread.is-neg { color: var(--red); }
+  .tenor-spread.is-base { color: var(--accent); }
+  @media (max-width: 640px) {
+    .term-tenor-row {
+      padding-left: 36px;
+      padding-right: 10px;
+      gap: 4px;
+    }
+    .tenor-lbl { font-size: 10.5px; }
+    .tenor-code { display: none; }
+    .term-tooltip { min-width: 186px; max-width: 220px; padding: 8px 10px; }
   }
 
   /* ---- 预警状态监控中心 + 标题后飞书/Bark专属推送按钮 ---- */
@@ -1827,9 +2130,26 @@
               </div>
             </div>
 
-            <!-- 金融级 SVG 期限曲线图 -->
+            <!-- 交互式 1:1 矢量期限曲线图 -->
             <div class="term-chart-wrap" id="termChartWrap">
-              <svg class="term-svg" id="termSvg" viewBox="0 0 600 190" preserveAspectRatio="none" aria-label="VIX 期限结构曲线"></svg>
+              <div class="term-chart-toolbar">
+                <div class="term-live-readout" id="termLiveReadout" aria-live="polite"></div>
+                <div class="term-controls">
+                  <button type="button" class="term-reset-btn" id="termResetBaseBtn" title="恢复以 30 天 VIX 现货为对比基准">重置基准</button>
+                  <div class="term-seg" role="group" aria-label="数值视图切换">
+                    <button type="button" class="term-seg-btn active" data-term-mode="abs" aria-pressed="true">读数</button>
+                    <button type="button" class="term-seg-btn" data-term-mode="spread" aria-pressed="false">较基准价差</button>
+                  </div>
+                  <div class="term-seg" role="group" aria-label="曲线形态切换">
+                    <button type="button" class="term-seg-btn active" data-term-curve="smooth" aria-pressed="true">平滑</button>
+                    <button type="button" class="term-seg-btn" data-term-curve="linear" aria-pressed="false">折线</button>
+                  </div>
+                </div>
+              </div>
+              <div class="term-stage" id="termStage">
+                <svg class="term-svg" id="termSvg" role="img" aria-label="VIX 期限结构交互曲线"></svg>
+                <div class="term-tooltip" id="termTooltip" role="tooltip"></div>
+              </div>
               <div class="term-tenor-row" id="termTenors"></div>
             </div>
           </div>
@@ -2291,15 +2611,564 @@ function renderScaleHTML(key, value){
   `;
 }
 
-/* ---- VIX 期限结构专业 SVG 曲线渲染 ---- */
-function renderTermStructure(t){
-  const pts = [
-    { key: '1D', lbl: '1天', full: 'VIX1D', val: t.vix1d, spot: false },
-    { key: '9D', lbl: '9天', full: 'VIX9D', val: t.vix9d, spot: false },
-    { key: '30D', lbl: '30天 现货', full: 'VIX', val: t.vix, spot: true },
-    { key: '3M', lbl: '3个月', full: 'VIX3M', val: t.vix3m, spot: false },
-    { key: '6M', lbl: '6个月', full: 'VIX6M', val: t.vix6m, spot: false }
+/* ---- VIX 期限结构交互式 1:1 矢量曲线渲染（零拉伸 + 十字准星 + 动态基准对比） ---- */
+const TERM_STATE = {
+  data: null,
+  mode: 'abs',      // 'abs' | 'spread'
+  curve: 'smooth',  // 'smooth' | 'linear'
+  baseIdx: 2,       // 默认以 30D VIX 现货为对比基准
+  hoverIdx: null,
+  pts: [],
+  coords: [],
+  layout: null,
+  bound: false,
+  ro: null
+};
+
+function niceTicks(minVal, maxVal, targetCount){
+  const span = Math.max(0.5, maxVal - minVal);
+  const rawStep = span / targetCount;
+  const pow10 = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / pow10;
+  let step;
+  if(norm <= 1.2) step = 1 * pow10;
+  else if(norm <= 2.5) step = 2 * pow10;
+  else if(norm <= 5.5) step = 5 * pow10;
+  else step = 10 * pow10;
+
+  const start = Math.floor(minVal / step) * step;
+  const end = Math.ceil(maxVal / step) * step;
+  const ticks = [];
+  for(let v = start; v <= end + step * 0.001; v += step){
+    ticks.push(+v.toFixed(4));
+  }
+  return { min: start, max: end, step, ticks };
+}
+
+function getTenorMeta(t){
+  return [
+    { key: '1D',  lbl: '1天',      shortLbl: '1天预期',   full: 'VIX1D', days: 1,   val: t.vix1d, spot: false,
+      desc: '今明两个交易日的极短期事件波动定价，对重磅数据与突发消息最敏感。' },
+    { key: '9D',  lbl: '9天',      shortLbl: '9天预期',   full: 'VIX9D', days: 9,   val: t.vix9d, spot: false,
+      desc: '未来约一周半的短期隐含波动率，反映近期事件与财报/议息窗口风险。' },
+    { key: '30D', lbl: '30天 现货', shortLbl: '30天现货', full: 'VIX',   days: 30,  val: t.vix,   spot: true,
+      desc: '全曲线基准锚：标普 500 未来 30 天隐含波动率（现货收盘基准）。' },
+    { key: '3M',  lbl: '3个月',    shortLbl: '3个月预期', full: 'VIX3M', days: 90,  val: t.vix3m, spot: false,
+      desc: '中期隐含波动率，与 VIX 现货之比（VIX / VIX3M）是判断倒挂的核心标尺。' },
+    { key: '6M',  lbl: '6个月',    shortLbl: '6个月预期', full: 'VIX6M', days: 180, val: t.vix6m, spot: false,
+      desc: '半年期远端隐含波动率，体现市场对中期波动能否回归常态的预期。' }
   ];
+}
+
+function buildLinearPath(pts){
+  if(pts.length < 2) return '';
+  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
+}
+
+function fmtSigned(num, digits){
+  const s = num >= 0 ? '+' : '';
+  return s + num.toFixed(digits);
+}
+
+function bindTermControlsOnce(){
+  if(TERM_STATE.bound) return;
+  TERM_STATE.bound = true;
+
+  document.querySelectorAll('[data-term-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-term-mode');
+      if(mode === TERM_STATE.mode) return;
+      TERM_STATE.mode = mode;
+      document.querySelectorAll('[data-term-mode]').forEach(b => {
+        const on = b.getAttribute('data-term-mode') === mode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      drawTermChart();
+    });
+  });
+
+  document.querySelectorAll('[data-term-curve]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const curve = btn.getAttribute('data-term-curve');
+      if(curve === TERM_STATE.curve) return;
+      TERM_STATE.curve = curve;
+      document.querySelectorAll('[data-term-curve]').forEach(b => {
+        const on = b.getAttribute('data-term-curve') === curve;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      drawTermChart();
+    });
+  });
+
+  const resetBtn = document.getElementById('termResetBaseBtn');
+  if(resetBtn){
+    resetBtn.addEventListener('click', () => {
+      TERM_STATE.baseIdx = 2;
+      drawTermChart();
+    });
+  }
+
+  const stage = document.getElementById('termStage');
+  if(stage){
+    const pickIdxFromClientX = clientX => {
+      const L = TERM_STATE.layout;
+      if(!L || !TERM_STATE.coords.length) return null;
+      const rect = stage.getBoundingClientRect();
+      const x = clientX - rect.left;
+      let best = 0, bestDist = Infinity;
+      TERM_STATE.coords.forEach((c, i) => {
+        const d = Math.abs(c[0] - x);
+        if(d < bestDist){ bestDist = d; best = i; }
+      });
+      return best;
+    };
+
+    stage.addEventListener('pointermove', e => {
+      const idx = pickIdxFromClientX(e.clientX);
+      if(idx !== null && idx !== TERM_STATE.hoverIdx){
+        setTermHover(idx);
+      }
+    });
+
+    stage.addEventListener('pointerleave', () => {
+      setTermHover(null);
+    });
+
+    stage.addEventListener('click', e => {
+      const idx = pickIdxFromClientX(e.clientX);
+      if(idx === null) return;
+      TERM_STATE.baseIdx = (TERM_STATE.baseIdx === idx && idx !== 2) ? 2 : idx;
+      drawTermChart();
+      setTermHover(idx);
+    });
+
+    if(typeof ResizeObserver !== 'undefined'){
+      TERM_STATE.ro = new ResizeObserver(() => {
+        if(TERM_STATE.data) drawTermChart();
+      });
+      TERM_STATE.ro.observe(stage);
+    } else {
+      window.addEventListener('resize', () => {
+        if(TERM_STATE.data) drawTermChart();
+      });
+    }
+  }
+}
+
+function updateTermLiveReadout(idx){
+  const el = document.getElementById('termLiveReadout');
+  if(!el || !TERM_STATE.pts.length) return;
+  const activeIdx = (idx !== null && idx !== undefined) ? idx : TERM_STATE.baseIdx;
+  const p = TERM_STATE.pts[activeIdx];
+  const base = TERM_STATE.pts[TERM_STATE.baseIdx];
+  if(!p || !base) return;
+
+  const isBase = activeIdx === TERM_STATE.baseIdx;
+  const diff = p.val - base.val;
+  const pct = base.val ? (diff / base.val * 100) : 0;
+  const t = TERM_STATE.data;
+  const isInverted = t && (t.vix > t.vix3m);
+  const dotCol = isBase ? 'var(--accent)' : (diff >= 0 ? 'var(--green-solid)' : 'var(--red-solid)');
+
+  let deltaHTML = '';
+  if(isBase){
+    deltaHTML = `<span class="term-live-delta is-base">${p.spot ? '当前现货基准' : '当前对比基准'}</span>`;
+  } else {
+    const cls = diff >= 0 ? 'is-pos' : 'is-neg';
+    deltaHTML = `<span class="term-live-delta ${cls}">较${base.key} ${fmtSigned(diff, 2)} (${fmtSigned(pct, 1)}%)</span>`;
+  }
+
+  const displayVal = TERM_STATE.mode === 'spread'
+    ? (isBase ? '0.00' : fmtSigned(diff, 2))
+    : p.val.toFixed(2);
+
+  el.innerHTML = `
+    <span class="term-live-dot" style="background:${dotCol};box-shadow:0 0 0 3px ${isBase ? 'var(--accent-soft)' : (isInverted ? 'var(--red-bg)' : 'var(--green-bg)')};"></span>
+    <span class="term-live-ticker">${p.full}</span>
+    <span class="term-live-name">${p.shortLbl}</span>
+    <span class="term-live-val">${displayVal}</span>
+    ${deltaHTML}
+  `;
+}
+
+function setTermHover(idx){
+  TERM_STATE.hoverIdx = idx;
+  const svg = document.getElementById('termSvg');
+  const tooltip = document.getElementById('termTooltip');
+  const L = TERM_STATE.layout;
+  const pts = TERM_STATE.pts;
+  const coords = TERM_STATE.coords;
+
+  // 同步底部期限胶囊高亮态
+  document.querySelectorAll('#termTenors .tenor-pill').forEach((pill, i) => {
+    pill.classList.toggle('is-hover', idx === i);
+  });
+
+  updateTermLiveReadout(idx);
+
+  if(!svg || !L || !pts.length) return;
+
+  const crossGroup = svg.querySelector('#termCrosshair');
+  const bandEls = svg.querySelectorAll('.term-col-band');
+  const nodeGroups = svg.querySelectorAll('.term-node-group');
+
+  if(idx === null || idx === undefined || !coords[idx]){
+    if(crossGroup) crossGroup.style.display = 'none';
+    bandEls.forEach((b, i) => {
+      b.setAttribute('fill-opacity', i === TERM_STATE.baseIdx ? '0.13' : '0.04');
+    });
+    nodeGroups.forEach((g, i) => {
+      g.style.opacity = '1';
+      const dot = g.querySelector('.term-node-dot');
+      const halo = g.querySelector('.term-node-halo');
+      if(dot) dot.setAttribute('r', i === TERM_STATE.baseIdx ? '5.5' : '4.2');
+      if(halo) halo.setAttribute('r', i === TERM_STATE.baseIdx ? '11' : '0');
+    });
+    if(tooltip) tooltip.classList.remove('show');
+    return;
+  }
+
+  const p = pts[idx];
+  const base = pts[TERM_STATE.baseIdx];
+  const [cx, cy] = coords[idx];
+  const diff = p.val - base.val;
+  const pct = base.val ? (diff / base.val * 100) : 0;
+  const ratioToBase = base.val ? (p.val / base.val) : 1;
+  const isBase = idx === TERM_STATE.baseIdx;
+  const dispVal = TERM_STATE.mode === 'spread' ? (isBase ? '0.00' : fmtSigned(diff, 2)) : p.val.toFixed(2);
+
+  // 更新柱带与节点聚焦态
+  bandEls.forEach((b, i) => {
+    b.setAttribute('fill-opacity', i === idx ? '0.18' : (i === TERM_STATE.baseIdx ? '0.09' : '0.025'));
+  });
+  nodeGroups.forEach((g, i) => {
+    const active = i === idx;
+    g.style.opacity = active ? '1' : '0.68';
+    const dot = g.querySelector('.term-node-dot');
+    const halo = g.querySelector('.term-node-halo');
+    if(dot) dot.setAttribute('r', active ? '6.5' : (i === TERM_STATE.baseIdx ? '5' : '4'));
+    if(halo) halo.setAttribute('r', active ? '13.5' : (i === TERM_STATE.baseIdx ? '9.5' : '0'));
+  });
+
+  // 更新十字准星与 Y 轴实时数值标签
+  if(crossGroup){
+    crossGroup.style.display = '';
+    const vLine = crossGroup.querySelector('#termCrossV');
+    const hLine = crossGroup.querySelector('#termCrossH');
+    const yBg = crossGroup.querySelector('#termCrossYBg');
+    const yTxt = crossGroup.querySelector('#termCrossYTxt');
+    if(vLine){
+      vLine.setAttribute('x1', cx.toFixed(1));
+      vLine.setAttribute('x2', cx.toFixed(1));
+      vLine.setAttribute('y1', L.padT);
+      vLine.setAttribute('y2', L.H - L.padB);
+    }
+    if(hLine){
+      hLine.setAttribute('x1', L.padL);
+      hLine.setAttribute('x2', cx.toFixed(1));
+      hLine.setAttribute('y1', cy.toFixed(1));
+      hLine.setAttribute('y2', cy.toFixed(1));
+    }
+    if(yBg && yTxt){
+      const tagW = 42, tagH = 18;
+      const tagX = Math.max(0, L.padL - tagW - 4);
+      const tagY = Math.max(2, Math.min(L.H - tagH - 2, cy - tagH / 2));
+      yBg.setAttribute('x', tagX.toFixed(1));
+      yBg.setAttribute('y', tagY.toFixed(1));
+      yBg.setAttribute('width', tagW);
+      yBg.setAttribute('height', tagH);
+      yTxt.setAttribute('x', (tagX + tagW / 2).toFixed(1));
+      yTxt.setAttribute('y', (tagY + 12.5).toFixed(1));
+      yTxt.textContent = dispVal;
+    }
+  }
+
+  // 渲染并智能定位悬浮卡片
+  if(tooltip){
+    const t = TERM_STATE.data;
+    const spotDiff = p.val - t.vix;
+    const deltaChip = isBase
+      ? `<span class="term-live-delta is-base">${p.spot ? '现货基准' : '对比基准'}</span>`
+      : `<span class="term-live-delta ${diff >= 0 ? 'is-pos' : 'is-neg'}">${fmtSigned(diff, 2)} (${fmtSigned(pct, 1)}%)</span>`;
+
+    const extraLabel = (p.key === '3M' || p.key === '30D') ? 'VIX / VIX3M' : `相对${base.key}比值`;
+    const extraVal = (p.key === '3M' || p.key === '30D')
+      ? (t.vix / t.vix3m).toFixed(2)
+      : (ratioToBase.toFixed(2) + '×');
+
+    const secondLabel = isBase ? (p.spot ? '全曲线极差' : '较30D现货') : `较${base.key}价差`;
+    const vals = pts.map(x => x.val);
+    const rangeStr = (Math.max(...vals) - Math.min(...vals)).toFixed(2);
+    const secondVal = isBase
+      ? (p.spot ? rangeStr + ' 点' : fmtSigned(spotDiff, 2) + ' 点')
+      : (fmtSigned(diff, 2) + ' 点');
+
+    tooltip.innerHTML = `
+      <div class="tt-head">
+        <span class="tt-title"><span class="tt-code">${p.full}</span><span>${p.shortLbl}</span></span>
+        ${p.spot ? '<span class="tt-tag">现货锚</span>' : (isBase ? '<span class="tt-tag">当前基准</span>' : '')}
+      </div>
+      <div class="tt-main">
+        <span class="tt-val">${p.val.toFixed(2)}</span>
+        ${deltaChip}
+      </div>
+      <div class="tt-grid">
+        <div>
+          <div class="tt-kv-k">${secondLabel}</div>
+          <div class="tt-kv-v">${secondVal}</div>
+        </div>
+        <div>
+          <div class="tt-kv-k">${extraLabel}</div>
+          <div class="tt-kv-v">${extraVal}</div>
+        </div>
+      </div>
+      <div class="tt-desc">${p.desc}</div>
+      <div class="tt-hint">● ${isBase ? (p.spot ? '点击其他期限可切换对比基准' : '再次点击恢复 30D 现货基准') : '点击此节点设为对比基准'}</div>
+    `;
+
+    tooltip.classList.add('show');
+    const ttW = tooltip.offsetWidth || 226;
+    const ttH = tooltip.offsetHeight || 138;
+    const gap = 24;
+    let left = cx + gap;
+    if(left + ttW > L.W - 6){
+      left = cx - ttW - gap;
+    }
+    left = Math.max(6, Math.min(L.W - ttW - 6, left));
+    let top = cy - ttH * 0.45;
+    top = Math.max(4, Math.min(L.H - ttH - 4, top));
+    tooltip.style.left = left.toFixed(0) + 'px';
+    tooltip.style.top = top.toFixed(0) + 'px';
+  }
+}
+
+function drawTermChart(){
+  const t = TERM_STATE.data;
+  const stage = document.getElementById('termStage');
+  const svg = document.getElementById('termSvg');
+  if(!t || !stage || !svg) return;
+
+  const pts = getTenorMeta(t);
+  TERM_STATE.pts = pts;
+  const base = pts[TERM_STATE.baseIdx] || pts[2];
+  const isInverted = t.vix > t.vix3m;
+  const strokeCol = isInverted ? 'var(--red-solid)' : 'var(--green-solid)';
+
+  const resetBtn = document.getElementById('termResetBaseBtn');
+  if(resetBtn) resetBtn.classList.toggle('show', TERM_STATE.baseIdx !== 2);
+
+  // 1:1 CSS 像素坐标系，彻底杜绝 SVG 拉伸变形
+  const W = Math.max(300, Math.round(stage.clientWidth || 600));
+  const H = Math.round(stage.clientHeight || 214);
+  const padL = W < 460 ? 38 : 46;
+  const padR = W < 460 ? 12 : 18;
+  const padT = 30;
+  const padB = 14;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  TERM_STATE.layout = { W, H, padL, padR, padT, padB, chartW, chartH };
+
+  // 同步底部 5 个期限按钮与图表绘图区左右边距对齐
+  const tenorRow = document.getElementById('termTenors');
+  if(tenorRow){
+    tenorRow.style.paddingLeft = padL + 'px';
+    tenorRow.style.paddingRight = padR + 'px';
+  }
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+
+  // 根据模式计算绘图数值与干净的 Y 轴刻度
+  const plotVals = pts.map(p => TERM_STATE.mode === 'spread' ? (p.val - base.val) : p.val);
+  let rawMin = Math.min(...plotVals);
+  let rawMax = Math.max(...plotVals);
+  if(TERM_STATE.mode === 'spread'){
+    rawMin = Math.min(rawMin, 0);
+    rawMax = Math.max(rawMax, 0);
+  }
+  const rawSpan = Math.max(1.2, rawMax - rawMin);
+  const padMin = TERM_STATE.mode === 'spread' ? (rawMin - rawSpan * 0.22) : Math.max(0, rawMin - rawSpan * 0.28);
+  const padMax = rawMax + rawSpan * 0.26;
+  const tickInfo = niceTicks(padMin, padMax, 4);
+  const yMin = tickInfo.min;
+  const yMax = tickInfo.max;
+  const ySpan = Math.max(0.1, yMax - yMin);
+
+  const valToY = v => padT + (yMax - v) / ySpan * chartH;
+  const colW = chartW / pts.length;
+  const coords = plotVals.map((v, i) => [
+    padL + (i + 0.5) * colW,
+    valToY(v)
+  ]);
+  TERM_STATE.coords = coords;
+
+  const baseVal = TERM_STATE.mode === 'spread' ? 0 : base.val;
+  const baseY = valToY(baseVal);
+  const curvePath = TERM_STATE.curve === 'linear' ? buildLinearPath(coords) : buildSmoothPath(coords);
+  const areaAnchorY = TERM_STATE.mode === 'spread' ? baseY : (H - padB);
+  const areaD = `${curvePath} L ${coords[coords.length - 1][0].toFixed(1)},${areaAnchorY.toFixed(1)} L ${coords[0][0].toFixed(1)},${areaAnchorY.toFixed(1)} Z`;
+
+  // 水平网格线 + 规整 Y 轴刻度
+  const decimals = tickInfo.step < 1 ? 1 : 0;
+  let gridHTML = '';
+  tickInfo.ticks.forEach(tv => {
+    const gy = valToY(tv);
+    if(gy < padT - 4 || gy > H - padB + 4) return;
+    const isZero = TERM_STATE.mode === 'spread' && Math.abs(tv) < 1e-6;
+    const lbl = TERM_STATE.mode === 'spread'
+      ? (isZero ? '0' : (tv > 0 ? '+' : '') + tv.toFixed(decimals))
+      : tv.toFixed(decimals);
+    gridHTML += `
+      <line x1="${padL}" y1="${gy.toFixed(1)}" x2="${W - padR}" y2="${gy.toFixed(1)}" stroke="${isZero ? 'var(--border-hover)' : 'var(--chart-grid)'}" stroke-width="${isZero ? 1.2 : 1}"/>
+      <text x="${padL - 8}" y="${(gy + 3.5).toFixed(1)}" text-anchor="end" fill="var(--text-dim)" font-family="var(--font-mono)" font-size="10.5">${lbl}</text>
+    `;
+  });
+
+  // 基准参考虚线（30D 现货或用户选中的对比基准，智能避让最右侧数据节点）
+  const baseLabelText = TERM_STATE.mode === 'spread'
+    ? `${base.key} 基准 0.00`
+    : `${base.key} 基准 ${base.val.toFixed(2)}`;
+  const lastY = coords[coords.length - 1][1];
+  const refLblBelow = (Math.abs(lastY - (baseY - 6)) < 22) && (baseY + 15 < H - padB);
+  const refLblY = refLblBelow ? (baseY + 13) : (baseY - 6);
+  const refLineHTML = `
+    <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W - padR}" y2="${baseY.toFixed(1)}" stroke="var(--accent)" stroke-opacity="0.52" stroke-width="1.2" stroke-dasharray="4 4"/>
+    <text x="${W - padR - 2}" y="${refLblY.toFixed(1)}" text-anchor="end" fill="var(--accent)" font-family="var(--font-mono)" font-size="10" font-weight="600" opacity="0.85">${baseLabelText}</text>
+  `;
+
+  // 每一列半透明交互高亮带
+  const bandW = Math.min(68, Math.max(36, colW * 0.56));
+  const bandsHTML = pts.map((p, i) => {
+    const [cx] = coords[i];
+    const isBase = i === TERM_STATE.baseIdx;
+    const bandFill = isBase ? 'var(--accent)' : strokeCol;
+    return `<rect class="term-col-band" x="${(cx - bandW / 2).toFixed(1)}" y="${padT}" width="${bandW.toFixed(1)}" height="${chartH}" rx="8" fill="${bandFill}" fill-opacity="${isBase ? '0.13' : '0.04'}"/>`;
+  }).join('');
+
+  // 价差模式下增加从 0 轴到数据点的细垂杆，方向一目了然
+  const stemsHTML = TERM_STATE.mode === 'spread'
+    ? pts.map((p, i) => {
+        const [cx, cy] = coords[i];
+        const diff = p.val - base.val;
+        const c = i === TERM_STATE.baseIdx ? 'var(--accent)' : (diff >= 0 ? 'var(--green-solid)' : 'var(--red-solid)');
+        return `<line x1="${cx.toFixed(1)}" y1="${baseY.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="${c}" stroke-width="2" stroke-opacity="0.35"/>`;
+      }).join('')
+    : '';
+
+  // 数据节点与清晰非拉伸数值标注
+  const nodesHTML = pts.map((p, i) => {
+    const [cx, cy] = coords[i];
+    const isBase = i === TERM_STATE.baseIdx;
+    const diff = p.val - base.val;
+    const nodeCol = TERM_STATE.mode === 'spread'
+      ? (isBase ? 'var(--accent)' : (diff >= 0 ? 'var(--green-solid)' : 'var(--red-solid)'))
+      : (isBase ? strokeCol : strokeCol);
+    const valLabel = TERM_STATE.mode === 'spread'
+      ? (isBase ? '0.00' : fmtSigned(diff, 2))
+      : p.val.toFixed(2);
+    // 价差为负且空间足够时放在下方避免与曲线拥挤，否则统一放上方
+    const placeBelow = TERM_STATE.mode === 'spread' && diff < 0 && (H - padB - cy) > 22;
+    const labelY = placeBelow ? (cy + 20) : (cy - 13);
+    return `
+      <g class="term-node-group" data-idx="${i}" tabindex="0" role="button" aria-label="${p.full} ${p.shortLbl} ${p.val.toFixed(2)}">
+        <circle class="term-node-halo" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${isBase ? 11 : 0}" fill="${nodeCol}" fill-opacity="0.18"/>
+        <circle class="term-node-dot" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${isBase ? 5.5 : 4.2}" fill="${isBase ? nodeCol : 'var(--surface)'}" stroke="${nodeCol}" stroke-width="2.4"/>
+        <text class="term-node-val" x="${cx.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle" fill="${isBase ? 'var(--text)' : 'var(--text-secondary)'}" font-family="var(--font-mono)" font-size="${isBase ? '12.5' : '11.5'}" font-weight="700">${valLabel}</text>
+      </g>
+    `;
+  }).join('');
+
+  // 十字准星与 Y 轴悬浮读数块（默认隐藏，悬停即现）
+  const crossHTML = `
+    <g id="termCrosshair" style="display:none;pointer-events:none;">
+      <line id="termCrossV" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="3 3" opacity="0.75"/>
+      <line id="termCrossH" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+      <rect id="termCrossYBg" rx="4" fill="var(--tooltip-bg)"/>
+      <text id="termCrossYTxt" text-anchor="middle" fill="var(--tooltip-text)" font-family="var(--font-mono)" font-size="10" font-weight="700"></text>
+    </g>
+  `;
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="termGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${strokeCol}" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="${strokeCol}" stop-opacity="0.01"/>
+      </linearGradient>
+    </defs>
+    ${gridHTML}
+    ${bandsHTML}
+    ${refLineHTML}
+    <path d="${areaD}" fill="url(#termGrad)" pointer-events="none"/>
+    ${stemsHTML}
+    <path d="${curvePath}" fill="none" stroke="${strokeCol}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+    ${crossHTML}
+    ${nodesHTML}
+  `;
+
+  // 键盘无障碍支持：Tab/方向键浏览各期限，回车设为基准
+  svg.querySelectorAll('.term-node-group').forEach(g => {
+    const idx = +g.getAttribute('data-idx');
+    g.addEventListener('focus', () => setTermHover(idx));
+    g.addEventListener('blur', () => setTermHover(null));
+    g.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        TERM_STATE.baseIdx = (TERM_STATE.baseIdx === idx && idx !== 2) ? 2 : idx;
+        drawTermChart();
+        setTermHover(idx);
+      } else if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+        e.preventDefault();
+        const next = (idx + (e.key === 'ArrowRight' ? 1 : -1) + pts.length) % pts.length;
+        const target = svg.querySelector(`.term-node-group[data-idx="${next}"]`);
+        if(target) target.focus();
+      }
+    });
+  });
+
+  // 底部 5 个交互期限按钮（悬停联动图面，点击切换对比基准）
+  if(tenorRow){
+    tenorRow.innerHTML = pts.map((p, i) => {
+      const isBase = i === TERM_STATE.baseIdx;
+      const diff = p.val - base.val;
+      const diffText = isBase ? (p.spot ? '现货基准' : '对比基准') : fmtSigned(diff, 2);
+      const diffCls = isBase ? 'is-base' : (diff >= 0 ? 'is-pos' : 'is-neg');
+      return `
+        <button type="button" class="tenor-pill${isBase ? ' is-base' : ''}" data-idx="${i}" aria-pressed="${isBase ? 'true' : 'false'}" title="${p.full} (${p.shortLbl}): ${p.val.toFixed(2)} — 点击设为对比基准">
+          <span class="tenor-lbl">${p.lbl}</span>
+          <span class="tenor-code">${p.full}</span>
+          <span class="tenor-spread ${diffCls}">${diffText}</span>
+        </button>
+      `;
+    }).join('');
+
+    tenorRow.querySelectorAll('.tenor-pill').forEach(btn => {
+      const idx = +btn.getAttribute('data-idx');
+      btn.addEventListener('mouseenter', () => setTermHover(idx));
+      btn.addEventListener('mouseleave', () => setTermHover(null));
+      btn.addEventListener('focus', () => setTermHover(idx));
+      btn.addEventListener('blur', () => setTermHover(null));
+      btn.addEventListener('click', () => {
+        TERM_STATE.baseIdx = (TERM_STATE.baseIdx === idx && idx !== 2) ? 2 : idx;
+        drawTermChart();
+        setTermHover(idx);
+      });
+    });
+  }
+
+  updateTermLiveReadout(TERM_STATE.hoverIdx);
+  if(TERM_STATE.hoverIdx !== null){
+    setTermHover(TERM_STATE.hoverIdx);
+  }
+}
+
+function renderTermStructure(t){
+  if(!t) return;
+  TERM_STATE.data = t;
+  bindTermControlsOnce();
+
   const ratioNum = t.vix / t.vix3m;
   const ratio = ratioNum.toFixed(2);
   const isInverted = t.vix > t.vix3m;
@@ -2321,81 +3190,12 @@ function renderTermStructure(t){
   // 比率仪表条指针 (范围 0.80 ~ 1.20)
   const pinPct = Math.max(2, Math.min(98, (ratioNum - 0.80) / 0.40 * 100));
   const pinEl = document.getElementById('ratioPin');
-  if(pinEl) pinEl.style.left = pinPct.toFixed(1) + '%';
-
-  // 动态 Y 轴域，让曲线斜率清晰可辨
-  const vals = pts.map(p => p.val);
-  const rawMin = Math.min(...vals), rawMax = Math.max(...vals);
-  const rawSpan = Math.max(1.5, rawMax - rawMin);
-  const yMin = Math.max(0, rawMin - rawSpan * 0.45);
-  const yMax = rawMax + rawSpan * 0.40;
-  const ySpan = yMax - yMin;
-
-  const W = 600, H = 190;
-  const padL = 44, padR = 26, padT = 28, padB = 14;
-  const chartW = W - padL - padR;
-  const chartH = H - padT - padB;
-
-  const coords = pts.map((p, i) => {
-    const x = padL + (i + 0.5) * (chartW / pts.length);
-    const y = padT + (yMax - p.val) / ySpan * chartH;
-    return [x, y];
-  });
-
-  const strokeCol = isInverted ? 'var(--red-solid)' : 'var(--green-solid)';
-  const smoothCurve = buildSmoothPath(coords);
-  const areaD = `${smoothCurve} L ${coords[coords.length - 1][0].toFixed(1)},${H - padB} L ${coords[0][0].toFixed(1)},${H - padB} Z`;
-
-  // 4 条水平网格线
-  let gridHTML = '';
-  for(let g = 0; g <= 3; g++){
-    const frac = g / 3;
-    const gy = padT + frac * chartH;
-    const gv = (yMax - frac * ySpan).toFixed(1);
-    gridHTML += `
-      <line x1="${padL}" y1="${gy.toFixed(1)}" x2="${W - padR}" y2="${gy.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1"/>
-      <text x="${padL - 8}" y="${(gy + 3.5).toFixed(1)}" text-anchor="end" fill="var(--text-dim)" font-family="var(--font-mono)" font-size="10.5">${gv}</text>
-    `;
+  if(pinEl){
+    pinEl.style.left = pinPct.toFixed(1) + '%';
+    pinEl.title = `VIX (${t.vix.toFixed(2)}) ÷ VIX3M (${t.vix3m.toFixed(2)}) = ${ratio}`;
   }
 
-  // 柱状半透明引导与节点
-  let nodesHTML = '';
-  pts.forEach((p, i) => {
-    const [cx, cy] = coords[i];
-    const barH = Math.max(4, (H - padB) - cy);
-    const colFill = p.spot ? strokeCol : 'var(--accent)';
-    nodesHTML += `
-      <rect x="${(cx - 18).toFixed(1)}" y="${cy.toFixed(1)}" width="36" height="${barH.toFixed(1)}" rx="5" fill="${colFill}" fill-opacity="${p.spot ? '0.16' : '0.07'}"/>
-      ${p.spot ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="10" fill="${strokeCol}" fill-opacity="0.18"/>` : ''}
-      <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${p.spot ? 5.5 : 4.2}" fill="${p.spot ? strokeCol : 'var(--surface)'}" stroke="${strokeCol}" stroke-width="2.4"/>
-      <text x="${cx.toFixed(1)}" y="${(cy - 11).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-family="var(--font-mono)" font-size="${p.spot ? '13' : '12'}" font-weight="700">${p.val.toFixed(2)}</text>
-    `;
-  });
-
-  document.getElementById('termSvg').innerHTML = `
-    <defs>
-      <linearGradient id="termGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${strokeCol}" stop-opacity="0.24"/>
-        <stop offset="100%" stop-color="${strokeCol}" stop-opacity="0.01"/>
-      </linearGradient>
-    </defs>
-    ${gridHTML}
-    <path d="${areaD}" fill="url(#termGrad)"/>
-    <path d="${smoothCurve}" fill="none" stroke="${strokeCol}" stroke-width="2.6" stroke-linecap="round"/>
-    ${nodesHTML}
-  `;
-
-  // 底部 5 个期限标签 + 相对现货价差
-  document.getElementById('termTenors').innerHTML = pts.map(p => {
-    const diff = p.val - t.vix;
-    const diffText = p.spot ? '现货基准' : `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}`;
-    return `
-      <div class="tenor-pill${p.spot ? ' is-spot' : ''}" title="${p.full}: ${p.val}">
-        <div class="tenor-lbl">${p.lbl}</div>
-        <div class="tenor-spread">${diffText}</div>
-      </div>
-    `;
-  }).join('');
+  drawTermChart();
 
   const termCard = document.getElementById('termCard');
   if(termCard){
@@ -2403,8 +3203,8 @@ function renderTermStructure(t){
   }
 
   const shapeDesc = isInverted
-    ? `贴水（Backwardation）：近端波动率高于远端，恐慌情绪集中在眼前（VIX / VIX3M = ${ratio}）。`
-    : `升水（Contango）：近低远高呈正常期限溢价形态（VIX / VIX3M = ${ratio}）。`;
+    ? `贴水（Backwardation）：近端波动率高于远端，恐慌情绪集中在眼前（VIX / VIX3M = ${ratio}）。移动鼠标查看各期限详情，点击任意期限可切换对比基准。`
+    : `升水（Contango）：近低远高呈正常期限溢价形态（VIX / VIX3M = ${ratio}）。移动鼠标查看各期限详情，点击任意期限可切换对比基准。`;
   document.getElementById('termNote').innerHTML = `
     <div class="reading-head">期限形态解读 · ${t.date}</div>
     <div class="reading-body">${shapeDesc}</div>
