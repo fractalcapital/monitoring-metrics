@@ -1,41 +1,41 @@
 {
-  "updated_at_utc": "2026-11-25T05:33:42Z",
+  "updated_at_utc": "2026-11-25T05:54:42Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
   },
   "fetch_status": {
     "yahoo": {
-      "ok": true,
-      "last_error": null,
-      "last_failed_at_utc": "2026-11-25T05:33:41Z",
-      "last_ok_at_utc": "2026-11-25T05:33:42Z"
+      "ok": false,
+      "last_error": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx",
+      "last_failed_at_utc": "2026-11-25T05:54:42Z",
+      "last_ok_at_utc": "2026-11-25T05:54:42Z"
     },
     "fred": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-24T05:23:51Z"
+      "last_ok_at_utc": "2026-11-25T05:54:42Z"
     }
   },
   "alerts": {
     "fetch_yahoo": {
-      "level": "normal",
-      "level_label": "正常",
-      "value": "ok",
+      "level": "warning",
+      "level_label": "预警",
+      "value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx",
       "date": "2026-11-25",
       "threshold": "-",
       "change": "Yahoo Finance（VIX / VVIX / SKEW / MOVE / 标普 500 / 期限结构）",
-      "last_sent_at_utc": "2026-11-25T05:33:41Z",
-      "last_sent_value": "^MOVE: HTTP Error 429: Too Many Requests",
+      "last_sent_at_utc": "2026-11-25T05:54:42Z",
+      "last_sent_value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx",
       "channels": {
         "feishu": {
-          "last_sent_at_utc": "2026-11-25T05:33:41Z",
-          "last_sent_value": "^MOVE: HTTP Error 429: Too Many Requests"
+          "last_sent_at_utc": "2026-11-25T05:54:42Z",
+          "last_sent_value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx"
         },
         "bark": {
-          "last_sent_at_utc": "2026-11-25T05:33:41Z",
-          "last_sent_value": "^MOVE: HTTP Error 429: Too Many Requests"
+          "last_sent_at_utc": "2026-11-25T05:54:42Z",
+          "last_sent_value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx"
         }
       }
     },
@@ -53,10 +53,10 @@
     "vix": {
       "level": "normal",
       "level_label": "正常",
-      "value": 26.62,
-      "date": "2026-11-23",
+      "value": 26.36,
+      "date": "2026-11-24",
       "threshold": 35,
-      "change": "-25.83% vs 2026-11-20",
+      "change": "-0.98% vs 2026-11-23",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -73,10 +73,10 @@
     "vvix": {
       "level": "normal",
       "level_label": "正常",
-      "value": 117.36,
-      "date": "2026-11-23",
+      "value": 114.07,
+      "date": "2026-11-24",
       "threshold": 140,
-      "change": "-14.98% vs 2026-11-20",
+      "change": "-2.80% vs 2026-11-23",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -93,10 +93,10 @@
     "skew": {
       "level": "normal",
       "level_label": "正常",
-      "value": 140.37,
-      "date": "2026-11-23",
+      "value": 139.16,
+      "date": "2026-11-24",
       "threshold": 150,
-      "change": "+1.10% vs 2026-11-20",
+      "change": "-0.86% vs 2026-11-23",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -133,10 +133,10 @@
     "hy_oas": {
       "level": "normal",
       "level_label": "正常",
-      "value": 376,
-      "date": "2026-11-20",
+      "value": 363,
+      "date": "2026-11-23",
       "threshold": 500,
-      "change": "+24bp vs 2026-11-19",
+      "change": "-13bp vs 2026-11-20",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -153,8 +153,8 @@
     "cross": {
       "level": "normal",
       "level_label": "正常",
-      "value": 26.62,
-      "date": "2026-11-23",
+      "value": 26.36,
+      "date": "2026-11-24",
       "threshold": 30,
       "change": "-",
       "last_sent_at_utc": null,
