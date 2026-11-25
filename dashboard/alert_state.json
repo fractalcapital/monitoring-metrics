@@ -1,21 +1,30 @@
 {
-  "updated_at_utc": "2026-11-25T05:54:42Z",
+  "updated_at_utc": "2026-11-25T08:04:45Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
   },
   "fetch_status": {
-    "yahoo": {
-      "ok": false,
-      "last_error": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx",
-      "last_failed_at_utc": "2026-11-25T05:54:42Z",
-      "last_ok_at_utc": "2026-11-25T05:54:42Z"
-    },
     "fred": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T05:54:42Z"
+      "last_ok_at_utc": "2026-11-25T08:04:45Z",
+      "provider": "fred_api"
+    },
+    "equities": {
+      "ok": true,
+      "last_error": null,
+      "last_failed_at_utc": null,
+      "last_ok_at_utc": "2026-11-25T08:04:45Z",
+      "provider": "cboe+futu"
+    },
+    "move": {
+      "ok": true,
+      "last_error": null,
+      "last_failed_at_utc": null,
+      "last_ok_at_utc": "2026-11-25T08:04:45Z",
+      "provider": "yahoo_cffi"
     }
   },
   "alerts": {
@@ -113,10 +122,10 @@
     "move": {
       "level": "normal",
       "level_label": "正常",
-      "value": 100.91,
-      "date": "2026-11-23",
+      "value": 98.84,
+      "date": "2026-11-24",
       "threshold": 140,
-      "change": "-5.08% vs 2026-11-20",
+      "change": "-2.05% vs 2026-11-23",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -169,6 +178,28 @@
           "last_sent_value": null
         }
       }
+    },
+    "fetch_equities": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": "ok",
+      "date": "2026-11-25",
+      "threshold": "-",
+      "change": "波动率与股指（Futu CLI / CBOE / Yahoo：VIX / VVIX / SKEW / 期限结构 / 标普 500）",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {}
+    },
+    "fetch_move": {
+      "level": "normal",
+      "level_label": "正常",
+      "value": "ok",
+      "date": "2026-11-25",
+      "threshold": "-",
+      "change": "MOVE 债市波动（Yahoo / TradingView / CSV）",
+      "last_sent_at_utc": null,
+      "last_sent_value": null,
+      "channels": {}
     }
   }
 }

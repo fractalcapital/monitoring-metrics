@@ -1,15 +1,20 @@
 {
-  "updated_at_utc": "2026-11-25T05:54:42Z",
-  "updated_at_beijing": "2026-11-25 13:54 Beijing",
-  "source": "Futu CLI (futu kline, daily closes) for VIX/VVIX/SKEW; Yahoo Finance (v8 chart API, ~15-min delayed) for MOVE/term structure/SPX; FRED BAMLH0A0HYM2 (ICE BofA US High Yield OAS, daily) for HY OAS",
-  "stale_indicators": [
-    "move",
-    "vix1d",
-    "vix9d",
-    "vix3m",
-    "vix6m",
-    "spx"
-  ],
+  "updated_at_utc": "2026-11-25T08:04:45Z",
+  "updated_at_beijing": "2026-11-25 16:04 Beijing",
+  "source": "Futu CLI (VIX/VVIX/SKEW/SPX); CBOE CDN (期限结构); Yahoo Finance (MOVE); FRED API (HY OAS)",
+  "sources_used": {
+    "vix": "futu",
+    "vvix": "futu",
+    "skew": "futu",
+    "vix1d": "cboe",
+    "vix9d": "cboe",
+    "vix3m": "cboe",
+    "vix6m": "cboe",
+    "spx": "futu",
+    "move": "yahoo_cffi",
+    "hy_oas": "fred_api"
+  },
+  "stale_indicators": [],
   "market_status": "computed in browser from US ET time",
   "indicators": {
     "vix": {
@@ -139,7 +144,8 @@
           "date": "2026-11-24",
           "value": 26.36
         }
-      ]
+      ],
+      "source": "futu"
     },
     "vvix": {
       "value": 114.07,
@@ -268,7 +274,8 @@
           "date": "2026-11-24",
           "value": 114.07
         }
-      ]
+      ],
+      "source": "futu"
     },
     "skew": {
       "value": 139.16,
@@ -397,14 +404,15 @@
           "date": "2026-11-24",
           "value": 139.16
         }
-      ]
+      ],
+      "source": "futu"
     },
     "move": {
-      "value": 100.91,
-      "date": "2026-11-23",
-      "prev_close": 106.31,
-      "prev_date": "2026-11-20",
-      "change_pct": -5.08,
+      "value": 98.84,
+      "date": "2026-11-24",
+      "prev_close": 100.91,
+      "prev_date": "2026-11-23",
+      "change_pct": -2.05,
       "history": [
         {
           "date": "2026-10-26",
@@ -485,8 +493,13 @@
         {
           "date": "2026-11-23",
           "value": 100.91
+        },
+        {
+          "date": "2026-11-24",
+          "value": 98.84
         }
-      ]
+      ],
+      "source": "yahoo_cffi"
     },
     "hy_oas": {
       "value_bp": 363,
@@ -617,16 +630,49 @@
           "value": 363
         }
       ],
-      "stale": false
+      "stale": false,
+      "source": "fred_api"
     }
   },
   "spx": {
-    "value": 7237.17,
-    "date": "2026-11-23",
-    "prev_close": 6910.39,
-    "prev_date": "2026-11-20",
-    "change_pct": 4.73,
+    "value": 7201.09,
+    "date": "2026-11-24",
+    "prev_close": 7237.17,
+    "prev_date": "2026-11-23",
+    "change_pct": -0.5,
     "history": [
+      {
+        "date": "2026-10-14",
+        "value": 7718.94
+      },
+      {
+        "date": "2026-10-15",
+        "value": 7744.06
+      },
+      {
+        "date": "2026-10-16",
+        "value": 7659.44
+      },
+      {
+        "date": "2026-10-19",
+        "value": 7690.73
+      },
+      {
+        "date": "2026-10-20",
+        "value": 7712.57
+      },
+      {
+        "date": "2026-10-21",
+        "value": 7757.17
+      },
+      {
+        "date": "2026-10-22",
+        "value": 7663.43
+      },
+      {
+        "date": "2026-10-23",
+        "value": 7623.68
+      },
       {
         "date": "2026-10-26",
         "value": 7676.77
@@ -710,15 +756,20 @@
       {
         "date": "2026-11-23",
         "value": 7237.17
+      },
+      {
+        "date": "2026-11-24",
+        "value": 7201.09
       }
-    ]
+    ],
+    "source": "futu"
   },
   "term_structure": {
-    "vix1d": 26.69,
-    "vix9d": 27.76,
+    "vix1d": 23.76,
+    "vix9d": 26.68,
     "vix": 26.36,
-    "vix3m": 25.5,
-    "vix6m": 25.96,
+    "vix3m": 25.47,
+    "vix6m": 26.19,
     "date": "2026-11-24"
   }
 }
