@@ -1,6 +1,6 @@
 {
-  "updated_at_utc": "2026-11-25T13:10:23Z",
-  "updated_at_beijing": "2026-11-25 21:10 Beijing",
+  "updated_at_utc": "2026-11-25T14:34:16Z",
+  "updated_at_beijing": "2026-11-25 22:34 Beijing",
   "source": "Futu CLI (VIX/VVIX/SKEW/SPX); CBOE CDN (期限结构); Yahoo Finance (MOVE); FRED API (HY OAS)",
   "sources_used": {
     "vix": "futu",
@@ -18,11 +18,11 @@
   "market_status": "computed in browser from US ET time",
   "indicators": {
     "vix": {
-      "value": 31.02,
+      "value": 32.52,
       "date": "2026-11-25",
       "prev_close": 26.36,
       "prev_date": "2026-11-24",
-      "change_pct": 17.68,
+      "change_pct": 23.37,
       "history": [
         {
           "date": "2026-10-15",
@@ -142,22 +142,18 @@
         },
         {
           "date": "2026-11-25",
-          "value": 31.02
+          "value": 32.52
         }
       ],
       "source": "futu"
     },
     "vvix": {
-      "value": 114.07,
-      "date": "2026-11-24",
-      "prev_close": 117.36,
-      "prev_date": "2026-11-23",
-      "change_pct": -2.8,
+      "value": 125.92,
+      "date": "2026-11-25",
+      "prev_close": 114.07,
+      "prev_date": "2026-11-24",
+      "change_pct": 10.39,
       "history": [
-        {
-          "date": "2026-10-14",
-          "value": 94.45
-        },
         {
           "date": "2026-10-15",
           "value": 92.57
@@ -273,6 +269,10 @@
         {
           "date": "2026-11-24",
           "value": 114.07
+        },
+        {
+          "date": "2026-11-25",
+          "value": 125.92
         }
       ],
       "source": "futu"
@@ -635,16 +635,12 @@
     }
   },
   "spx": {
-    "value": 7201.09,
-    "date": "2026-11-24",
-    "prev_close": 7237.17,
-    "prev_date": "2026-11-23",
-    "change_pct": -0.5,
+    "value": 7019.59,
+    "date": "2026-11-25",
+    "prev_close": 7201.09,
+    "prev_date": "2026-11-24",
+    "change_pct": -2.52,
     "history": [
-      {
-        "date": "2026-10-14",
-        "value": 7718.94
-      },
       {
         "date": "2026-10-15",
         "value": 7744.06
@@ -760,6 +756,10 @@
       {
         "date": "2026-11-24",
         "value": 7201.09
+      },
+      {
+        "date": "2026-11-25",
+        "value": 7019.59
       }
     ],
     "source": "futu"
@@ -767,7 +767,7 @@
   "term_structure": {
     "vix1d": 23.76,
     "vix9d": 26.68,
-    "vix": 31.02,
+    "vix": 32.52,
     "vix3m": 25.47,
     "vix6m": 26.19,
     "date": "2026-11-25"
