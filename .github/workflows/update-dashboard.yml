@@ -7,7 +7,7 @@ on:
     # (07:30 Beijing) is a retry in case the first run hit Yahoo's
     # rate limit. Data is daily closes, so running every 30 minutes
     # only wastes runs and Yahoo quota.
-    - cron: "30 21,23 * * * *"
+    - cron: "30 21,23 * * *"
   workflow_dispatch:
     inputs:
       manual_push:
@@ -33,8 +33,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install optional curl_cffi for Yahoo TLS impersonation
+        run: python3 -m pip install --quiet curl_cffi
+
       - name: Fetch latest closes
         env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           BARK_URL: ${{ secrets.BARK_URL }}
           MANUAL_PUSH: ${{ inputs.manual_push }}

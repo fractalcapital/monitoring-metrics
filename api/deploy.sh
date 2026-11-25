@@ -24,6 +24,12 @@ fi
 
 command -v git >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq git curl; }
 command -v python3 >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq python3; }
+if ! python3 -c "import curl_cffi" >/dev/null 2>&1; then
+  echo "== Installing curl_cffi for Yahoo TLS impersonation =="
+  python3 -m pip install --quiet --break-system-packages curl_cffi 2>/dev/null \
+    || python3 -m pip install --quiet curl_cffi 2>/dev/null \
+    || echo "WARNING: curl_cffi install skipped (pip missing?); Yahoo will use stdlib urllib + TradingView/CSV fallback." >&2
+fi
 
 REPO_DIR=/opt/monitoring-metrics
 if [ -d "$REPO_DIR/.git" ]; then
@@ -39,10 +45,12 @@ if [ ! -f .env ]; then
   echo "== Secrets (typed here, stored root-only in .env) =="
   read -r -p "Feishu webhook URL: " FEISHU_WEBHOOK_URL
   read -r -p "Bark base URL (https://bark.infidea.app/<key>): " BARK_URL
+  read -r -p "FRED API key (optional, Enter to use public CSV): " FRED_API_KEY
   cat > .env <<EOF
 API_TOKEN=$API_TOKEN
 FEISHU_WEBHOOK_URL=$FEISHU_WEBHOOK_URL
 BARK_URL=$BARK_URL
+FRED_API_KEY=$FRED_API_KEY
 EOF
   chmod 600 .env
   echo ".env written."

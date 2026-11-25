@@ -54,8 +54,15 @@ cat > .env <<'EOF'
 API_TOKEN=<the token from chat>
 FEISHU_WEBHOOK_URL=<full Feishu bot webhook URL>
 BARK_URL=<Bark base only, https://bark.infidea.app/<key>, no /title/body>
+FRED_API_KEY=<free FRED API key from fred.stlouisfed.org>
+# Optional overrides:
+# FUTU_CLI=/usr/local/bin/futu
+# MOVE_SOURCE_ORDER=yahoo,tradingview,thetrading_tools
 EOF
 chmod 600 .env
+
+# Optional (recommended on VPS): install curl_cffi so Yahoo ^MOVE uses Chrome TLS impersonation
+python3 -m pip install --break-system-packages curl_cffi || python3 -m pip install curl_cffi
 
 # 3. Git identity + push credential. Create a fine-grained personal
 #    access token on GitHub (Settings -> Developer settings -> Personal
