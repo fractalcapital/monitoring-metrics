@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-11-25T15:13:50Z",
+  "updated_at_utc": "2026-11-25T21:30:10Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
@@ -9,21 +9,21 @@
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T15:13:50Z",
+      "last_ok_at_utc": "2026-11-25T21:30:10Z",
       "provider": "fred_api"
     },
     "equities": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T15:13:50Z",
+      "last_ok_at_utc": "2026-11-25T21:30:10Z",
       "provider": "cboe+futu"
     },
     "move": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-25T15:13:50Z",
+      "last_ok_at_utc": "2026-11-25T21:30:10Z",
       "provider": "yahoo_cffi"
     }
   },
@@ -62,10 +62,10 @@
     "vix": {
       "level": "normal",
       "level_label": "正常",
-      "value": 32.36,
+      "value": 28.29,
       "date": "2026-11-25",
       "threshold": 35,
-      "change": "+22.76% vs 2026-11-24",
+      "change": "+7.32% vs 2026-11-24",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -82,10 +82,10 @@
     "vvix": {
       "level": "normal",
       "level_label": "正常",
-      "value": 125.37,
+      "value": 115.38,
       "date": "2026-11-25",
       "threshold": 140,
-      "change": "+9.91% vs 2026-11-24",
+      "change": "+1.15% vs 2026-11-24",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -122,10 +122,10 @@
     "move": {
       "level": "normal",
       "level_label": "正常",
-      "value": 99.7,
+      "value": 97.52,
       "date": "2026-11-25",
       "threshold": 140,
-      "change": "+0.87% vs 2026-11-24",
+      "change": "-1.34% vs 2026-11-24",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -142,10 +142,10 @@
     "hy_oas": {
       "level": "normal",
       "level_label": "正常",
-      "value": 363,
-      "date": "2026-11-23",
+      "value": 372,
+      "date": "2026-11-24",
       "threshold": 500,
-      "change": "-13bp vs 2026-11-20",
+      "change": "+9bp vs 2026-11-23",
       "last_sent_at_utc": null,
       "last_sent_value": null,
       "channels": {
@@ -162,7 +162,7 @@
     "cross": {
       "level": "normal",
       "level_label": "正常",
-      "value": 32.36,
+      "value": 28.29,
       "date": "2026-11-25",
       "threshold": 30,
       "change": "-",

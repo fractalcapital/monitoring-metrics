@@ -1,6 +1,6 @@
 {
-  "updated_at_utc": "2026-11-25T15:13:50Z",
-  "updated_at_beijing": "2026-11-25 23:13 Beijing",
+  "updated_at_utc": "2026-11-25T21:30:10Z",
+  "updated_at_beijing": "2026-11-26 05:30 Beijing",
   "source": "Futu CLI (VIX/VVIX/SKEW/SPX); CBOE CDN (期限结构); Yahoo Finance (MOVE); FRED API (HY OAS)",
   "sources_used": {
     "vix": "futu",
@@ -18,11 +18,11 @@
   "market_status": "computed in browser from US ET time",
   "indicators": {
     "vix": {
-      "value": 32.36,
+      "value": 28.29,
       "date": "2026-11-25",
       "prev_close": 26.36,
       "prev_date": "2026-11-24",
-      "change_pct": 22.76,
+      "change_pct": 7.32,
       "history": [
         {
           "date": "2026-10-15",
@@ -142,17 +142,17 @@
         },
         {
           "date": "2026-11-25",
-          "value": 32.36
+          "value": 28.29
         }
       ],
       "source": "futu"
     },
     "vvix": {
-      "value": 125.37,
+      "value": 115.38,
       "date": "2026-11-25",
       "prev_close": 114.07,
       "prev_date": "2026-11-24",
-      "change_pct": 9.91,
+      "change_pct": 1.15,
       "history": [
         {
           "date": "2026-10-15",
@@ -272,7 +272,7 @@
         },
         {
           "date": "2026-11-25",
-          "value": 125.37
+          "value": 115.38
         }
       ],
       "source": "futu"
@@ -408,11 +408,11 @@
       "source": "futu"
     },
     "move": {
-      "value": 99.7,
+      "value": 97.52,
       "date": "2026-11-25",
       "prev_close": 98.84,
       "prev_date": "2026-11-24",
-      "change_pct": 0.87,
+      "change_pct": -1.34,
       "history": [
         {
           "date": "2026-10-26",
@@ -500,23 +500,19 @@
         },
         {
           "date": "2026-11-25",
-          "value": 99.7
+          "value": 97.52
         }
       ],
       "source": "yahoo_cffi"
     },
     "hy_oas": {
-      "value_bp": 363,
-      "value_pct": 3.63,
-      "date": "2026-11-23",
-      "prev_value_bp": 376,
-      "prev_date": "2026-11-20",
-      "change_bp": -13,
+      "value_bp": 372,
+      "value_pct": 3.72,
+      "date": "2026-11-24",
+      "prev_value_bp": 363,
+      "prev_date": "2026-11-23",
+      "change_bp": 9,
       "history": [
-        {
-          "date": "2026-10-13",
-          "value": 316
-        },
         {
           "date": "2026-10-14",
           "value": 325
@@ -632,6 +628,10 @@
         {
           "date": "2026-11-23",
           "value": 363
+        },
+        {
+          "date": "2026-11-24",
+          "value": 372
         }
       ],
       "stale": false,
@@ -639,11 +639,11 @@
     }
   },
   "spx": {
-    "value": 7036.97,
+    "value": 7182.78,
     "date": "2026-11-25",
     "prev_close": 7201.09,
     "prev_date": "2026-11-24",
-    "change_pct": -2.28,
+    "change_pct": -0.25,
     "history": [
       {
         "date": "2026-10-15",
@@ -763,7 +763,7 @@
       },
       {
         "date": "2026-11-25",
-        "value": 7036.97
+        "value": 7182.78
       }
     ],
     "source": "futu"
@@ -771,7 +771,7 @@
   "term_structure": {
     "vix1d": 23.76,
     "vix9d": 26.68,
-    "vix": 32.36,
+    "vix": 28.29,
     "vix3m": 25.47,
     "vix6m": 26.19,
     "date": "2026-11-25"
