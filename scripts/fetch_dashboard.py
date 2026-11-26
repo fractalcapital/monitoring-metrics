@@ -52,6 +52,7 @@ import csv
 import datetime as dt
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -241,6 +242,22 @@ def _normalize_date(raw):
     return None
 
 
+def _round_num(v, round_digits=2):
+    return round(float(v)) if round_digits == 0 else round(float(v), round_digits)
+
+
+def _valid_hl(hi, lo):
+    if hi is None or lo is None:
+        return None
+    try:
+        hi_f, lo_f = float(hi), float(lo)
+    except (ValueError, TypeError):
+        return None
+    if math.isfinite(hi_f) and math.isfinite(lo_f) and hi_f > 0 and lo_f > 0 and hi_f >= lo_f:
+        return hi_f, lo_f
+    return None
+
+
 def _finalize_pairs(pairs, round_digits=2, keep=40):
     """Deduplicate by date (latest wins), sort ascending, round values."""
     by_date = {}
@@ -249,9 +266,13 @@ def _finalize_pairs(pairs, round_digits=2, keep=40):
         v = item.get("value")
         if not d or v is None:
             continue
-        val = round(float(v)) if round_digits == 0 else round(float(v), round_digits)
-        by_date[d] = val
-    out = [{"date": d, "value": by_date[d]} for d in sorted(by_date)]
+        entry = {"date": d, "value": _round_num(v, round_digits)}
+        hl = _valid_hl(item.get("high"), item.get("low"))
+        if hl is not None:
+            entry["high"] = _round_num(hl[0], round_digits)
+            entry["low"] = _round_num(hl[1], round_digits)
+        by_date[d] = entry
+    out = [by_date[d] for d in sorted(by_date)]
     if keep and len(out) > keep:
         out = out[-keep:]
     return out
@@ -356,20 +377,21 @@ def _latest_us_weekday_iso(now_utc=None):
 
 
 def _upsert_history(prev_history, date, close_val, prev_close_val=None,
-                    keep=30, round_digits=2):
-    """Merge a single quote (date, close, optional prev_close) into prior history.
+                    keep=30, round_digits=2, high_val=None, low_val=None):
+    """Merge a single quote (date, close, optional prev_close/high/low) into prior history.
 
     Guards against US market holidays: if close_val (and prev_close_val when
     given) already match the last point in prev_history, keep the existing
     date instead of stamping a holiday date onto unchanged closes.
     """
     hist = _finalize_pairs(prev_history or [], round_digits=round_digits, keep=keep)
-    close_r = (round(float(close_val)) if round_digits == 0
-               else round(float(close_val), round_digits))
-    prev_r = None
-    if prev_close_val is not None:
-        prev_r = (round(float(prev_close_val)) if round_digits == 0
-                  else round(float(prev_close_val), round_digits))
+    close_r = _round_num(close_val, round_digits)
+    prev_r = _round_num(prev_close_val, round_digits) if prev_close_val is not None else None
+    hl = _valid_hl(high_val, low_val)
+    latest_item = {"date": date, "value": close_r}
+    if hl is not None:
+        latest_item["high"] = _round_num(hl[0], round_digits)
+        latest_item["low"] = _round_num(hl[1], round_digits)
 
     if hist:
         last = hist[-1]
@@ -380,9 +402,20 @@ def _upsert_history(prev_history, date, close_val, prev_close_val=None,
             or (second_last is not None and abs(second_last["value"] - prev_r) < 1e-6)
         )
         if same_last and same_prev and date >= last["date"]:
+            if ("high" in latest_item and "low" in latest_item
+                    and (last.get("high") is None or last.get("low") is None)):
+                hist[-1] = dict(last, high=latest_item["high"], low=latest_item["low"])
             return hist
         if date <= last["date"]:
-            hist[-1] = {"date": last["date"], "value": close_r}
+            updated = {"date": last["date"], "value": close_r}
+            if "high" in latest_item and "low" in latest_item:
+                updated["high"] = latest_item["high"]
+                updated["low"] = latest_item["low"]
+            elif (date == last["date"]
+                  and last.get("high") is not None and last.get("low") is not None):
+                updated["high"] = last["high"]
+                updated["low"] = last["low"]
+            hist[-1] = updated
             return hist[-keep:]
 
     if not hist and prev_r is not None:
@@ -390,7 +423,7 @@ def _upsert_history(prev_history, date, close_val, prev_close_val=None,
         while prev_day.weekday() >= 5 or _is_nyse_holiday(prev_day):
             prev_day -= dt.timedelta(days=1)
         hist.append({"date": prev_day.isoformat(), "value": prev_r})
-    hist.append({"date": date, "value": close_r})
+    hist.append(latest_item)
     return _finalize_pairs(hist, round_digits=round_digits, keep=keep)
 
 
@@ -477,12 +510,24 @@ def _extract_futu_rows(obj):
     return []
 
 
+def _first_pos_float(row, keys):
+    for key in keys:
+        if key in row and row[key] not in (None, ""):
+            try:
+                val = float(row[key])
+                if math.isfinite(val) and val > 0:
+                    return val
+            except (ValueError, TypeError):
+                pass
+    return None
+
+
 def parse_futu_kline(obj_or_text):
-    """Parse `futu kline --format json` output into [{date, value}].
+    """Parse `futu kline --format json` output into [{date, value, high?, low?}].
 
     Handles both verified proud-pipes-7 shape
-    {"kline_list": [{"date": 20261124, "close_price": 26.36}]} and
-    alternative list / time_key / close shapes.
+    {"kline_list": [{"date": 20261124, "close_price": 26.36, "high_price": ..., "low_price": ...}]}
+    and alternative list / time_key / close shapes.
     """
     obj = (_extract_json_from_stdout(obj_or_text)
            if isinstance(obj_or_text, str) else obj_or_text)
@@ -497,16 +542,15 @@ def parse_futu_kline(obj_or_text):
                 date = _normalize_date(row[dk])
                 if date:
                     break
-        val = None
-        for vk in ("close_price", "close", "last_price"):
-            if vk in row and row[vk] not in (None, ""):
-                try:
-                    val = float(row[vk])
-                    break
-                except (ValueError, TypeError):
-                    pass
-        if date and val is not None and val > 0:
-            pairs.append({"date": date, "value": val})
+        val = _first_pos_float(row, ("close_price", "closePrice", "close", "last_price", "lastPrice"))
+        if date and val is not None:
+            item = {"date": date, "value": val}
+            hi = _first_pos_float(row, ("high_price", "highPrice", "high", "highest_price", "max_price"))
+            lo = _first_pos_float(row, ("low_price", "lowPrice", "low", "lowest_price", "min_price"))
+            if hi is not None and lo is not None and hi >= lo:
+                item["high"] = hi
+                item["low"] = lo
+            pairs.append(item)
     out = _finalize_pairs(pairs, round_digits=2, keep=40)
     if len(out) < 2:
         raise RuntimeError("too few Futu closes: %s" % (out,))
@@ -519,31 +563,23 @@ def _parse_futu_quote_json(text):
     for row in rows:
         if not isinstance(row, dict):
             continue
-        last_price = None
-        for vk in ("last_price", "close_price", "close", "price"):
-            if vk in row and row[vk] not in (None, ""):
-                try:
-                    last_price = float(row[vk])
-                    break
-                except (ValueError, TypeError):
-                    pass
-        if last_price is None or last_price <= 0:
+        last_price = _first_pos_float(
+            row, ("last_price", "lastPrice", "close_price", "closePrice", "close", "price"))
+        if last_price is None:
             continue
-        prev_close = None
-        for pk in ("prev_close_price", "prev_close", "last_close"):
-            if pk in row and row[pk] not in (None, ""):
-                try:
-                    prev_close = float(row[pk])
-                    break
-                except (ValueError, TypeError):
-                    pass
+        prev_close = _first_pos_float(
+            row, ("prev_close_price", "prevClosePrice", "prev_close", "last_close"))
+        high_price = _first_pos_float(
+            row, ("high_price", "highPrice", "high", "highest_price", "max_price"))
+        low_price = _first_pos_float(
+            row, ("low_price", "lowPrice", "low", "lowest_price", "min_price"))
         date = None
         for dk in ("data_date", "date", "update_time", "time", "timestamp"):
             if dk in row and row[dk] not in (None, ""):
                 date = _normalize_date(row[dk])
                 if date:
                     break
-        return last_price, prev_close, date
+        return last_price, prev_close, date, high_price, low_price
     raise RuntimeError("no valid quote in futu output")
 
 
@@ -557,7 +593,7 @@ def _run_futu_cmd(cmd, timeout=45):
 
 
 def fetch_futu(symbol, prev_history=None):
-    """Fetch daily closes via Futu CLI (`kline` -> `quote` fallback)."""
+    """Fetch daily closes (and intraday high/low) via Futu CLI (`kline` -> `quote` fallback)."""
     cli = _futu_bin()
     if not cli:
         raise RuntimeError("futu CLI not available")
@@ -568,16 +604,30 @@ def fetch_futu(symbol, prev_history=None):
         out = _run_futu_cmd([
             cli, "kline", symbol, "--ktype", "2", "--num", "30", "--format", "json",
         ])
-        return parse_futu_kline(out)
+        pairs = parse_futu_kline(out)
+        # If kline omitted high/low on the latest bar, enrich best-effort from `futu quote`
+        if pairs and (pairs[-1].get("high") is None or pairs[-1].get("low") is None):
+            try:
+                q_out = _run_futu_cmd([cli, "quote", symbol, "--format", "json"])
+                _, _, q_date, q_hi, q_lo = _parse_futu_quote_json(q_out)
+                hl = _valid_hl(q_hi, q_lo)
+                if hl is not None and (not q_date or q_date == pairs[-1]["date"]):
+                    pairs[-1]["high"] = _round_num(hl[0], 2)
+                    pairs[-1]["low"] = _round_num(hl[1], 2)
+            except Exception:  # noqa: BLE001
+                pass
+        return pairs
     except Exception as exc:  # noqa: BLE001
         errors.append("kline: %s" % exc)
 
     # 2. `futu quote <symbol> --format json` + local history upsert
     try:
         out = _run_futu_cmd([cli, "quote", symbol, "--format", "json"])
-        last_price, prev_close, date = _parse_futu_quote_json(out)
+        last_price, prev_close, date, high_price, low_price = _parse_futu_quote_json(out)
         use_date = date or _latest_us_weekday_iso()
-        pairs = _upsert_history(prev_history, use_date, last_price, prev_close)
+        pairs = _upsert_history(
+            prev_history, use_date, last_price, prev_close,
+            high_val=high_price, low_val=low_price)
         if len(pairs) >= 2:
             return pairs
         errors.append("quote produced <2 points")
@@ -618,6 +668,9 @@ def _parse_csv_series(text, preferred_cols=("CLOSE",), scale=1.0,
         if val_idx == date_idx:
             val_idx = 1
 
+    high_idx = norm_header.index("HIGH") if "HIGH" in norm_header else None
+    low_idx = norm_header.index("LOW") if "LOW" in norm_header else None
+
     pairs = []
     for row in reader:
         if len(row) <= max(date_idx, val_idx):
@@ -630,7 +683,18 @@ def _parse_csv_series(text, preferred_cols=("CLOSE",), scale=1.0,
             val = float(raw_val) * scale
         except ValueError:
             continue
-        pairs.append({"date": date, "value": val})
+        item = {"date": date, "value": val}
+        if (high_idx is not None and low_idx is not None
+                and len(row) > max(high_idx, low_idx)):
+            try:
+                hi = float(row[high_idx].strip()) * scale
+                lo = float(row[low_idx].strip()) * scale
+                if _valid_hl(hi, lo) is not None:
+                    item["high"] = hi
+                    item["low"] = lo
+            except ValueError:
+                pass
+        pairs.append(item)
     out = _finalize_pairs(pairs, round_digits=round_digits, keep=keep)
     if len(out) < 2:
         raise RuntimeError("too few valid CSV rows (%d)" % len(out))
@@ -779,13 +843,22 @@ def _parse_yahoo_chart_json(raw_bytes, symbol):
     data = json.loads(raw_bytes.decode("utf-8"))
     result = data["chart"]["result"][0]
     stamps = result["timestamp"]
-    closes = result["indicators"]["quote"][0]["close"]
+    quote = result["indicators"]["quote"][0]
+    closes = quote["close"]
+    highs = quote.get("high") or []
+    lows = quote.get("low") or []
     pairs = []
-    for ts, close in zip(stamps, closes):
+    for i, (ts, close) in enumerate(zip(stamps, closes)):
         if close is None:
             continue
         date = dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc).date().isoformat()
-        pairs.append({"date": date, "value": round(float(close), 2)})
+        item = {"date": date, "value": round(float(close), 2)}
+        if i < len(highs) and i < len(lows):
+            hl = _valid_hl(highs[i], lows[i])
+            if hl is not None:
+                item["high"] = round(hl[0], 2)
+                item["low"] = round(hl[1], 2)
+        pairs.append(item)
     out = _finalize_pairs(pairs, round_digits=2, keep=40)
     if len(out) < 2:
         raise RuntimeError("too few closes for %s: %s" % (symbol, out))
@@ -927,6 +1000,21 @@ def fetch_trading_tools_move():
 
 # -------------------------------------------- Indicator resolution chains ---
 
+def _attach_node_hl(pairs, node, round_digits=2):
+    """Preserve top-level day_high/day_low on the matching latest pair when cached."""
+    if not pairs or not isinstance(node, dict):
+        return pairs
+    hl = _valid_hl(node.get("day_high"), node.get("day_low"))
+    if hl is not None and pairs[-1].get("date") == node.get("date"):
+        if pairs[-1].get("high") is None or pairs[-1].get("low") is None:
+            pairs[-1] = dict(
+                pairs[-1],
+                high=_round_num(hl[0], round_digits),
+                low=_round_num(hl[1], round_digits),
+            )
+    return pairs
+
+
 def _prev_pairs_for(prev_payload, key):
     """Extract cached history pairs for an indicator from previous data.json."""
     if not isinstance(prev_payload, dict):
@@ -936,11 +1024,11 @@ def _prev_pairs_for(prev_payload, key):
             node = prev_payload["spx"]
             hist = node.get("history") or []
             if len(hist) >= 2:
-                return _finalize_pairs(hist, round_digits=2, keep=40)
-            return _finalize_pairs([
+                return _attach_node_hl(_finalize_pairs(hist, round_digits=2, keep=40), node)
+            return _attach_node_hl(_finalize_pairs([
                 {"date": node["prev_date"], "value": node["prev_close"]},
                 {"date": node["date"], "value": node["value"]},
-            ], round_digits=2, keep=40)
+            ], round_digits=2, keep=40), node)
         if key in ("vix1d", "vix9d", "vix3m", "vix6m"):
             ts = prev_payload.get("term_structure") or {}
             ts_dates = ts.get("dates") or {}
@@ -961,12 +1049,12 @@ def _prev_pairs_for(prev_payload, key):
         node = prev_payload["indicators"][key]
         hist = node.get("history") or []
         if len(hist) >= 2:
-            return _finalize_pairs(hist, round_digits=2, keep=40)
+            return _attach_node_hl(_finalize_pairs(hist, round_digits=2, keep=40), node)
         if node.get("prev_date") and node.get("prev_close") is not None:
-            return _finalize_pairs([
+            return _attach_node_hl(_finalize_pairs([
                 {"date": node["prev_date"], "value": node["prev_close"]},
                 {"date": node["date"], "value": node["value"]},
-            ], round_digits=2, keep=40)
+            ], round_digits=2, keep=40), node)
     except (KeyError, TypeError, ValueError):
         pass
     return None
@@ -1130,6 +1218,9 @@ def indicator(pairs, stale=False, source=None):
         "change_pct": change_pct,
         "history": pairs[-30:],
     }
+    if last.get("high") is not None and last.get("low") is not None:
+        out["day_high"] = last["high"]
+        out["day_low"] = last["low"]
     if stale:
         out["stale"] = True
     if source:
@@ -1798,9 +1889,12 @@ def main():
     print("Wrote %s" % (out_path,))
     for k in ("vix", "vvix", "skew", "move"):
         ind = payload["indicators"][k]
-        print("  %s: %s on %s (prev %s, %s%%) [%s%s]"
+        hl = ""
+        if ind.get("day_low") is not None and ind.get("day_high") is not None:
+            hl = ", L %s / H %s" % (ind["day_low"], ind["day_high"])
+        print("  %s: %s on %s (prev %s, %s%%%s) [%s%s]"
               % (k, ind["value"], ind["date"], ind["prev_close"],
-                 ind["change_pct"], sources_map.get(k),
+                 ind["change_pct"], hl, sources_map.get(k),
                  ", STALE" if ind.get("stale") else ""))
     hy = payload["indicators"]["hy_oas"]
     print("  hy_oas: %sbp on %s (prev %sbp %s) [%s%s]"

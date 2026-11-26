@@ -954,6 +954,86 @@
   .chip.down { background: var(--green-bg); color: var(--green-text); border: 1px solid var(--green-border); }
   .chip.flat { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
 
+  /* 昨日/当日盘中高低区间条 */
+  .intraday-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-subtle);
+    min-height: 27px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .intraday-tag {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.35;
+    white-space: nowrap;
+    flex: none;
+  }
+  .intraday-bound {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    white-space: nowrap;
+    flex: none;
+  }
+  .intraday-k {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .intraday-v {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .intraday-track {
+    position: relative;
+    flex: 1;
+    min-width: 24px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--surface3);
+  }
+  .intraday-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    border-radius: 999px;
+    background: var(--tone);
+    opacity: .38;
+  }
+  .intraday-dot {
+    position: absolute;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--tone);
+    border: 1.5px solid var(--surface);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px var(--border-hover);
+  }
+  .intraday-empty {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* 动态读数精炼条 (Inset Accent Strip — 统一最小高度保证 5 列图表水平基线齐平) */
   .reading-box {
     margin-top: 8px;
@@ -2560,12 +2640,19 @@ function buildSparkline(history, key, toneCls, prevVal, isTall){
   const endLeftPct = (lastPt[0] / w * 100).toFixed(2);
   const endTopPct = (lastPt[1] / h * 100).toFixed(2);
 
-  const payload = JSON.stringify(history.map((item, i) => ({
-    xp: +(pts[i][0] / w * 100).toFixed(2),
-    yp: +(pts[i][1] / h * 100).toFixed(2),
-    date: item.date,
-    val: item.value
-  }))).replace(/"/g, '&quot;');
+  const payload = JSON.stringify(history.map((item, i) => {
+    const pt = {
+      xp: +(pts[i][0] / w * 100).toFixed(2),
+      yp: +(pts[i][1] / h * 100).toFixed(2),
+      date: item.date,
+      val: item.value
+    };
+    if(item.high !== null && item.high !== undefined && item.low !== null && item.low !== undefined){
+      pt.hi = item.high;
+      pt.lo = item.low;
+    }
+    return pt;
+  })).replace(/"/g, '&quot;');
 
   const fmtMM = v => (key === 'spx' ? v.toLocaleString('en-US') : v);
 
@@ -2619,6 +2706,65 @@ function renderSpxChange(absChg, pct){
     ? `${absChg > 0 ? '+' : ''}${absChg.toFixed(2)} (` : '';
   const endPart = (absChg !== null && absChg !== undefined) ? ')' : '';
   return `<span class="chip ${cls}">${arrow} ${absPart}${signP}${pct.toFixed(2)}%${endPart}</span>`;
+}
+
+/* 盘中最高/最低价区间条（优先读取 day_high / day_low，兼容从 history 末条读取） */
+function renderIntradayRange(d, key){
+  let hi = d && d.day_high;
+  let lo = d && d.day_low;
+  if((hi === null || hi === undefined || lo === null || lo === undefined) && d && Array.isArray(d.history) && d.history.length){
+    const last = d.history[d.history.length - 1];
+    if(last && (!d.date || last.date === d.date)){
+      if(hi === null || hi === undefined) hi = last.high;
+      if(lo === null || lo === undefined) lo = last.low;
+    }
+  }
+  const hiNum = Number(hi), loNum = Number(lo);
+  const valid = hi !== null && hi !== undefined && lo !== null && lo !== undefined
+    && Number.isFinite(hiNum) && Number.isFinite(loNum) && loNum > 0 && hiNum >= loNum;
+
+  if(!valid){
+    if(key === 'hy_oas'){
+      return `
+        <div class="intraday-row" title="HY OAS 为 FRED 日度单值收口指标，无盘中最高/最低价">
+          <span class="intraday-tag">盘中</span>
+          <span class="intraday-empty">FRED 日度单值 · 无盘中高低</span>
+        </div>
+      `;
+    }
+    if(key === 'spx') return '';
+    return `
+      <div class="intraday-row" title="当前数据暂未包含盘中最高/最低价，下次数据拉取后自动显示">
+        <span class="intraday-tag">盘中</span>
+        <span class="intraday-empty">低 — · 高 —（待下次同步）</span>
+      </div>
+    `;
+  }
+
+  const fmt = v => key === 'spx'
+    ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : Number(v).toFixed(2);
+  const span = hiNum - loNum;
+  const closeVal = Number(d.value);
+  const pct = span > 0 && Number.isFinite(closeVal)
+    ? Math.max(0, Math.min(100, (closeVal - loNum) / span * 100))
+    : 50;
+  const base = (d.prev_close && Number(d.prev_close) > 0) ? Number(d.prev_close) : loNum;
+  const ampPct = base > 0 ? (span / base * 100).toFixed(2) : null;
+  const tip = `${d.date || ''} 盘中区间：最低 ${fmt(loNum)} · 最高 ${fmt(hiNum)} · 收盘 ${fmt(closeVal)}`
+    + (ampPct !== null ? `（日内振幅 ${ampPct}%，收盘位于日内 ${Math.round(pct)}% 分位）` : '');
+
+  return `
+    <div class="intraday-row" title="${escapeHtml(tip)}">
+      <span class="intraday-tag">盘中</span>
+      <span class="intraday-bound"><span class="intraday-k">低</span><span class="intraday-v">${fmt(loNum)}</span></span>
+      <span class="intraday-track" aria-hidden="true">
+        <span class="intraday-fill" style="width:${pct.toFixed(1)}%;"></span>
+        <span class="intraday-dot" style="left:${pct.toFixed(1)}%;"></span>
+      </span>
+      <span class="intraday-bound"><span class="intraday-k">高</span><span class="intraday-v">${fmt(hiNum)}</span></span>
+    </div>
+  `;
 }
 
 /* 精密分段阈值刻度尺 HTML */
@@ -3420,6 +3566,7 @@ function render(data, isSnapshot){
                 ${chgPill}
                 <span class="prev-meta">前值 ${h.prev_value_bp}bp</span>
               </div>
+              ${renderIntradayRange(h, k)}
             </div>
 
             <div class="reading-box">
@@ -3471,6 +3618,7 @@ function render(data, isSnapshot){
               ${renderChangePill(absChg, d.change_pct, m.unit, false)}
               <span class="prev-meta">前收 ${d.prev_close !== null && d.prev_close !== undefined ? d.prev_close : '—'}</span>
             </div>
+            ${renderIntradayRange(d, k)}
           </div>
 
           <div class="reading-box">
@@ -3533,6 +3681,7 @@ function render(data, isSnapshot){
           ${renderSpxChange(spxAbs, s.change_pct)}
           <span class="prev-meta">前收 ${s.prev_close ? s.prev_close.toLocaleString('en-US') : '—'} (${shortDate(s.prev_date)})</span>
         </div>
+        ${renderIntradayRange(s, 'spx')}
       </div>
 
       ${buildSparkline(s.history, 'spx', spxTone, s.prev_close, true)}
@@ -3612,12 +3761,17 @@ function initSparklineInteractivity(){
         hDot.style.left = p.xp + '%';
         hDot.style.top = p.yp + '%';
 
-        const valStr = key === 'spx' ? p.val.toLocaleString('en-US') : (key === 'hy_oas' ? p.val + 'bp' : p.val);
+        const fmtVal = v => key === 'spx' ? Number(v).toLocaleString('en-US') : (key === 'hy_oas' ? v + 'bp' : Number(v).toFixed(2));
         tooltip.style.display = 'block';
-        tooltip.textContent = `${shortDate(p.date)} · ${valStr}`;
-        // 边界钳制，防止最左或最右节点悬停浮层被卡片裁剪
-        const clampedX = Math.max(18, Math.min(82, p.xp));
-        tooltip.style.left = clampedX + '%';
+        tooltip.textContent = (p.lo !== undefined && p.hi !== undefined)
+          ? `${shortDate(p.date)} · 收 ${fmtVal(p.val)} · 低 ${fmtVal(p.lo)} / 高 ${fmtVal(p.hi)}`
+          : `${shortDate(p.date)} · ${fmtVal(p.val)}`;
+        // 动态边界钳制，防止宽浮层在左右边缘被卡片裁剪
+        const stageW = stage.clientWidth || 240;
+        const ttW = tooltip.offsetWidth || 120;
+        const halfPct = Math.min(48, (ttW / 2 / stageW) * 100 + 2);
+        const clampedX = Math.max(halfPct, Math.min(100 - halfPct, p.xp));
+        tooltip.style.left = clampedX.toFixed(1) + '%';
       });
 
       stage.addEventListener('mouseleave', () => {
