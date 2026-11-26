@@ -88,6 +88,7 @@ else
 fi
 
 mkdir -p "$LOG_DIR"
+rm -f /tmp/monitoring-metrics-push.lock /tmp/monitoring-metrics-push-fail.count
 chown -R "$SVC_USER:$SVC_USER" "$REPO_DIR" "$LOG_DIR"
 chmod 600 "$REPO_DIR/.env" "$REPO_DIR/.git-credentials"
 chmod +x "$REPO_DIR/scripts/push_data.sh" "$REPO_DIR/scripts/fetch_dashboard.py" "$REPO_DIR/api/api_server.py"

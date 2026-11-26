@@ -14,7 +14,11 @@ cd "$(dirname "$0")/.."
 # git index.lock / rebase / data.json write races. Uses flock on Linux,
 # falling back to an atomic mkdir lockdir (with stale-PID recovery) on macOS.
 LOCK_WAIT_SECONDS="${LOCK_WAIT_SECONDS:-120}"
-LOCK_BASE="${TMPDIR:-/tmp}"
+if [ -d .git ]; then
+  LOCK_BASE=".git"
+else
+  LOCK_BASE="${TMPDIR:-/tmp}"
+fi
 LOCK_FILE="${LOCK_BASE%/}/monitoring-metrics-push.lock"
 PUSH_FAIL_FILE="${LOCK_BASE%/}/monitoring-metrics-push-fail.count"
 PUSH_FAIL_ALERT_THRESHOLD="${PUSH_FAIL_ALERT_THRESHOLD:-2}"
