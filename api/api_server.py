@@ -3,36 +3,32 @@
 
 The dashboard page is static (GitHub Pages) and holds no secrets, so it
 cannot trigger a data fetch or send a push by itself. This tiny service
-is the backend for the dashboard's two manual buttons:
+is the backend for the dashboard's manual buttons:
 
   GET  /health       -> {"ok": true} (tunnel / monitoring check)
   POST /api/refresh  -> start a background fetch+publish job and return
                         {"status": "started"} at once (the fetch can take
-                        minutes from a datacenter IP: Yahoo retries with
-                        backoff. Cloudflare cuts a tunnel request off at
-                        ~100s, so a synchronous reply would 524). Poll
-                        GET /api/job for the outcome; the page re-reads
-                        data.json when the job finishes.
-  GET /api/job       -> {"running": "refresh"|"push"|null,
+                        up to a few minutes if fallback retries trigger;
+                        Cloudflare cuts a tunnel request off at ~100s, so a
+                        synchronous reply would 524). Poll GET /api/job for
+                        the outcome; the page re-reads data.json when done.
+  GET  /api/job      -> {"running": "refresh"|"push"|null,
                         "last_result": {...}|null}; no auth needed
                         (read-only, and the page only reads it same-origin)
   POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; both
                         run synchronously and return per-channel results
                         (fast). "test" sends one test message; "status"
                         sends the summary built from the cached data.json
-                        (MANUAL_PUSH=status-cached, no fetch: from a
-                        datacenter IP the Yahoo fetch takes minutes, so a
-                        push that fetches first takes 3+ minutes). The
-                        slow fetch-then-push path lives only in the GitHub
-                        workflow (MANUAL_PUSH=status). Channels default
-                        to both; the dashboard has one button per channel,
-                        rate-limited per channel so the two buttons don't
-                        block each other
+                        (MANUAL_PUSH=status-cached, no fetch). Channels
+                        default to both; the dashboard has one button per
+                        channel, rate-limited per channel so the two
+                        buttons don't block each other.
 
 Auth: the X-Api-Token header must match the API_TOKEN env var. The token
 is ALSO in the dashboard page source (public), so it is NOT real
 security. The real protections are:
-  - rate limits (1/min per IP, and a daily cap per endpoint), and
+  - rate limits (1/min per IP, and a daily cap per endpoint), keyed by
+    Cloudflare's non-spoofable CF-Connecting-IP header, and
   - these endpoints can only send to the owner's Feishu/Bark and fetch
     public market data -- there is nothing else to steal here.
 The webhook URL and Bark key live ONLY in this service's environment
@@ -43,11 +39,11 @@ Stdlib only. Binds 127.0.0.1:8080 by default; Cloudflare Tunnel maps
 https://api.infidea.app to it (no open ports, no cert to manage).
 """
 import datetime as dt
-import hashlib
 import hmac
 import json
 import os
 import re
+import signal
 import subprocess
 import threading
 import time
@@ -67,11 +63,25 @@ LIMITS = {
     "/api/refresh": (1, 30, 60),
     "/api/push": (1, 10, 20),
 }
-FETCH_TIMEOUT = 300  # seconds; Yahoo retries can take a couple of minutes
+FETCH_TIMEOUT = 300  # seconds; fallback retries can take a couple of minutes
 
-_lock = threading.Lock()          # serialise fetch/push runs (git push)
-_hits = {}                        # (endpoint, ip) -> [timestamps]
+_lock = threading.Lock()          # serialise rate-limit state and job slot
+_hits = {}                        # (endpoint, ip, scope) -> [timestamps]
 _global_hits = {}                 # endpoint -> [timestamps]
+
+
+def _client_ip(headers, peer_ip):
+    """Extract the real client IP for rate limiting.
+
+    Behind Cloudflare Tunnel the TCP peer is always cloudflared on 127.0.0.1.
+    Cloudflare overwrites CF-Connecting-IP with the real client IP (unlike
+    X-Forwarded-For, whose leftmost entry a client can spoof). Fall back to
+    the peer address for direct local access.
+    """
+    cf_ip = (headers.get("CF-Connecting-IP") or "").strip()
+    if cf_ip:
+        return cf_ip
+    return peer_ip
 
 
 def _rate_limited(endpoint, ip, scope=""):
@@ -94,18 +104,34 @@ def _rate_limited(endpoint, ip, scope=""):
     return None
 
 
-def _run(cmd, env_extra=None):
-    """Run cmd in the repo dir; return (returncode, stdout, stderr)."""
+def _run(cmd, env_extra=None, timeout=None):
+    """Run cmd in the repo dir in its own process group; kill the whole group on timeout."""
     env = dict(os.environ)
     if env_extra:
         env.update(env_extra)
+    limit = FETCH_TIMEOUT if timeout is None else timeout
+    proc = subprocess.Popen(
+        cmd, cwd=str(REPO_DIR), env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, start_new_session=True,
+    )
     try:
-        proc = subprocess.run(
-            cmd, cwd=str(REPO_DIR), env=env, capture_output=True,
-            text=True, timeout=FETCH_TIMEOUT)
-        return proc.returncode, proc.stdout, proc.stderr
+        out, err = proc.communicate(timeout=limit)
+        return proc.returncode, out, err
     except subprocess.TimeoutExpired:
-        return None, "", "timed out after %ss" % FETCH_TIMEOUT
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            proc.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.communicate()
+        return None, "", "timed out after %ss" % limit
 
 
 _PUSH_RE = re.compile(
@@ -150,18 +176,14 @@ def _do_refresh():
 def _do_push(mode, channels):
     """Send a test/status push to the given channels; return a dict."""
     channels = [c for c in channels if c in ("feishu", "bark")] or ["feishu", "bark"]
-    env = {"MANUAL_PUSH": mode, "MANUAL_CHANNELS": ",".join(channels)}
     if mode == "test":
         code, out, err = _run(
-            ["python3", "scripts/fetch_dashboard.py"], env)
+            ["python3", "scripts/fetch_dashboard.py"],
+            {"MANUAL_PUSH": "test", "MANUAL_CHANNELS": ",".join(channels)})
         pushed = None
     elif mode == "status":
         # Cached: build the summary from the existing data.json without
-        # fetching. From a datacenter IP the Yahoo fetch takes minutes
-        # (429 retries), so a status push that fetches first takes 3+
-        # minutes and feels broken. data.json is refreshed twice daily
-        # by cron and by manual refresh; the message carries the data
-        # dates. Fast enough to answer synchronously (no background job).
+        # fetching. Fast enough to answer synchronously (1-2s).
         code, out, err = _run(
             ["python3", "scripts/fetch_dashboard.py"],
             {"MANUAL_PUSH": "status-cached",
@@ -185,7 +207,7 @@ def _do_push(mode, channels):
 
 
 # One slow job at a time (a fetch can run minutes; the job guard, not the
-# subprocess lock, serialises refresh/status jobs). Test pushes run
+# subprocess lock, serialises refresh jobs). Test/status pushes run
 # synchronously and touch no data files, so they don't need the guard.
 _job = {"running": None, "result": None}
 
@@ -235,14 +257,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_text(self, status, text):
-        body = text.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
         self.send_response(204)
@@ -262,10 +276,10 @@ class Handler(BaseHTTPRequestHandler):
                 "time": dt.datetime.now(dt.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ")})
         elif self.path == "/api/job":
+            # Copy snapshot under lock so slow socket writes never block _lock.
             with _lock:
-                self._send_json(200, {
-                    "running": _job["running"],
-                    "last_result": _job["result"]})
+                snap = {"running": _job["running"], "last_result": _job["result"]}
+            self._send_json(200, snap)
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
@@ -281,17 +295,7 @@ class Handler(BaseHTTPRequestHandler):
         if not hmac.compare_digest(token, API_TOKEN):
             self._send_json(401, {"ok": False, "error": "bad token"})
             return
-        # Real client IP: the API sits behind a Cloudflare Tunnel, so the
-        # TCP peer is always cloudflared on 127.0.0.1 and per-IP rate
-        # limits would be global (one user's click blocks everyone).
-        # cloudflared sets X-Forwarded-For to the real client IP; fall
-        # back to the peer address for direct local access. Safe to
-        # trust: the server only listens on 127.0.0.1, so only
-        # cloudflared and local processes can reach it, and the header
-        # is used only for rate limiting, never for auth.
-        xff = self.headers.get("X-Forwarded-For", "")
-        ip = (xff.split(",")[0].strip() if xff else "") \
-            or self.client_address[0]
+        ip = _client_ip(self.headers, self.client_address[0])
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -325,9 +329,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, _start_job("refresh", _do_refresh))
         else:
             # Both modes are fast and synchronous: "test" sends one test
-            # message, "status" sends the summary from the cached
-            # data.json (no fetch). The slow fetch-then-push path lives
-            # only in the GitHub workflow (MANUAL_PUSH=status).
+            # message, "status" sends the summary from the cached data.json.
             mode = str(body.get("mode", "")).lower()
             self._send_json(200, _do_push(mode, channels))
 

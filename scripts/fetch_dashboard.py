@@ -35,6 +35,22 @@ Fault isolation:
     fetch-failure alert (24h dedup), while all other indicators continue
     updating normally.
 
+Data quality & freshness:
+  - Intraday high/low are sanity-checked (_sanitize_hl): flat H=L feeds
+    (Futu SKEW) and bad ticks outside plausible bounds are dropped.
+  - Every node carries lag_days / lagging vs the latest NYSE session
+    (holiday + early-close aware). A lagging core indicator raises a
+    "数据未更新" alert (fetch_freshness, 24h dedup); runs between the
+    close and 18:00 ET get one session of grace (sources settle late).
+  - ~1 trading year is fetched to compute stats (1y percentile, 5d / 20d
+    change) and a composite stress score; data.json keeps 30 points.
+
+Alerts (thresholds in ALERT_THRESHOLDS, shipped to the page via
+payload["config"] so the page never hard-codes them):
+  - level alerts with hysteresis (HYSTERESIS_PCT), plus VIX term-structure
+    inversion, VIX single-day spike and HY OAS fast-widening alerts;
+  - a "解除" notice is sent when a level alert that was pushed clears.
+
 Manual push (MANUAL_PUSH / MANUAL_CHANNELS env vars):
   - "test": sends one test message on requested channels and exits.
   - "status": fetches normally, then sends the status summary.
@@ -47,6 +63,13 @@ Secrets (env vars only -- NEVER commit to this public repo, NEVER log):
   - FEISHU_WEBHOOK_URL (optional, Feishu robot webhook)
   - BARK_URL           (optional, Bark push base URL)
   - YAHOO_PROXY        (optional, proxy URL for Yahoo requests only)
+
+Other optional env vars:
+  - MM_OUT_DIR             write data.json / alert_state.json here instead of
+                           dashboard/ (used by tests and local dry runs)
+  - EXTRA_MARKET_CLOSURES  comma-separated YYYY-MM-DD ad-hoc NYSE closures
+  - FUTU_KLINE_NUM         daily bars requested from Futu (default 260)
+  - CREDIT_TIERS=0         skip the IG / CCC OAS context fetch
 """
 import csv
 import datetime as dt
@@ -143,7 +166,19 @@ ALERT_THRESHOLDS = {
     "hy_oas": {"label": "HY OAS 信用利差", "unit": "bp", "warning": 500, "critical": 1000},
     # Cross-check: VIX high AND (VVIX or MOVE high).
     "cross": {"label": "综合预警", "unit": "", "vix": 30, "vvix": 140, "move": 140},
+    # VIX / VIX3M ratio: > 1 = backwardation (near-term fear above 3M).
+    "term": {"label": "VIX 期限结构倒挂", "unit": "", "warning": 1.0,
+             "critical": 1.1, "hyst_abs": 0.02},
+    # Velocity ("event") alerts: no hysteresis and no "解除" notice.
+    "vix_jump": {"label": "VIX 单日急升", "unit": "%", "warning": 25,
+                 "critical": 50, "event": True},
+    "hy_widen": {"label": "HY OAS 急速走阔", "unit": "bp", "warning": 25,
+                 "warning_5d": 50, "event": True},
 }
+# A triggered level holds until the value is this fraction (or the spec's
+# hyst_abs) below its threshold, so readings hovering around a line don't
+# flap warning -> normal -> warning and re-alert every run.
+HYSTERESIS_PCT = 0.05
 
 LEVEL_SEVERITY = {"normal": 0, "warning": 1, "critical": 2}
 LEVEL_LABEL = {"normal": "正常", "warning": "预警", "critical": "严重"}
@@ -153,7 +188,9 @@ FETCH_SOURCES = {
     "equities": "波动率与股指（Futu CLI / CBOE / Yahoo：VIX / VVIX / SKEW / 期限结构 / 标普 500）",
     "move": "MOVE 债市波动（Yahoo / TradingView / CSV）",
     "fred": "FRED（HY OAS）",
+    "freshness": "数据新鲜度（收盘日期 vs 最近交易日）",
 }
+FETCH_GROUPS = ("equities", "move", "fred", "freshness")
 
 # Always fetch direct, ignoring any OS proxy (e.g. a Mac routing other traffic
 # through a VPS proxy). On the VPS and Actions runners there is no proxy.
@@ -161,6 +198,16 @@ _NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 _YAHOO_SESSION_CACHE = {"session": None, "crumb": None, "initialized": False}
 
+
+HISTORY_KEEP = 260   # ~1 trading year kept in memory for percentile / 5d / 20d stats
+DISPLAY_KEEP = 30    # points written to data.json history (sparklines + cache)
+STATS_WINDOW = 252   # trading days used for the 1y percentile rank
+STATS_MIN_WINDOW = 120
+# Intraday high/low sanity bounds, relative to min / max(close, prev close).
+# Generous on the upside (VIX can triple intraday, e.g. 2024-08-05), strict
+# on the downside (a VIX low 40% under both closes is a bad tick).
+HL_LOW_FLOOR = 0.70
+HL_HIGH_CAP = 3.00
 
 # ----------------------------------------------------------- HTTP helpers ---
 
@@ -258,7 +305,7 @@ def _valid_hl(hi, lo):
     return None
 
 
-def _finalize_pairs(pairs, round_digits=2, keep=40):
+def _finalize_pairs(pairs, round_digits=2, keep=HISTORY_KEEP):
     """Deduplicate by date (latest wins), sort ascending, round values."""
     by_date = {}
     for item in pairs:
@@ -272,10 +319,38 @@ def _finalize_pairs(pairs, round_digits=2, keep=40):
             entry["high"] = _round_num(hl[0], round_digits)
             entry["low"] = _round_num(hl[1], round_digits)
         by_date[d] = entry
-    out = [by_date[d] for d in sorted(by_date)]
+    out = _sanitize_hl([by_date[d] for d in sorted(by_date)])
     if keep and len(out) > keep:
         out = out[-keep:]
     return out
+
+
+def _sanitize_hl(pairs):
+    """Drop implausible intraday high/low in place (pairs sorted by date).
+
+    Removed when: high == low (feeds without real intraday data, e.g. Futu
+    SKEW returns H = L = close), the close sits outside [low, high], or the
+    range breaks HL_LOW_FLOOR / HL_HIGH_CAP relative to the day's close and
+    the previous close (bad ticks such as a VIX low of 15.39 between closes
+    of 35.89 and 26.62). The close itself is always kept.
+    """
+    prev_close = None
+    for e in pairs:
+        if e.get("high") is not None and e.get("low") is not None:
+            hi, lo, c = float(e["high"]), float(e["low"]), float(e["value"])
+            ref_lo = min(c, prev_close) if prev_close else c
+            ref_hi = max(c, prev_close) if prev_close else c
+            if (abs(hi - lo) < 1e-9
+                    or lo > c * 1.005 or hi < c * 0.995
+                    or lo < ref_lo * HL_LOW_FLOOR
+                    or hi > ref_hi * HL_HIGH_CAP):
+                e.pop("high", None)
+                e.pop("low", None)
+        else:
+            e.pop("high", None)
+            e.pop("low", None)
+        prev_close = float(e["value"])
+    return pairs
 
 
 def _easter_sunday(year):
@@ -323,6 +398,30 @@ def _observed_nyse(d, allow_friday=True):
     return d
 
 
+# Ad-hoc full-day closures not covered by the standard rules.
+KNOWN_SPECIAL_CLOSURES = {
+    "2025-01-09",  # National Day of Mourning (President Carter)
+}
+
+
+def _extra_closures(year):
+    """Known special closures + EXTRA_MARKET_CLOSURES env (YYYY-MM-DD,...)."""
+    out = set()
+    raw_all = list(KNOWN_SPECIAL_CLOSURES) + os.environ.get(
+        "EXTRA_MARKET_CLOSURES", "").split(",")
+    for raw in raw_all:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            d = dt.date.fromisoformat(raw)
+        except ValueError:
+            continue
+        if d.year == year:
+            out.add(d)
+    return out
+
+
 def _nyse_holidays(year):
     """Return set of standard NYSE full-day market closure dates for `year`."""
     holidays = set()
@@ -349,6 +448,7 @@ def _nyse_holidays(year):
     holidays.add(_nth_weekday(year, 11, 3, 4))
     # Christmas Day
     holidays.add(_observed_nyse(dt.date(year, 12, 25)))
+    holidays |= _extra_closures(year)
     return {d for d in holidays if d is not None}
 
 
@@ -376,8 +476,78 @@ def _latest_us_weekday_iso(now_utc=None):
     return d.isoformat()
 
 
+def _nyse_early_closes(year):
+    """Standard NYSE 13:00 ET early-close sessions for `year`."""
+    hol = _nyse_holidays(year)
+    days = {
+        _nth_weekday(year, 11, 3, 4) + dt.timedelta(days=1),  # day after Thanksgiving
+        dt.date(year, 12, 24),                                # Christmas Eve
+        dt.date(year, 7, 3),                                  # Independence Day eve
+    }
+    return {d for d in days if d.weekday() < 5 and d not in hol}
+
+
+def _is_trading_day(d):
+    return d.weekday() < 5 and not _is_nyse_holiday(d)
+
+
+def _close_minutes(d):
+    """Session close in ET minutes after midnight (13:00 on early closes)."""
+    return 13 * 60 if d in _nyse_early_closes(d.year) else 16 * 60
+
+
+def _prev_trading_day(d):
+    d -= dt.timedelta(days=1)
+    while not _is_trading_day(d):
+        d -= dt.timedelta(days=1)
+    return d
+
+
+def _expected_close_date(now_utc=None, settle_minutes=15):
+    """Latest NYSE session whose close (+settle_minutes) has passed (ET date)."""
+    et = _us_eastern_now(now_utc)
+    d = et.date()
+    mins = et.hour * 60 + et.minute
+    if _is_trading_day(d) and mins >= _close_minutes(d) + settle_minutes:
+        return d.isoformat()
+    return _prev_trading_day(d).isoformat()
+
+
+def _trading_lag(data_date, expected_date):
+    """NYSE sessions after data_date up to expected_date (0 = up to date)."""
+    try:
+        a = dt.date.fromisoformat(str(data_date))
+        b = dt.date.fromisoformat(str(expected_date))
+    except (TypeError, ValueError):
+        return None
+    n = 0
+    while a < b and n <= 60:
+        a += dt.timedelta(days=1)
+        if _is_trading_day(a):
+            n += 1
+    return n
+
+
+def _market_session_now(now_utc=None):
+    """(is_regular_session_open, et_date_iso)."""
+    et = _us_eastern_now(now_utc)
+    d = et.date()
+    mins = et.hour * 60 + et.minute
+    is_open = _is_trading_day(d) and 9 * 60 + 30 <= mins < _close_minutes(d)
+    return is_open, d.isoformat()
+
+
 def _upsert_history(prev_history, date, close_val, prev_close_val=None,
-                    keep=30, round_digits=2, high_val=None, low_val=None):
+                    keep=HISTORY_KEEP, round_digits=2, high_val=None, low_val=None):
+    """Holiday-safe single-quote upsert (see _upsert_history_raw) + H/L sanity."""
+    return _sanitize_hl(_upsert_history_raw(
+        prev_history, date, close_val, prev_close_val, keep=keep,
+        round_digits=round_digits, high_val=high_val, low_val=low_val))
+
+
+def _upsert_history_raw(prev_history, date, close_val, prev_close_val=None,
+                        keep=HISTORY_KEEP, round_digits=2, high_val=None,
+                        low_val=None):
     """Merge a single quote (date, close, optional prev_close/high/low) into prior history.
 
     Guards against US market holidays: if close_val (and prev_close_val when
@@ -551,7 +721,7 @@ def parse_futu_kline(obj_or_text):
                 item["high"] = hi
                 item["low"] = lo
             pairs.append(item)
-    out = _finalize_pairs(pairs, round_digits=2, keep=40)
+    out = _finalize_pairs(pairs, round_digits=2, keep=HISTORY_KEEP)
     if len(out) < 2:
         raise RuntimeError("too few Futu closes: %s" % (out,))
     return out
@@ -599,26 +769,32 @@ def fetch_futu(symbol, prev_history=None):
         raise RuntimeError("futu CLI not available")
 
     errors = []
-    # 1. Verified proud-pipes-7 command: `futu kline <symbol> --ktype 2 --num 30 --format json`
-    try:
-        out = _run_futu_cmd([
-            cli, "kline", symbol, "--ktype", "2", "--num", "30", "--format", "json",
-        ])
-        pairs = parse_futu_kline(out)
-        # If kline omitted high/low on the latest bar, enrich best-effort from `futu quote`
-        if pairs and (pairs[-1].get("high") is None or pairs[-1].get("low") is None):
-            try:
-                q_out = _run_futu_cmd([cli, "quote", symbol, "--format", "json"])
-                _, _, q_date, q_hi, q_lo = _parse_futu_quote_json(q_out)
-                hl = _valid_hl(q_hi, q_lo)
-                if hl is not None and (not q_date or q_date == pairs[-1]["date"]):
-                    pairs[-1]["high"] = _round_num(hl[0], 2)
-                    pairs[-1]["low"] = _round_num(hl[1], 2)
-            except Exception:  # noqa: BLE001
-                pass
-        return pairs
-    except Exception as exc:  # noqa: BLE001
-        errors.append("kline: %s" % exc)
+    # 1. Verified proud-pipes-7 command: `futu kline <symbol> --ktype 2 --num N --format json`
+    #    (N = ~1y for stats; retried with 30 if the long request fails).
+    nums = []
+    for n in ((os.environ.get("FUTU_KLINE_NUM", "").strip() or str(HISTORY_KEEP)), "30"):
+        if n not in nums:
+            nums.append(n)
+    for num in nums:
+        try:
+            out = _run_futu_cmd([
+                cli, "kline", symbol, "--ktype", "2", "--num", num, "--format", "json",
+            ])
+            pairs = parse_futu_kline(out)
+            # If kline omitted high/low on the latest bar, enrich best-effort from `futu quote`
+            if pairs and (pairs[-1].get("high") is None or pairs[-1].get("low") is None):
+                try:
+                    q_out = _run_futu_cmd([cli, "quote", symbol, "--format", "json"])
+                    _, _, q_date, q_hi, q_lo = _parse_futu_quote_json(q_out)
+                    hl = _valid_hl(q_hi, q_lo)
+                    if hl is not None and (not q_date or q_date == pairs[-1]["date"]):
+                        pairs[-1]["high"] = _round_num(hl[0], 2)
+                        pairs[-1]["low"] = _round_num(hl[1], 2)
+                except Exception:  # noqa: BLE001
+                    pass
+            return _sanitize_hl(pairs)
+        except Exception as exc:  # noqa: BLE001
+            errors.append("kline(num=%s): %s" % (num, exc))
 
     # 2. `futu quote <symbol> --format json` + local history upsert
     try:
@@ -640,7 +816,7 @@ def fetch_futu(symbol, prev_history=None):
 # ------------------------------------------------------- Provider: CBOE ---
 
 def _parse_csv_series(text, preferred_cols=("CLOSE",), scale=1.0,
-                      round_digits=2, keep=40):
+                      round_digits=2, keep=HISTORY_KEEP):
     """Parse a date/value CSV (handles CBOE, Stooq, FRED, and generic CSVs)."""
     lines = [ln for ln in text.splitlines() if ln.strip()]
     if not lines:
@@ -712,7 +888,7 @@ def fetch_cboe(key):
         text,
         preferred_cols=("CLOSE", key.upper(), "VALUE"),
         round_digits=2,
-        keep=40,
+        keep=HISTORY_KEEP,
     )
 
 
@@ -724,7 +900,7 @@ def _fetch_fred_api(series_id, api_key, scale=1.0, round_digits=2):
         "api_key": api_key,
         "file_type": "json",
         "sort_order": "desc",
-        "limit": "45",
+        "limit": "300",
     })
     url = "%s?%s" % (FRED_API_BASE, params)
     # Never leak api_key in exception messages or logs.
@@ -752,7 +928,7 @@ def _fetch_fred_api(series_id, api_key, scale=1.0, round_digits=2):
             pairs.append({"date": date, "value": float(val) * scale})
         except ValueError:
             continue
-    out = _finalize_pairs(pairs, round_digits=round_digits, keep=40)
+    out = _finalize_pairs(pairs, round_digits=round_digits, keep=HISTORY_KEEP)
     if len(out) < 2:
         raise RuntimeError("too few FRED API observations for %s" % series_id)
     return out
@@ -769,7 +945,7 @@ def _fetch_fred_csv(series_id, scale=1.0, round_digits=2):
         preferred_cols=(series_id, "VALUE"),
         scale=scale,
         round_digits=round_digits,
-        keep=40,
+        keep=HISTORY_KEEP,
     )
 
 
@@ -792,7 +968,7 @@ def fetch_fred_series(series_id, scale=1.0, round_digits=2):
 def fetch_stooq_spx():
     raw = fetch_url(STOOQ_SPX_URL, timeout=20, headers=UA, retries=2)
     text = raw.decode("utf-8", errors="replace")
-    return _parse_csv_series(text, preferred_cols=("CLOSE",), round_digits=2, keep=40)
+    return _parse_csv_series(text, preferred_cols=("CLOSE",), round_digits=2, keep=HISTORY_KEEP)
 
 
 # ------------------------------------------------------ Provider: Yahoo ---
@@ -859,21 +1035,21 @@ def _parse_yahoo_chart_json(raw_bytes, symbol):
                 item["high"] = round(hl[0], 2)
                 item["low"] = round(hl[1], 2)
         pairs.append(item)
-    out = _finalize_pairs(pairs, round_digits=2, keep=40)
+    out = _finalize_pairs(pairs, round_digits=2, keep=HISTORY_KEEP)
     if len(out) < 2:
         raise RuntimeError("too few closes for %s: %s" % (symbol, out))
     return out
 
 
 def fetch_yahoo(symbol, fast_fail=True):
-    """Fetch 1mo daily chart from Yahoo Finance.
+    """Fetch ~1y daily chart from Yahoo Finance (stats need a year of closes).
 
     Uses `curl_cffi` (Chrome TLS impersonation + Cookie/Crumb) when installed,
     falling back to stdlib `urllib`. When fast_fail=True (fallback providers
     exist), avoids long sleeps on 429 so failover happens within seconds.
     """
     sess, crumb = _get_yahoo_cffi_session()
-    params = {"range": "1mo", "interval": "1d"}
+    params = {"range": "1y", "interval": "1d"}
     if crumb:
         params["crumb"] = crumb
 
@@ -906,7 +1082,7 @@ def fetch_yahoo(symbol, fast_fail=True):
         raise RuntimeError("Yahoo(cffi) %s failed: %s" % (symbol, last_exc))
 
     # Stdlib urllib fallback when curl_cffi is not installed.
-    query = "?range=1mo&interval=1d"
+    query = "?range=1y&interval=1d"
     last_exc = None
     for host in ("query1.finance.yahoo.com", "query2.finance.yahoo.com"):
         url = "https://%s/v8/finance/chart/%s%s" % (
@@ -980,7 +1156,7 @@ def fetch_tradingview_move(prev_history=None, reference_date=None):
 
     use_date = reference_date or _latest_us_weekday_iso()
     pairs = _upsert_history(prev_history, use_date, close, prev_close,
-                            keep=30, round_digits=2)
+                            keep=HISTORY_KEEP, round_digits=2)
     if len(pairs) < 2:
         raise RuntimeError("TradingView TVC:MOVE produced <2 points")
     return pairs
@@ -994,7 +1170,7 @@ def fetch_trading_tools_move():
         text,
         preferred_cols=("CLOSE", "MOVE", "VALUE"),
         round_digits=2,
-        keep=40,
+        keep=HISTORY_KEEP,
     )
 
 
@@ -1024,11 +1200,11 @@ def _prev_pairs_for(prev_payload, key):
             node = prev_payload["spx"]
             hist = node.get("history") or []
             if len(hist) >= 2:
-                return _attach_node_hl(_finalize_pairs(hist, round_digits=2, keep=40), node)
+                return _attach_node_hl(_finalize_pairs(hist, round_digits=2, keep=HISTORY_KEEP), node)
             return _attach_node_hl(_finalize_pairs([
                 {"date": node["prev_date"], "value": node["prev_close"]},
                 {"date": node["date"], "value": node["value"]},
-            ], round_digits=2, keep=40), node)
+            ], round_digits=2, keep=HISTORY_KEEP), node)
         if key in ("vix1d", "vix9d", "vix3m", "vix6m"):
             ts = prev_payload.get("term_structure") or {}
             ts_dates = ts.get("dates") or {}
@@ -1041,20 +1217,20 @@ def _prev_pairs_for(prev_payload, key):
             hy = prev_payload["indicators"]["hy_oas"]
             hist = hy.get("history") or []
             if len(hist) >= 2:
-                return _finalize_pairs(hist, round_digits=0, keep=40)
+                return _finalize_pairs(hist, round_digits=0, keep=HISTORY_KEEP)
             return _finalize_pairs([
                 {"date": hy["prev_date"], "value": hy["prev_value_bp"]},
                 {"date": hy["date"], "value": hy["value_bp"]},
-            ], round_digits=0, keep=40)
+            ], round_digits=0, keep=HISTORY_KEEP)
         node = prev_payload["indicators"][key]
         hist = node.get("history") or []
         if len(hist) >= 2:
-            return _attach_node_hl(_finalize_pairs(hist, round_digits=2, keep=40), node)
+            return _attach_node_hl(_finalize_pairs(hist, round_digits=2, keep=HISTORY_KEEP), node)
         if node.get("prev_date") and node.get("prev_close") is not None:
             return _attach_node_hl(_finalize_pairs([
                 {"date": node["prev_date"], "value": node["prev_close"]},
                 {"date": node["date"], "value": node["value"]},
-            ], round_digits=2, keep=40), node)
+            ], round_digits=2, keep=HISTORY_KEEP), node)
     except (KeyError, TypeError, ValueError):
         pass
     return None
@@ -1203,7 +1379,7 @@ def resolve_hy_oas(prev_payload):
         return fallback, "snapshot", True, err
 
 
-def indicator(pairs, stale=False, source=None):
+def indicator(pairs, stale=False, source=None, stats=None):
     last = pairs[-1]
     prev = pairs[-2]
     if prev["value"]:
@@ -1216,7 +1392,7 @@ def indicator(pairs, stale=False, source=None):
         "prev_close": prev["value"],
         "prev_date": prev["date"],
         "change_pct": change_pct,
-        "history": pairs[-30:],
+        "history": pairs[-DISPLAY_KEEP:],
     }
     if last.get("high") is not None and last.get("low") is not None:
         out["day_high"] = last["high"]
@@ -1225,6 +1401,8 @@ def indicator(pairs, stale=False, source=None):
         out["stale"] = True
     if source:
         out["source"] = source
+    if stats:
+        out["stats"] = stats
     return out
 
 
@@ -1258,6 +1436,156 @@ def _describe_sources(sources_map):
     return "; ".join(parts)
 
 
+# ------------------------------------------------- stats / context data ---
+
+# Composite stress score weights (1y percentile ranks). SKEW is left out on
+# purpose: it is often HIGH in calm markets (cheap tail hedges), so a high
+# SKEW percentile is not "stress".
+COMPOSITE_WEIGHTS = {"vix": 1.0, "move": 1.0, "hy_oas": 1.0, "vvix": 0.5}
+
+
+def compute_stats(pairs, prev_stats=None, is_bp=False):
+    """1y percentile rank + 5d / 20d change for one series.
+
+    When fewer than STATS_MIN_WINDOW closes are available (cached / quote-only
+    fallback paths only keep 30 points), the previous run's percentile is
+    reused and flagged pct_rank_stale instead of computing a misleading rank.
+    """
+    vals = [float(p["value"]) for p in (pairs or []) if p.get("value") is not None]
+    if len(vals) < 2:
+        return prev_stats or None
+    last = vals[-1]
+    window = vals[-STATS_WINDOW:]
+    out = {"window": len(window)}
+    if len(window) >= STATS_MIN_WINDOW:
+        below = sum(1 for v in window if v < last)
+        equal = sum(1 for v in window if v == last)
+        out["pct_rank"] = int(round(100.0 * (below + 0.5 * equal) / len(window)))
+    elif isinstance(prev_stats, dict) and prev_stats.get("pct_rank") is not None:
+        out["pct_rank"] = prev_stats["pct_rank"]
+        out["window"] = prev_stats.get("window", len(window))
+        out["pct_rank_stale"] = True
+    for n in (5, 20):
+        if len(vals) > n:
+            base = vals[-1 - n]
+            out["chg_%dd" % n] = round(last - base, 0 if is_bp else 2)
+            if base:
+                out["chg_%dd_pct" % n] = round((last - base) / base * 100, 2)
+    return out
+
+
+def composite_score(stats_map):
+    """Weighted mean of 1y percentile ranks (0-100); None if <2 core inputs."""
+    num = den = 0.0
+    comps = {}
+    for key, weight in COMPOSITE_WEIGHTS.items():
+        pr = (stats_map.get(key) or {}).get("pct_rank")
+        if pr is None:
+            continue
+        comps[key] = pr
+        num += weight * pr
+        den += weight
+    if den < 2.0:
+        return None
+    return {"score": int(round(num / den)), "components": comps,
+            "weights": COMPOSITE_WEIGHTS, "basis": "近一年分位加权"}
+
+
+CREDIT_TIER_SERIES = (
+    ("ig", "BAMLC0A0CM", "投资级 IG"),
+    ("ccc", "BAMLH0A3HYC", "CCC 级"),
+)
+
+
+def resolve_credit_tiers(prev_payload):
+    """IG / CCC OAS context (FRED). Optional: never fatal, never alerts."""
+    prev = {}
+    if isinstance(prev_payload, dict) and isinstance(prev_payload.get("credit_tiers"), dict):
+        prev = prev_payload["credit_tiers"]
+    out = {}
+    for key, series_id, label in CREDIT_TIER_SERIES:
+        try:
+            rows, src = fetch_fred_series(series_id, scale=100.0, round_digits=0)
+            last, before = rows[-1], rows[-2]
+            item = {
+                "label": label, "series": series_id,
+                "value_bp": last["value"], "date": last["date"],
+                "prev_value_bp": before["value"], "prev_date": before["date"],
+                "change_bp": round(last["value"] - before["value"]),
+                "source": src,
+            }
+            st = compute_stats(rows, (prev.get(key) or {}).get("stats"), is_bp=True)
+            if st:
+                item["stats"] = st
+            out[key] = item
+        except Exception as exc:  # noqa: BLE001
+            print("  [credit_tiers] %s failed: %s" % (series_id, exc), file=sys.stderr)
+            if isinstance(prev.get(key), dict):
+                item = dict(prev[key])
+                item["stale"] = True
+                out[key] = item
+    return out
+
+
+# Freshness: trading-session lag allowed before a node is flagged lagging
+# (display), and before a "数据未更新" alert fires. FRED HY OAS is
+# normally one business day behind.
+FRESH_ALLOWED_LAG = {"hy_oas": 2}
+FRESH_ALERT_LAG = {"hy_oas": 3}
+FRESHNESS_ALERT_AFTER_ET_MIN = 18 * 60
+NODE_LABELS = {"vix": "VIX", "vvix": "VVIX", "skew": "SKEW", "move": "MOVE",
+               "spx": "标普 500", "hy_oas": "HY OAS"}
+
+
+def annotate_freshness(payload, now_utc, stale_keys=()):
+    """Stamp lag_days / lagging / intraday on payload nodes.
+
+    Returns (expected_close_date, issues) where issues lists the nodes whose
+    lag is alert-worthy. Between the close and 18:00 ET one session of grace
+    is given (CBOE / ICE closes post late); cached (stale) nodes are skipped
+    because their fetch failure already alerts separately.
+    """
+    expected = _expected_close_date(now_utc)
+    market_open, et_today = _market_session_now(now_utc)
+    payload["expected_close_date"] = expected
+    payload.pop("intraday", None)
+    ind = payload["indicators"]
+    nodes = {k: ind[k] for k in ("vix", "vvix", "skew", "move", "hy_oas")}
+    nodes["spx"] = payload["spx"]
+    for k, node in nodes.items():
+        for f in ("lag_days", "lagging", "intraday"):
+            node.pop(f, None)
+        lag = _trading_lag(node.get("date"), expected)
+        if lag:
+            node["lag_days"] = lag
+            if lag > FRESH_ALLOWED_LAG.get(k, 0):
+                node["lagging"] = True
+        if market_open and k != "hy_oas" and node.get("date") == et_today:
+            node["intraday"] = True
+            payload["intraday"] = True
+    ts = payload.get("term_structure") or {}
+    ts.pop("lag_days", None)
+    tlags = {}
+    for tenor, d in (ts.get("dates") or {}).items():
+        lag = _trading_lag(d, expected)
+        if lag:
+            tlags[tenor] = lag
+    if tlags:
+        ts["lag_days"] = tlags
+    et_now = _us_eastern_now(now_utc)
+    grace = (expected == et_now.date().isoformat()
+             and et_now.hour * 60 + et_now.minute < FRESHNESS_ALERT_AFTER_ET_MIN)
+    issues = []
+    for k in ("vix", "vvix", "skew", "move", "spx", "hy_oas"):
+        if k in stale_keys:
+            continue
+        lag = nodes[k].get("lag_days", 0)
+        if lag - (1 if grace else 0) >= FRESH_ALERT_LAG.get(k, 1):
+            issues.append("%s %s（落后 %d 个交易日）"
+                          % (NODE_LABELS[k], nodes[k].get("date"), lag))
+    return expected, issues
+
+
 # ---------------------------------------------------------------- alerts ---
 
 def _level_for(value, spec):
@@ -1268,53 +1596,118 @@ def _level_for(value, spec):
     return "normal"
 
 
-def evaluate_alerts(payload):
-    """Return {key: {level, value, date, threshold, change}} for every key."""
+def _level_with_hysteresis(value, spec, old_level="normal"):
+    """Level for value, holding a previously triggered level inside its band."""
+    raw = _level_for(value, spec)
+    old_level = old_level if old_level in LEVEL_SEVERITY else "normal"
+    if LEVEL_SEVERITY[raw] >= LEVEL_SEVERITY[old_level]:
+        return raw
+    lvl = old_level
+    while LEVEL_SEVERITY[lvl] > LEVEL_SEVERITY[raw]:
+        thr = spec.get(lvl)
+        if thr is None:
+            break
+        band = spec.get("hyst_abs", abs(thr) * HYSTERESIS_PCT)
+        if value > thr - band:
+            return lvl
+        lvl = "warning" if lvl == "critical" else "normal"
+    return raw
+
+
+def _change_text(d):
+    if d.get("change_pct") is not None:
+        return "%+.2f%% vs %s" % (d["change_pct"], d.get("prev_date"))
+    return "-"
+
+
+def _fmt_bp(v):
+    return "—" if v is None else "%+dbp" % round(v)
+
+
+def evaluate_alerts(payload, prev_levels=None):
+    """Return {key: {level, value, date, threshold, change}} for every alert key.
+
+    prev_levels ({key: level} from alert_state.json) enables hysteresis.
+    """
+    prev_levels = prev_levels or {}
     ind = payload["indicators"]
     out = {}
+
+    def _ev(level, value, date, threshold, change):
+        return {"level": level, "value": value, "date": date,
+                "threshold": threshold, "change": change}
+
     for key in ("vix", "vvix", "skew", "move"):
         spec = ALERT_THRESHOLDS[key]
         d = ind[key]
-        level = _level_for(d["value"], spec)
+        level = _level_with_hysteresis(d["value"], spec, prev_levels.get(key, "normal"))
         threshold = spec["critical"] if level == "critical" else spec["warning"]
-        if d.get("change_pct") is not None:
-            change = "%+.2f%% vs %s" % (d["change_pct"], d["prev_date"])
-        else:
-            change = "-"
-        out[key] = {
-            "level": level,
-            "value": d["value"],
-            "date": d["date"],
-            "threshold": threshold,
-            "change": change,
-        }
+        out[key] = _ev(level, d["value"], d["date"], threshold, _change_text(d))
+
     hy = ind["hy_oas"]
     spec = ALERT_THRESHOLDS["hy_oas"]
-    level = _level_for(hy["value_bp"], spec)
+    level = _level_with_hysteresis(hy["value_bp"], spec, prev_levels.get("hy_oas", "normal"))
     threshold = spec["critical"] if level == "critical" else spec["warning"]
-    out["hy_oas"] = {
-        "level": level,
-        "value": hy["value_bp"],
-        "date": hy["date"],
-        "threshold": threshold,
-        "change": "%+.0fbp vs %s" % (hy["change_bp"], hy["prev_date"]),
-    }
-    # Cross-check: VIX >= 30 AND (VVIX >= 140 OR MOVE >= 140).
+    out["hy_oas"] = _ev(level, hy["value_bp"], hy["date"], threshold,
+                        "%+.0fbp vs %s" % (hy["change_bp"], hy["prev_date"]))
+
+    # Cross-check: VIX >= 30 AND (VVIX >= 140 OR MOVE >= 140). Once on, each
+    # leg may sit HYSTERESIS_PCT lower before it clears.
     cross = ALERT_THRESHOLDS["cross"]
+    f = (1 - HYSTERESIS_PCT) if prev_levels.get("cross", "normal") != "normal" else 1.0
+    t_vix, t_vvix, t_move = (round(cross["vix"] * f, 1), round(cross["vvix"] * f, 1),
+                             round(cross["move"] * f, 1))
     parts = []
-    if ind["vvix"]["value"] >= cross["vvix"]:
-        parts.append("VVIX %s >= %s" % (ind["vvix"]["value"], cross["vvix"]))
-    if ind["move"]["value"] >= cross["move"]:
-        parts.append("MOVE %s >= %s" % (ind["move"]["value"], cross["move"]))
-    hit = ind["vix"]["value"] >= cross["vix"] and bool(parts)
-    change = ("VIX >= 30 and " + ", ".join(parts)) if hit else "-"
-    out["cross"] = {
-        "level": "warning" if hit else "normal",
-        "value": ind["vix"]["value"],
-        "date": ind["vix"]["date"],
-        "threshold": cross["vix"],
-        "change": change,
-    }
+    if ind["vvix"]["value"] >= t_vvix:
+        parts.append("VVIX %s >= %g" % (ind["vvix"]["value"], t_vvix))
+    if ind["move"]["value"] >= t_move:
+        parts.append("MOVE %s >= %g" % (ind["move"]["value"], t_move))
+    hit = ind["vix"]["value"] >= t_vix and bool(parts)
+    change = ("VIX >= %g and %s" % (t_vix, ", ".join(parts))) if hit else "-"
+    out["cross"] = _ev("warning" if hit else "normal", ind["vix"]["value"],
+                       ind["vix"]["date"], cross["vix"], change)
+
+    # VIX term structure: VIX / VIX3M > 1 = backwardation.
+    ts = payload.get("term_structure") or {}
+    spec = ALERT_THRESHOLDS["term"]
+    if ts.get("vix") and ts.get("vix3m"):
+        ratio = round(float(ts["vix"]) / float(ts["vix3m"]), 3)
+        level = _level_with_hysteresis(ratio, spec, prev_levels.get("term", "normal"))
+        threshold = spec["critical"] if level == "critical" else spec["warning"]
+        change = "VIX %.2f / VIX3M %.2f" % (ts["vix"], ts["vix3m"])
+        if ts.get("vix1d") is not None and ts.get("vix9d") is not None:
+            change += "；VIX1D %.2f / VIX9D %.2f" % (ts["vix1d"], ts["vix9d"])
+        if ts.get("date_mismatch"):
+            change += "（各期限日期不一致）"
+        out["term"] = _ev(level, ratio, ts.get("date") or ind["vix"]["date"],
+                          threshold, change)
+
+    # Velocity: single-day VIX spike.
+    spec = ALERT_THRESHOLDS["vix_jump"]
+    v = ind["vix"]
+    pct = v.get("change_pct")
+    level = _level_for(pct, spec) if pct is not None else "normal"
+    threshold = spec["critical"] if level == "critical" else spec["warning"]
+    out["vix_jump"] = _ev(level, pct if pct is not None else 0, v["date"], threshold,
+                          "VIX %s → %s（vs %s）" % (v.get("prev_close"), v["value"],
+                                                   v.get("prev_date")))
+
+    # Velocity: HY OAS fast widening (1-day or 5-day, bp).
+    spec = ALERT_THRESHOLDS["hy_widen"]
+    d1 = hy.get("change_bp")
+    hist = [h.get("value") for h in (hy.get("history") or []) if h.get("value") is not None]
+    d5 = (hist[-1] - hist[-6]) if len(hist) >= 6 else None
+    hit = ((d1 is not None and d1 >= spec["warning"])
+           or (d5 is not None and d5 >= spec["warning_5d"]))
+    out["hy_widen"] = _ev("warning" if hit else "normal", d1 if d1 is not None else 0,
+                          hy["date"], spec["warning"],
+                          "单日 %s，5 日 %s（阈值：单日 +%dbp / 5 日 +%dbp）"
+                          % (_fmt_bp(d1), _fmt_bp(d5), spec["warning"], spec["warning_5d"]))
+
+    if payload.get("intraday"):
+        for key, ev in out.items():
+            if key not in ("hy_oas", "hy_widen"):
+                ev["intraday"] = True
     return out
 
 
@@ -1341,16 +1734,43 @@ def format_alert_parts(key, ev):
     spec = ALERT_THRESHOLDS[key]
     unit = spec.get("unit", "")
     level_cn = LEVEL_LABEL[ev["level"]]
+    title = "【监控报警·%s】%s" % (level_cn, spec["label"])
     if key == "cross":
         title = "【监控报警·%s】综合预警" % level_cn
         body = ("触发条件：%s\n"
-                "VIX 当前值：%s（日期 %s)" % (ev["change"], ev["value"], ev["date"]))
+                "VIX 当前值：%s（日期 %s）" % (ev["change"], ev["value"], ev["date"]))
+    elif key == "term":
+        body = ("VIX / VIX3M：%.3f（阈值 %.2f，>1 即近端高于远端，期限结构倒挂）\n"
+                "%s\n日期：%s" % (ev["value"], ev["threshold"], ev["change"], ev["date"]))
+    elif key == "vix_jump":
+        body = ("VIX 单日涨幅：%+.2f%%（阈值 +%s%%）\n%s\n日期：%s"
+                % (ev["value"], ev["threshold"], ev["change"], ev["date"]))
+    elif key == "hy_widen":
+        body = "HY OAS 走阔：%s\n日期：%s" % (ev["change"], ev["date"])
     else:
-        title = "【监控报警·%s】%s" % (level_cn, spec["label"])
         body = ("当前值：%s%s（阈值 %s%s）\n"
                 "日期：%s\n"
                 "变化：%s" % (ev["value"], unit, ev["threshold"], unit,
                                 ev["date"], ev["change"]))
+    if ev.get("intraday"):
+        body += "\n（盘中读数，收盘前仍可能变化）"
+    body = "%s\n查看仪表盘：%s" % (body, DASHBOARD_URL)
+    return title, body
+
+
+def format_recovery_parts(key, ev):
+    """"解除" notice for a level alert that was pushed and has now cleared."""
+    spec = ALERT_THRESHOLDS[key]
+    unit = spec.get("unit", "")
+    title = "【监控报警·解除】%s" % ("综合预警" if key == "cross" else spec["label"])
+    if key == "cross":
+        body = "综合预警条件已不再满足（VIX %s，日期 %s）" % (ev["value"], ev["date"])
+    elif key == "term":
+        body = ("VIX / VIX3M 回到 %.3f，期限结构恢复升水\n%s\n日期：%s"
+                % (ev["value"], ev["change"], ev["date"]))
+    else:
+        body = ("当前值：%s%s，已回落到预警线 %s%s 下方\n日期：%s"
+                % (ev["value"], unit, spec["warning"], unit, ev["date"]))
     body = "%s\n查看仪表盘：%s" % (body, DASHBOARD_URL)
     return title, body
 
@@ -1369,33 +1789,74 @@ def _channel_should_send(old_level, new_level, old_sent_at, now_utc):
 
 # ------------------------------------------- data-fetch failure alerts ---
 
+def _atomic_write_json(path, obj):
+    """Write JSON atomically: temp file in the same dir + fsync + os.replace.
+
+    A run killed mid-write (API timeout, OOM, reboot) must never leave a
+    truncated data.json: the page would fall back to its snapshot and the
+    next run would lose every cached value used for per-indicator fallback.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
+    data = json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
 def _write_state(state_path, state):
-    Path(state_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(state_path).write_text(
-        json.dumps(state, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8")
+    _atomic_write_json(state_path, state)
 
 
-def _fetch_alert_send(key, label, detail, state, now_utc):
-    """Send a fetch-failure alert on Feishu (interactive card) + Bark with 24h dedup."""
-    now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    alerts = state.setdefault("alerts", {})
-    old = alerts.get(key, {})
-    old_level = old.get("level", "normal")
-    old_channels = old.get("channels", {}) or {}
-    channels_configured = {
+def _channels_configured():
+    return {
         "feishu": bool(os.environ.get("FEISHU_WEBHOOK_URL")),
         "bark": bool(os.environ.get("BARK_URL")),
     }
+
+
+def _send_channel(ch, title, body, template, bark_level):
+    if ch == "feishu":
+        return send_feishu_card(title, body, template)
+    return send_bark(title, body, bark_level)
+
+
+FETCH_ALERT_TEXT = {
+    "freshness": {
+        "title": "【监控报警·预警】数据未更新",
+        "detail_label": "详情",
+        "note": ("以上指标的最新收盘日期落后于最近一个交易日，数据源可能尚未更新"
+                 "或返回了旧数据；仪表盘已在对应卡片标注“日期落后”，请及时检查。"),
+    },
+}
+DEFAULT_FETCH_NOTE = ("仪表盘该项暂时保留上一次成功拉取的数据（带日期），"
+                      "其他正常数据源已继续更新，请及时检查。")
+
+
+def _fetch_alert_send(key, label, detail, state, now_utc, source_key=None):
+    """Send a fetch-failure / freshness alert on Feishu + Bark with 24h dedup."""
+    now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    alerts = state.setdefault("alerts", {})
+    old = alerts.get(key, {}) or {}
+    old_level = old.get("level", "normal")
+    old_channels = old.get("channels", {}) or {}
+    channels_configured = _channels_configured()
     state["channels_configured"] = channels_configured
-    title = "【监控报警·预警】数据获取失败"
-    body = ("数据源：%s\n"
-            "失败原因：%s\n"
-            "时间：%s\n"
-            "仪表盘该项暂时保留上一次成功拉取的数据（带日期），其他正常数据源已继续更新，"
-            "请及时检查。\n"
-            "查看仪表盘：%s"
-            % (label, detail, now_s, DASHBOARD_URL))
+    text = FETCH_ALERT_TEXT.get(source_key or "", {})
+    title = text.get("title", "【监控报警·预警】数据获取失败")
+    body = ("数据源：%s\n%s：%s\n时间：%s\n%s\n查看仪表盘：%s"
+            % (label, text.get("detail_label", "失败原因"), detail, now_s,
+               text.get("note", DEFAULT_FETCH_NOTE), DASHBOARD_URL))
     channels = {}
     for ch in ("feishu", "bark"):
         ch_old = old_channels.get(ch, {}) or {}
@@ -1413,30 +1874,24 @@ def _fetch_alert_send(key, label, detail, state, now_utc):
         "last_sent_at_utc": old.get("last_sent_at_utc"),
         "last_sent_value": old.get("last_sent_value"),
         "channels": channels,
+        "episode_sent": bool(old.get("episode_sent")) and old_level != "normal",
     }
     sent = []
-    for ch, sender in (("feishu", lambda: send_feishu_card(title, body, "orange")),
-                        ("bark", lambda: send_bark(title, body, "warning"))):
-        ch_old = entry["channels"].get(ch, {}) or {}
-        ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
-        if not _channel_should_send(old_level, "warning",
-                                    ch_sent_at, now_utc):
+    for ch in ("feishu", "bark"):
+        ch_sent_at = _parse_utc(channels[ch].get("last_sent_at_utc"))
+        if not _channel_should_send(old_level, "warning", ch_sent_at, now_utc):
             continue
         if not channels_configured[ch]:
-            print("  fetch alert %s (no %s configured, not sent)"
-                  % (key, ch))
+            print("  fetch alert %s (no %s configured, not sent)" % (key, ch))
             continue
-        if sender():
-            entry["channels"][ch] = {"last_sent_at_utc": now_s,
-                                     "last_sent_value": detail}
+        if _send_channel(ch, title, body, "orange", "warning"):
+            channels[ch] = {"last_sent_at_utc": now_s, "last_sent_value": detail}
             sent.append(ch)
     if sent:
-        sent_at_list = [c["last_sent_at_utc"]
-                        for c in entry["channels"].values()
-                        if c.get("last_sent_at_utc")]
-        if sent_at_list:
-            entry["last_sent_at_utc"] = max(sent_at_list)
+        entry["last_sent_at_utc"] = max(c["last_sent_at_utc"] for c in channels.values()
+                                        if c.get("last_sent_at_utc"))
         entry["last_sent_value"] = detail
+        entry["episode_sent"] = True
     alerts[key] = entry
     return sent
 
@@ -1458,6 +1913,7 @@ def record_fetch_failure_in_state(source_key, detail, state, now_utc):
         detail,
         state,
         now_utc,
+        source_key=source_key,
     )
     print("  fetch failure %s: %s (alert sent via: %s)"
           % (source_key, detail, sent or "none"))
@@ -1465,7 +1921,8 @@ def record_fetch_failure_in_state(source_key, detail, state, now_utc):
 
 
 def record_fetch_success(source_key, state, now_utc, detail=None):
-    """Mark a source healthy in-memory; clears warning level so next failure alerts."""
+    """Mark a source healthy; clear its alert and send a recovery notice if
+    a failure alert was pushed during this episode."""
     now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     status = state.setdefault("fetch_status", {})
     prev = status.get(source_key, {}) or {}
@@ -1479,19 +1936,30 @@ def record_fetch_success(source_key, state, now_utc, detail=None):
         entry["provider"] = detail
     status[source_key] = entry
     key = "fetch_" + source_key
-    old = (state.get("alerts", {}) or {}).get(key, {})
+    alerts = state.setdefault("alerts", {})
+    old = alerts.get(key, {}) or {}
     if old.get("level") != "normal":
-        state.setdefault("alerts", {})[key] = {
+        label = FETCH_SOURCES.get(source_key, source_key)
+        alerts[key] = {
             "level": "normal",
             "level_label": "正常",
             "value": "ok",
             "date": now_utc.date().isoformat(),
             "threshold": "-",
-            "change": FETCH_SOURCES.get(source_key, source_key),
+            "change": label,
             "last_sent_at_utc": old.get("last_sent_at_utc"),
             "last_sent_value": old.get("last_sent_value"),
             "channels": old.get("channels", {}),
+            "episode_sent": False,
         }
+        if old.get("level") == "warning" and old.get("episode_sent"):
+            title = "【监控恢复】%s" % ("数据已恢复更新" if source_key == "freshness"
+                                      else "数据源已恢复")
+            body = "数据源：%s\n恢复时间：%s\n查看仪表盘：%s" % (label, now_s, DASHBOARD_URL)
+            configured = _channels_configured()
+            got = [ch for ch in ("feishu", "bark")
+                   if configured[ch] and _send_channel(ch, title, body, "green", "recovery")]
+            print("  fetch recovered %s (notice sent via: %s)" % (source_key, got or "none"))
 
 
 def process_alerts(payload, state_path, now_utc, group_errors=None,
@@ -1501,32 +1969,31 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
     group_providers = group_providers or {}
     state = load_alert_state(state_path)
     now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    channels_configured = {
-        "feishu": bool(os.environ.get("FEISHU_WEBHOOK_URL")),
-        "bark": bool(os.environ.get("BARK_URL")),
-    }
+    channels_configured = _channels_configured()
 
     fetch_status = dict(state.get("fetch_status", {}) or {})
     fetch_status.pop("yahoo", None)
     state["fetch_status"] = fetch_status
     alerts = state.setdefault("alerts", {})
     alerts.pop("fetch_yahoo", None)
-    for gkey in ("equities", "move", "fred"):
+    for gkey in FETCH_GROUPS:
         if gkey in group_errors:
             record_fetch_failure_in_state(gkey, group_errors[gkey], state, now_utc)
         else:
             record_fetch_success(
                 gkey, state, now_utc, detail=group_providers.get(gkey))
 
-    evaluated = evaluate_alerts(payload)
     alerts = state.setdefault("alerts", {})
+    prev_levels = {k: (v or {}).get("level", "normal")
+                   for k, v in alerts.items() if isinstance(v, dict)}
+    evaluated = evaluate_alerts(payload, prev_levels)
     sent = []
     for key, ev in evaluated.items():
-        old = alerts.get(key, {})
+        spec = ALERT_THRESHOLDS[key]
+        old = alerts.get(key, {}) or {}
         old_level = old.get("level", "normal")
         old_channels = old.get("channels", {}) or {}
         new_level = ev["level"]
-        title, body = format_alert_parts(key, ev)
         channels = {}
         for ch in ("feishu", "bark"):
             ch_old = old_channels.get(ch, {}) or {}
@@ -1544,31 +2011,48 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
             "last_sent_at_utc": old.get("last_sent_at_utc"),
             "last_sent_value": old.get("last_sent_value"),
             "channels": channels,
+            "episode_sent": (bool(old.get("episode_sent")) and old_level != "normal"
+                             and new_level != "normal"),
         }
-        any_sent = False
+
+        if new_level == "normal":
+            # "解除" notice: only for level alerts that were actually pushed.
+            if old_level != "normal" and old.get("episode_sent") and not spec.get("event"):
+                title, body = format_recovery_parts(key, ev)
+                got = []
+                for ch in ("feishu", "bark"):
+                    if not channels_configured[ch]:
+                        continue
+                    if _send_channel(ch, title, body, "green", "recovery"):
+                        channels[ch] = {"last_sent_at_utc": now_s,
+                                        "last_sent_value": ev["value"]}
+                        got.append(ch)
+                if got:
+                    entry["last_sent_at_utc"] = now_s
+                    sent.append(key + ":resolved")
+            alerts[key] = entry
+            continue
+
+        title, body = format_alert_parts(key, ev)
         template = {"warning": "orange", "critical": "red"}.get(new_level, "blue")
-        for ch, sender in (("feishu", lambda: send_feishu_card(title, body, template)),
-                            ("bark", lambda: send_bark(title, body, new_level))):
-            ch_old = entry["channels"].get(ch, {}) or {}
-            ch_sent_at = _parse_utc(ch_old.get("last_sent_at_utc"))
-            if not _channel_should_send(old_level, new_level,
-                                        ch_sent_at, now_utc):
+        any_sent = False
+        for ch in ("feishu", "bark"):
+            ch_sent_at = _parse_utc(channels[ch].get("last_sent_at_utc"))
+            if not _channel_should_send(old_level, new_level, ch_sent_at, now_utc):
                 continue
             if not channels_configured[ch]:
                 print("  alert %s=%s (no %s configured, not sent)"
                       % (key, new_level, ch))
                 continue
-            if sender():
-                entry["channels"][ch] = {"last_sent_at_utc": now_s,
-                                         "last_sent_value": ev["value"]}
+            if _send_channel(ch, title, body, template, new_level):
+                channels[ch] = {"last_sent_at_utc": now_s,
+                                "last_sent_value": ev["value"]}
                 any_sent = True
         if any_sent:
-            sent_at_list = [c["last_sent_at_utc"]
-                            for c in entry["channels"].values()
-                            if c.get("last_sent_at_utc")]
-            if sent_at_list:
-                entry["last_sent_at_utc"] = max(sent_at_list)
+            entry["last_sent_at_utc"] = max(c["last_sent_at_utc"] for c in channels.values()
+                                            if c.get("last_sent_at_utc"))
             entry["last_sent_value"] = ev["value"]
+            entry["episode_sent"] = True
             sent.append(key)
         alerts[key] = entry
 
@@ -1583,43 +2067,57 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
 
 
 # ------------------------------------------------------- manual push ---
-# 波动情况 labels: must mirror the dashboard page's STATUS_BANDS /
-# statusFor in dashboard/index.html exactly.
+# 波动情况 bands. Shipped to the page in payload["config"]["status_bands"];
+# the page's DEFAULT_STATUS_BANDS (used only for its offline snapshot) must
+# match -- tests/test_parity.py enforces it. JSON-safe on purpose: a band
+# maximum of None means "no upper bound"; calm = [min, max) of the "normal"
+# bands where a big single-day move overrides the label with 异动; jump is
+# the size of that move (pct = percent change, abs = absolute change).
 STATUS_BANDS = {
-    "vix": {"bands": [(20, "平静", "b-green"), (30, "警惕", "b-amber"),
-                      (40, "紧张", "b-orange"), (float("inf"), "恐慌", "b-red")],
-            "calm": lambda v: v < 20},
-    "vvix": {"bands": [(70, "偏低", "b-green"), (120, "正常", "b-green"),
-                       (140, "偏高", "b-amber"), (float("inf"), "极端", "b-red")],
-             "calm": lambda v: 70 <= v < 120},
-    "skew": {"bands": [(120, "尾部风险定价正常", "b-green"),
-                       (140, "尾部风险定价略高", "b-amber"),
-                       (float("inf"), "尾部风险定价偏高", "b-red")],
-             "calm": lambda v: v < 120},
-    "move": {"bands": [(60, "债市平静", "b-green"), (140, "债市常态", "b-green"),
-                       (float("inf"), "债市紧张", "b-red")],
-             "calm": lambda v: 60 <= v < 140},
-    "hy_oas": {"bands": [(300, "信用偏紧", "b-green"), (500, "信用常态", "b-green"),
-                         (800, "信用走阔", "b-amber"), (1000, "信用紧张", "b-orange"),
-                         (float("inf"), "信用极端", "b-red")],
-               "calm": lambda v: 300 <= v < 500},
+    "vix": {"bands": [[20, "平静", "b-green"], [30, "警惕", "b-amber"],
+                      [40, "紧张", "b-orange"], [None, "恐慌", "b-red"]],
+            "calm": [None, 20], "jump": {"pct": 10}},
+    "vvix": {"bands": [[70, "偏低", "b-green"], [120, "正常", "b-green"],
+                       [140, "偏高", "b-amber"], [None, "极端", "b-red"]],
+             "calm": [70, 120], "jump": {"pct": 10}},
+    "skew": {"bands": [[120, "尾部风险定价正常", "b-green"],
+                       [140, "尾部风险定价略高", "b-amber"],
+                       [None, "尾部风险定价偏高", "b-red"]],
+             "calm": [None, 120], "jump": {"pct": 10}},
+    "move": {"bands": [[60, "债市平静", "b-green"], [120, "债市常态", "b-green"],
+                       [140, "债市偏高", "b-amber"], [None, "债市紧张", "b-red"]],
+             "calm": [60, 120], "jump": {"pct": 10}},
+    "hy_oas": {"bands": [[300, "信用偏紧", "b-green"], [500, "信用常态", "b-green"],
+                         [800, "信用走阔", "b-amber"], [1000, "信用紧张", "b-orange"],
+                         [None, "信用极端", "b-red"]],
+               "calm": [300, 500], "jump": {"abs": 25}},
 }
 _STATUS_SEV = {"b-green": 0, "b-amber": 1, "b-orange": 2, "b-red": 3}
 _VERDICT_TITLES = {"b-green": "整体平静", "b-amber": "有所升温，未到恐慌",
                    "b-orange": "压力明显", "b-red": "高度紧张"}
 
 
-def status_label(key, value, change_pct):
-    """波动情况 label + class for one indicator (mirrors the page)."""
+def _in_range(v, rng):
+    lo, hi = rng
+    return (lo is None or v >= lo) and (hi is None or v < hi)
+
+
+def status_label(key, value, change_pct=None, change_abs=None):
+    """波动情况 label + class for one indicator (the page uses the same bands)."""
     spec = STATUS_BANDS[key]
     label, cls = spec["bands"][-1][1], spec["bands"][-1][2]
     for maximum, lab, c in spec["bands"]:
-        if value < maximum:
+        if maximum is None or value < maximum:
             label, cls = lab, c
             break
-    if (spec["calm"](value) and change_pct is not None
-            and abs(change_pct) >= 10):
-        return {"label": "异动", "cls": "b-amber"}
+    jump = spec.get("jump") or {}
+    if _in_range(value, spec["calm"]):
+        if ("pct" in jump and change_pct is not None
+                and abs(change_pct) >= jump["pct"]):
+            return {"label": "异动", "cls": "b-amber"}
+        if ("abs" in jump and change_abs is not None
+                and abs(change_abs) >= jump["abs"]):
+            return {"label": "异动", "cls": "b-amber"}
     return {"label": label, "cls": cls}
 
 
@@ -1638,7 +2136,7 @@ def build_status_message(payload, stale=False):
         "vvix": status_label("vvix", ind["vvix"]["value"], ind["vvix"]["change_pct"]),
         "skew": status_label("skew", ind["skew"]["value"], ind["skew"]["change_pct"]),
         "move": status_label("move", ind["move"]["value"], ind["move"]["change_pct"]),
-        "hy_oas": status_label("hy_oas", hy["value_bp"], hy_pct),
+        "hy_oas": status_label("hy_oas", hy["value_bp"], hy_pct, hy.get("change_bp")),
     }
     worst_cls = max((st[k]["cls"] for k in ("vix", "move", "hy_oas")),
                     key=lambda c: _STATUS_SEV[c])
@@ -1664,6 +2162,9 @@ def build_status_message(payload, stale=False):
     has_stale = stale or bool(stale_keys)
 
     lines = ["综合判断：%s" % _VERDICT_TITLES[worst_cls]]
+    comp = payload.get("composite") or {}
+    if comp.get("score") is not None:
+        lines.append("情绪压力分：%s / 100（近一年分位加权）" % comp["score"])
     if has_stale:
         lines.append("注意：部分数据源本次拉取失败，相应项保留上次成功数据")
     for k in ("vix", "vvix", "skew", "move"):
@@ -1683,6 +2184,9 @@ def build_status_message(payload, stale=False):
     ts_vals = [ts.get(k) for k in ("vix1d", "vix9d", "vix3m", "vix6m")]
     if all(v is not None for v in ts_vals):
         ts_line = "期限结构：1D %.2f / 9D %.2f / 3M %.2f / 6M %.2f" % tuple(ts_vals)
+        if ts.get("vix") and ts.get("vix3m"):
+            ratio = ts["vix"] / ts["vix3m"]
+            ts_line += "（VIX/VIX3M %.2f，%s）" % (ratio, "倒挂" if ratio > 1 else "升水")
         if ts.get("date_mismatch"):
             ts_line += "（各期限日期不一致）"
         lines.append(ts_line)
@@ -1694,6 +2198,13 @@ def build_status_message(payload, stale=False):
     ) if k in stale_keys]
     if stale_notes:
         lines.append("（%s 为上次缓存值，本次未拉到）" % " / ".join(stale_notes))
+    lagging = [NODE_LABELS[k] for k in ("vix", "vvix", "skew", "move", "spx", "hy_oas")
+               if (ind.get(k) or payload.get(k) or {}).get("lagging")]
+    if lagging:
+        lines.append("（%s 收盘日期落后于最近交易日 %s）"
+                     % (" / ".join(lagging), payload.get("expected_close_date", "")))
+    if payload.get("intraday"):
+        lines.append("（当前为盘中读数，收盘前仍可能变化）")
     lines.append("查看仪表盘：%s" % DASHBOARD_URL)
     template = {"b-green": "green", "b-amber": "yellow",
                 "b-orange": "orange", "b-red": "red"}[worst_cls]
@@ -1734,8 +2245,9 @@ def send_manual_push(mode, payload=None, stale=False,
 
 def main():
     root = Path(__file__).resolve().parent.parent
-    out_path = root / "dashboard" / "data.json"
-    state_path = root / "dashboard" / "alert_state.json"
+    out_dir = Path(os.environ.get("MM_OUT_DIR") or (root / "dashboard"))
+    out_path = out_dir / "data.json"
+    state_path = out_dir / "alert_state.json"
 
     mode = os.environ.get("MANUAL_PUSH", "").strip().lower()
     channels = tuple(
@@ -1850,6 +2362,37 @@ def main():
     now_utc = dt.datetime.now(dt.timezone.utc)
     beijing = now_utc.astimezone(dt.timezone(dt.timedelta(hours=8)))
 
+    # 4. Stats (1y percentile, 5d / 20d change) + composite stress score.
+    def _prev_stats(k):
+        try:
+            node = prev_payload["spx"] if k == "spx" else prev_payload["indicators"][k]
+            return node.get("stats")
+        except (KeyError, TypeError, AttributeError):
+            return None
+
+    stats = {k: compute_stats(pairs[k], _prev_stats(k))
+             for k in ("vix", "vvix", "skew", "move", "spx")}
+    stats["hy_oas"] = compute_stats(fred_rows, _prev_stats("hy_oas"), is_bp=True)
+
+    # 5. Credit tiers context (IG / CCC OAS), optional.
+    credit_tiers = {}
+    if os.environ.get("CREDIT_TIERS", "1").strip().lower() not in ("0", "false", "no", "off"):
+        credit_tiers = resolve_credit_tiers(prev_payload)
+
+    hy_node = {
+        "value_bp": hy_last["value"],
+        "value_pct": round(hy_last["value"] / 100, 2),
+        "date": hy_last["date"],
+        "prev_value_bp": hy_prev["value"],
+        "prev_date": hy_prev["date"],
+        "change_bp": hy_change_bp,
+        "history": fred_rows[-DISPLAY_KEEP:],
+        "stale": hy_stale,
+        "source": hy_src,
+    }
+    if stats.get("hy_oas"):
+        hy_node["stats"] = stats["hy_oas"]
+
     payload = {
         "updated_at_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "updated_at_beijing": beijing.strftime("%Y-%m-%d %H:%M Beijing"),
@@ -1859,43 +2402,47 @@ def main():
         "market_status": "computed in browser from US ET time",
         "indicators": {
             "vix": indicator(pairs["vix"], stale=("vix" in stale_eq),
-                             source=sources_map.get("vix")),
+                             source=sources_map.get("vix"), stats=stats["vix"]),
             "vvix": indicator(pairs["vvix"], stale=("vvix" in stale_eq),
-                              source=sources_map.get("vvix")),
+                              source=sources_map.get("vvix"), stats=stats["vvix"]),
             "skew": indicator(pairs["skew"], stale=("skew" in stale_eq),
-                              source=sources_map.get("skew")),
+                              source=sources_map.get("skew"), stats=stats["skew"]),
             "move": indicator(pairs["move"], stale=move_stale,
-                              source=move_src),
-            "hy_oas": {
-                "value_bp": hy_last["value"],
-                "value_pct": round(hy_last["value"] / 100, 2),
-                "date": hy_last["date"],
-                "prev_value_bp": hy_prev["value"],
-                "prev_date": hy_prev["date"],
-                "change_bp": hy_change_bp,
-                "history": fred_rows[-30:],
-                "stale": hy_stale,
-                "source": hy_src,
-            },
+                              source=move_src, stats=stats["move"]),
+            "hy_oas": hy_node,
         },
         "spx": indicator(pairs["spx"], stale=("spx" in stale_eq),
-                         source=sources_map.get("spx")),
+                         source=sources_map.get("spx"), stats=stats["spx"]),
         "term_structure": term_structure_payload,
+        "composite": composite_score(stats),
+        "credit_tiers": credit_tiers,
+        "config": {
+            "status_bands": STATUS_BANDS,
+            "alert_thresholds": ALERT_THRESHOLDS,
+            "fresh_allowed_lag": FRESH_ALLOWED_LAG,
+        },
     }
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-                        encoding="utf-8")
+    # 6. Freshness: data dates vs the latest NYSE session.
+    expected, fresh_issues = annotate_freshness(payload, now_utc, set(stale_indicators))
+    if fresh_issues:
+        group_errors["freshness"] = ("预期收盘日 %s：%s"
+                                     % (expected, "；".join(fresh_issues)))[:300]
+    else:
+        group_providers["freshness"] = "ok (expected %s)" % expected
+
+    _atomic_write_json(out_path, payload)
     print("Wrote %s" % (out_path,))
     for k in ("vix", "vvix", "skew", "move"):
         ind = payload["indicators"][k]
         hl = ""
         if ind.get("day_low") is not None and ind.get("day_high") is not None:
             hl = ", L %s / H %s" % (ind["day_low"], ind["day_high"])
-        print("  %s: %s on %s (prev %s, %s%%%s) [%s%s]"
+        print("  %s: %s on %s (prev %s, %s%%%s) [%s%s%s]"
               % (k, ind["value"], ind["date"], ind["prev_close"],
                  ind["change_pct"], hl, sources_map.get(k),
-                 ", STALE" if ind.get("stale") else ""))
+                 ", STALE" if ind.get("stale") else "",
+                 ", LAG %s" % ind["lag_days"] if ind.get("lag_days") else ""))
     hy = payload["indicators"]["hy_oas"]
     print("  hy_oas: %sbp on %s (prev %sbp %s) [%s%s]"
           % (hy["value_bp"], hy["date"], hy["prev_value_bp"], hy["prev_date"],
@@ -1903,6 +2450,14 @@ def main():
     print("  spx: %s on %s [%s]"
           % (payload["spx"]["value"], payload["spx"]["date"], sources_map.get("spx")))
     print("  term: %s [%s]" % (payload["term_structure"], sources_map.get("vix1d")))
+    print("  expected close: %s; freshness issues: %s"
+          % (expected, fresh_issues or "none"))
+    print("  composite: %s" % (payload["composite"],))
+    if credit_tiers:
+        print("  credit tiers: %s" % ", ".join(
+            "%s %sbp (%s)%s" % (k, v.get("value_bp"), v.get("date"),
+                               " STALE" if v.get("stale") else "")
+            for k, v in credit_tiers.items()))
 
     new_state, sent = process_alerts(
         payload,

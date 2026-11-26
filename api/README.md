@@ -1,10 +1,10 @@
 # Monitoring dashboard API (VPS)
 
 The dashboard page is static (GitHub Pages) and holds no secrets, so it
-cannot fetch data or send a push by itself. This service runs on the
-user's VPS (proud-pipes-7, behind the existing Cloudflare Tunnel) and
-handles both the twice-daily scheduled data fetch (via cron) and the
-dashboard's manual refresh/push buttons.
+cannot fetch data or send a push by itself. This service runs on the VPS
+(`proud-pipes-7`, behind Cloudflare Tunnel) as a dedicated non-root user
+(`monitoring`) and handles both the scheduled weekday data fetch (via cron)
+and the dashboard's manual refresh/push buttons.
 
 ## Endpoints
 
@@ -13,92 +13,52 @@ Base URL: `https://api.infidea.app` (tunnel hostname → `127.0.0.1:8080`).
 | Method | Path | Body | What it does |
 | --- | --- | --- | --- |
 | GET | `/health` | — | `{"ok": true}` — tunnel / monitoring check |
-| POST | `/api/refresh` | — | Starts a background fetch + git-push job and returns `{"status": "started"}` at once. The fetch can run minutes from a datacenter IP (Yahoo retries with backoff), past Cloudflare's ~100s tunnel timeout, so a synchronous reply would 524. Poll `GET /api/job` for the outcome; the page re-reads `data.json` when the job finishes. Only one slow job runs at a time; a second start while one runs returns `{"ok": false, "error": "a … job is already running"}` |
-| GET | `/api/job` | — | `{"running": "refresh" \| "push" \| null, "last_result": {...} \| null}`. No auth (read-only; the page reads it same-origin) |
-| POST | `/api/push` | `{"mode": "test" \| "status", "channels": ["feishu"] \| ["bark"]}` | Both run synchronously and return per-channel results (fast). `test` sends one test message and touches no data file. `status` sends the 5-indicator summary built from the cached `data.json` (no fetch — from a datacenter IP the Yahoo fetch takes minutes, so a push that fetches first takes 3+ minutes). The slow fetch-then-push path lives only in the GitHub workflow (`MANUAL_PUSH=status`). Rate-limited per channel, so the Feishu and Bark buttons don't block each other |
+| POST | `/api/refresh` | — | Starts a background fetch + git-push job and returns `{"status": "started"}` immediately (avoids Cloudflare's ~100s tunnel timeout). Poll `GET /api/job` for completion. Only one refresh job runs at a time. |
+| GET | `/api/job` | — | `{"running": "refresh" \| null, "last_result": {...} \| null}`. Read-only snapshot copied under lock. |
+| POST | `/api/push` | `{"mode": "test" \| "status", "channels": ["feishu"] \| ["bark"]}` | Synchronous (1–2s). `test` sends a test message; `status` builds the summary from the cached `data.json` (`MANUAL_PUSH=status-cached`, no fetch). Rate-limited per channel so Feishu and Bark buttons don't block each other. |
 
-All POSTs need the `X-Api-Token` header. The token is also in the
-dashboard page source (public), so it is NOT real security. The real
-protections are rate limits — 1 call per minute per IP, 10 pushes / 30
-refreshes per day per IP, 20 pushes / 60 refreshes per day globally
-(the real client IP comes from the `X-Forwarded-For` header: behind
-the Cloudflare Tunnel the TCP peer is always cloudflared on
-127.0.0.1, so without it per-IP limits would be global) —
-and the fact that these endpoints can only send to the owner's
-Feishu/Bark and fetch public market data. CORS allows only
-`https://mon.infidea.app`.
+### Auth & Rate Limits
 
-The Feishu webhook URL and Bark key live ONLY in this service's
-environment (`/opt/monitoring-metrics/.env`, root-only). They never go
-into the repo or the page.
+- POST endpoints require `X-Api-Token` matching `API_TOKEN`. Because the
+  token is embedded in the static page, real protection comes from rate
+  limits (1/min per IP, 10 pushes / 30 refreshes per day per IP, 20 pushes /
+  60 refreshes per day globally), keyed by Cloudflare's non-spoofable
+  `CF-Connecting-IP` header (falling back to peer IP for local calls;
+  `X-Forwarded-For` is intentionally ignored).
+- CORS allows only `https://mon.infidea.app`.
+- Subprocess runs execute in their own session (`start_new_session=True`) so
+  timeouts terminate the entire process group cleanly.
+- Secrets (`FEISHU_WEBHOOK_URL`, `BARK_URL`, `FRED_API_KEY`, optional
+  `HEALTHCHECK_URL`) live only in `/opt/monitoring-metrics/.env` (`chmod 600`,
+  owned by `monitoring`).
 
 ## Files
 
-- `api_server.py` — stdlib-only HTTP service (no pip dependencies).
-- `monitoring-api.service` — systemd unit (runs as root, restarts always).
-- `../scripts/push_data.sh` — fetch + git-publish, used by cron and by
-  the API. Exit 0 if the fetch succeeded (even if the git push failed —
-  retried on the next run); exit 1 only if the fetch failed.
+- `api_server.py` — stdlib-only HTTP service.
+- `monitoring-api.service` — hardened systemd unit (`User=monitoring`,
+  `NoNewPrivileges=yes`, `ProtectSystem=strict`, restricted `ReadWritePaths`).
+- `deploy.sh` — one-shot VPS deployment (creates `monitoring` user,
+  installs systemd unit, logrotate for `/var/log/monitoring-metrics/fetch.log`,
+  and weekday cron `30 21,23 * * 1-5`).
+- `deploy-mac.sh` — optional macOS backup fetcher via `launchd` (Tue–Sat
+  05:30 / 07:30 Beijing).
+- `../scripts/push_data.sh` — fetch + atomic write + conflict-recovering
+  git publish + optional `HEALTHCHECK_URL` ping + consecutive push-failure
+  alerting.
 
-## VPS setup (proud-pipes-7, as root)
+## Quick VPS Setup
 
 ```bash
-# 1. Clone the repo (public, no credential needed to read)
-git clone https://github.com/fractalcapital/monitoring-metrics.git /opt/monitoring-metrics
-cd /opt/monitoring-metrics
-
-# 2. Secrets file (root-only). API_TOKEN is the token Muse gave you in
-#    chat; the two webhook values are the same ones already in the
-#    repo's GitHub Secrets -- paste them here yourself, never in chat.
-cat > .env <<'EOF'
-API_TOKEN=<the token from chat>
-FEISHU_WEBHOOK_URL=<full Feishu bot webhook URL>
-BARK_URL=<Bark base only, https://bark.infidea.app/<key>, no /title/body>
-FRED_API_KEY=<free FRED API key from fred.stlouisfed.org>
-# Optional overrides:
-# FUTU_CLI=/usr/local/bin/futu
-# MOVE_SOURCE_ORDER=yahoo,tradingview,thetrading_tools
-EOF
-chmod 600 .env
-
-# Optional (recommended on VPS): install curl_cffi so Yahoo ^MOVE uses Chrome TLS impersonation
-python3 -m pip install --break-system-packages curl_cffi || python3 -m pip install curl_cffi
-
-# 3. Git identity + push credential. Create a fine-grained personal
-#    access token on GitHub (Settings -> Developer settings -> Personal
-#    access tokens -> Fine-grained tokens): only this repo
-#    (fractalcapital/monitoring-metrics), only "Contents: read and
-#    write", expiry 90 days. Then:
-git config user.name "monitoring-vps"
-git config user.email "monitoring-vps@infidea.app"
-git config credential.helper "store --file=/opt/monitoring-metrics/.git-credentials"
-printf 'https://x-access-token:<the PAT>@github.com\n' > .git-credentials
-chmod 600 .git-credentials
-#    Test the push credential once (should say Everything up-to-date):
-git push
-
-# 4. Install + start the service
-cp api/monitoring-api.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now monitoring-api
-systemctl status monitoring-api --no-pager
-curl -s http://127.0.0.1:8080/health
-
-# 5. Twice-daily fetch (same times as the old Actions schedule:
-#    21:30 and 23:30 UTC = 05:30 and 07:30 Beijing next day)
-(crontab -l 2>/dev/null; echo '30 21,23 * * * cd /opt/monitoring-metrics && ./scripts/push_data.sh >> /var/log/monitoring-fetch.log 2>&1') | crontab -
-
-# 6. Tunnel hostname: in the Cloudflare Zero Trust dashboard
-#    (Networks -> Tunnels -> the tunnel -> Public Hostname -> Add):
-#    hostname api.infidea.app, service http://127.0.0.1:8080
-#    Then verify from outside the VPS:
-curl -s https://api.infidea.app/health
+curl -sL https://raw.githubusercontent.com/fractalcapital/monitoring-metrics/main/api/deploy.sh -o /tmp/deploy.sh
+sudo bash /tmp/deploy.sh <API_TOKEN>
 ```
 
-## Verify the manual buttons (after the dashboard is wired to the API)
+## Verify Endpoints
 
 ```bash
-TOKEN=<the token from chat>
+curl -s https://api.infidea.app/health
+
+TOKEN=<your-api-token>
 curl -s -X POST https://api.infidea.app/api/push \
   -H "X-Api-Token: $TOKEN" -H 'Content-Type: application/json' \
   -d '{"mode":"test"}'

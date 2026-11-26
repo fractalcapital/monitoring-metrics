@@ -1,0 +1,69 @@
+name: Data Freshness Watchdog
+
+# External dead-man's-switch: checks whether the VPS cron + git push pipeline
+# has kept dashboard/data.json up to date with the latest NYSE trading day.
+# Touches NO market APIs (zero Yahoo/CBOE/FRED requests).
+on:
+  schedule:
+    # 01:00 UTC Tue-Sat = 09:00 Beijing Tue-Sat (well after 05:30 & 07:30 VPS runs)
+    - cron: '0 1 * * 2-6'
+  workflow_dispatch:
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify dashboard/data.json freshness
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          BARK_URL: ${{ secrets.BARK_URL }}
+        run: |
+          python3 - <<'PYEOF'
+          import datetime as dt, json, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd()))
+          sys.path.insert(0, str(Path.cwd() / "scripts"))
+          import fetch_dashboard as fd
+          from alert.notify import send_bark, send_feishu_card
+
+          data = json.loads(Path("dashboard/data.json").read_text(encoding="utf-8"))
+          now_utc = dt.datetime.now(dt.timezone.utc)
+          expected = fd._expected_close_date(now_utc)
+          ind = data["indicators"]
+          problems = []
+          for key, label, max_lag in (
+              ("vix", "VIX", 0),
+              ("move", "MOVE", 0),
+              ("hy_oas", "HY OAS", 2),
+          ):
+              d = ind[key].get("date")
+              lag = fd._trading_lag(d, expected)
+              if lag is None or lag > max_lag:
+                  problems.append("%s %s（预期 %s，落后 %s 个交易日）" % (label, d, expected, lag))
+          stale = data.get("stale_indicators") or []
+          if stale:
+              problems.append("存在缓存兜底项：%s" % ", ".join(stale))
+
+          if not problems:
+              print("OK: data.json is fresh for expected NYSE close %s (updated_at_utc=%s)"
+                    % (expected, data.get("updated_at_utc")))
+              sys.exit(0)
+
+          detail = "；".join(problems)
+          print("ALERT: %s" % detail, file=sys.stderr)
+          title = "【外部巡检·预警】仪表盘数据停更或落后"
+          body = (
+              "巡检发现：%s\n"
+              "最近更新时间：%s\n"
+              "可能原因：VPS 定时任务未执行、网络故障或 GitHub 推送失败，请检查 proud-pipes-7。\n"
+              "查看仪表盘：https://mon.infidea.app/dashboard/"
+              % (detail, data.get("updated_at_beijing") or data.get("updated_at_utc"))
+          )
+          send_feishu_card(title, body, "red")
+          send_bark(title, body, "critical")
+          sys.exit(1)
+          PYEOF

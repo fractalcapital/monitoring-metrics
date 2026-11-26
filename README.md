@@ -11,6 +11,7 @@
 | VIX | [metrics/vix/index.html](metrics/vix/index.html) | CBOE 波动率指数：标普 500 未来 30 天的隐含波动率，“恐慌指数”只是外号 |
 | VIX 期限结构 | [metrics/vix-term-structure/index.html](metrics/vix-term-structure/index.html) | 现货 + 不同到期日 VIX 期货连成的曲线：升水 vs 贴水 |
 | VVIX | [metrics/vvix/index.html](metrics/vvix/index.html) | 波动率的波动率：VIX 本身预计会怎么动 |
+| SKEW | [metrics/skew/index.html](metrics/skew/index.html) | 尾部风险定价：“黑天鹅保险”有多贵，常在平静期偏高、大跌时回落 |
 | MOVE | [metrics/move/index.html](metrics/move/index.html) | 债市的 VIX：美债收益率未来一个月的隐含波动 |
 | HY OAS | [metrics/hy-oas/index.html](metrics/hy-oas/index.html) | 高收益债信用利差：企业借钱比美债多付多少，测违约担忧 |
 | 实时仪表盘 | [dashboard/index.html](dashboard/index.html) | VIX + VVIX + SKEW + MOVE + HY OAS 五项同页实时监控（每天美股收盘后更新两次，05:30 / 07:30 北京时间；飞书 + Bark 预警） |
@@ -49,6 +50,7 @@
 open metrics/vix/index.html
 open metrics/vix-term-structure/index.html
 open metrics/vvix/index.html
+open metrics/skew/index.html
 open metrics/move/index.html
 open metrics/hy-oas/index.html
 open dashboard/index.html
@@ -62,9 +64,10 @@ open dashboard/index.html
 
 仪表盘不直接调行情接口（浏览器跨域拿不到 Yahoo / FRED 的数据），而是由一个服务端拉取脚本每天收盘后更新两次，再把结果写进 `dashboard/data.json`，页面同源读取：
 
-- 拉取脚本：`scripts/fetch_dashboard.py`，每天北京时间 05:30 和 07:30 各跑一次（美股收盘后 30 分钟，及之后的一次重试）
-- 数据源：VIX / VVIX / SKEW / 标普 500 优先走美区 VPS 的 Futu CLI（CBOE CDN / FRED 兜底）；VIX 期限结构走 CBOE 官方 CDN CSV；MOVE 走 Yahoo（`curl_cffi`）→ TradingView → CSV 三级兜底；HY OAS 走 FRED 官方 JSON API（`BAMLH0A0HYM2`）
-- 产物：`dashboard/data.json`（最新收盘价）和 `dashboard/alert_state.json`（预警去重状态），由 VPS 定时提交进仓库
+- 拉取脚本：`scripts/fetch_dashboard.py`，每个美股交易日收盘后跑两次（UTC 21:30 / 23:30，周一至周五，对应北京时间次日 05:30 / 07:30），并计算近一年历史分位、5 日 / 20 日变动、综合情绪压力分与 IG / CCC 信用分层
+- 数据源：VIX / VVIX / SKEW / 标普 500 优先走美区 VPS 的 Futu CLI（CBOE CDN / FRED 兜底）；VIX 期限结构走 CBOE 官方 CDN CSV；MOVE 走 Yahoo（`curl_cffi`）→ TradingView → CSV 三级兜底；HY OAS / IG / CCC 走 FRED 官方 JSON API
+- 数据质量与防断更：盘中高低价自动过滤平盘假高低与坏 tick；`data.json` / `alert_state.json` 原子写入；`push_data.sh` 自动恢复数据提交冲突、忽略纯时间戳变动并在连续推库失败时报警；同时支持可选 `HEALTHCHECK_URL` 外部心跳与 GitHub Actions 外部新鲜度巡检（`.github/workflows/freshness-watchdog.yml`）
+- 产物：`dashboard/data.json`（最新收盘价与统一配置）和 `dashboard/alert_state.json`（预警去重状态），由 VPS 定时提交进仓库
 
 ### 已知滞后
 
@@ -72,9 +75,9 @@ open dashboard/index.html
 
 ### 波动情况与预警
 
-每张卡片都有一个“波动情况”状态：先按区间定级（比如 VIX <20 平静、20–30 警惕、30–40 紧张、≥40 恐慌），再看单日异动（处在常态区间但单日涨跌 ≥10% 的记为“异动”）。预警阈值：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重。预警只在新触发或升级时发，同一级别 24 小时内不重复。
+每张卡片都有一个“波动情况”状态（定档区间与告警阈值统一由后端随 `data.json` 下发）：先按区间定级（比如 VIX <20 平静、20–30 警惕、30–40 紧张、≥40 恐慌；MOVE 60–120 常态、120–140 偏高、≥140 紧张），再看常态区单日异动（VIX/VVIX/SKEW/MOVE 单日涨跌 ≥10%，HY OAS 单日变动 ≥25bp 记为“异动”）。预警阈值：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，以及股债综合预警。预警带回滞防抖、同级 24 小时去重，并在警报回落解除时发恢复通知。
 
-预警走两个通道（由 VPS 服务端发，密钥只放在服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败也会预警，注明来源、错误和时间。
+预警走两个通道（由 VPS 服务端发，密钥只放在服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败、收盘日期落后与连续推库失败同样会报警。
 
 ### 手动刷新与推送
 
@@ -83,20 +86,23 @@ open dashboard/index.html
 - 刷新数据：重新拉取并更新 `data.json`（异步）
 - 推送到飞书 / 推送到 Bark：用已缓存的数据发一份当前状态汇总（不重新拉取，1–2 秒）
 
-API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/push`、`GET /api/job`，有 token 鉴权和限速。
+API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/push`、`GET /api/job`，有 token 鉴权与基于 `CF-Connecting-IP` 的限速。
 
 ### 拉取跑在哪
 
-- **VPS**（主力）：`proud-pipes-7` 上的定时任务（cron）+ API 服务（`api/`，systemd），部署见 `api/deploy.sh`
-- **Mac Studio**（可选备用）：部署见 `api/deploy-mac.sh`（launchd，每天 05:30 / 07:30）
+- **VPS**（主力）：`proud-pipes-7` 上独立 `monitoring` 用户的定时任务（工作日 cron + logrotate）+ 加固后的 systemd API 服务（`api/`），部署见 `api/deploy.sh`
+- **Mac Studio**（可选备用）：部署见 `api/deploy-mac.sh`（launchd，周二至周六 05:30 / 07:30）
+- **外部巡检与 CI**：`.github/workflows/freshness-watchdog.yml`（不拉行情，只核验 `data.json` 日期是否落后）与 `.github/workflows/ci.yml`（`tests/` 单元测试与前后端一致性测试）
 
 ### 仓库结构
 
-- `metrics/`：五个指标的独立页面（各带一份 README）
+- `metrics/`：六个指标的独立页面（VIX、期限结构、VVIX、SKEW、MOVE、HY OAS，各带一份 README）
 - `dashboard/`：实时仪表盘页面 + `data.json` + `alert_state.json`
 - `scripts/`：拉取脚本（`fetch_dashboard.py`）与发布脚本（`push_data.sh`）
 - `alert/`：飞书 + Bark 发送模块（`notify.py`）
 - `api/`：VPS 上的 API 服务与部署脚本
+- `tests/`：单元测试与 Python / JS 一致性测试
+- `docs/`：仪表盘亮/暗色预览截图
 
 ## 数据口径与免责
 

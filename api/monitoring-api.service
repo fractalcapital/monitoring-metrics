@@ -5,12 +5,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
+User=monitoring
+Group=monitoring
 WorkingDirectory=/opt/monitoring-metrics
 EnvironmentFile=/opt/monitoring-metrics/.env
 ExecStart=/usr/bin/python3 /opt/monitoring-metrics/api/api_server.py
 Restart=always
 RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/monitoring-metrics /tmp /var/log/monitoring-metrics
 
 [Install]
 WantedBy=multi-user.target

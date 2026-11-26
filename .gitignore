@@ -1,0 +1,21 @@
+# Local secrets & credentials (NEVER commit to this public repository)
+.env
+.env.*
+.git-credentials
+
+# Logs & temporary / atomic-write artifacts
+*.log
+*.tmp
+.*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db

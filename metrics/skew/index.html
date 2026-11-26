@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:,">
+<title>SKEW 黑天鹅指数可视化</title>
+<style>
+:root{
+  --bg:#f6f7f3; --surface:#ffffff; --surface2:#eef1ea; --text:#182018; --muted:#5c665c; --line:#dde2d8;
+  --accent:#0e6b5e; --accent-ink:#ffffff; --amber:#b7791f; --red:#b42318; --orange:#c05621;
+  --calm:#dcefe8; --mid:#fef3c7; --high:#fed7aa; --extreme:#fecaca;
+  --chart-line:#0e6b5e; --chart-dot:#0e6b5e; --grid:#dde2d8;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1412; --surface:#171e1a; --surface2:#1e2822; --text:#e8ede8; --muted:#9aa79d; --line:#2a352d;
+    --accent:#2dd4bf; --accent-ink:#06201b; --amber:#f0b429; --red:#f97066; --orange:#fda26b;
+    --calm:#12352e; --mid:#3a2f0e; --high:#3d2410; --extreme:#3d1714;
+    --chart-line:#2dd4bf; --chart-dot:#2dd4bf; --grid:#2a352d;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1412; --surface:#171e1a; --surface2:#1e2822; --text:#e8ede8; --muted:#9aa79d; --line:#2a352d;
+  --accent:#2dd4bf; --accent-ink:#06201b; --amber:#f0b429; --red:#f97066; --orange:#fda26b;
+  --calm:#12352e; --mid:#3a2f0e; --high:#3d2410; --extreme:#3d1714;
+  --chart-line:#2dd4bf; --chart-dot:#2dd4bf; --grid:#2a352d;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{ color-scheme:light; }
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+.theme-toggle{position:fixed;top:14px;right:14px;z-index:50;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--text);box-shadow:0 4px 18px rgba(0,0,0,.12);font-size:14px;font-weight:600}
+.wrap{max-width:980px;margin:0 auto;padding:28px 18px 56px}
+.hero{padding:38px 0 8px}
+.kicker{font-size:13px;letter-spacing:.08em;font-weight:700;color:var(--accent);text-transform:uppercase}
+h1{font-size:clamp(32px,6vw,52px);line-height:1.08;margin:10px 60px 14px 0;letter-spacing:-.02em;font-weight:900}
+.lede{font-size:18px;color:var(--muted);max-width:740px;margin:0}
+.lede strong{color:var(--text)}
+.hero-links{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0 0;font-size:14px}
+.one-line{margin:22px 0;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;font-size:17px}
+.one-line b{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.card h3{margin:0 0 8px;font-size:17px}
+.card p{margin:0;color:var(--muted);font-size:15px}
+section{margin-top:42px}
+h2{font-size:26px;line-height:1.25;margin:0 0 8px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 18px;max-width:760px}
+.zones{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:700px){.zones{grid-template-columns:1fr}}
+.zone{border-radius:12px;padding:16px;border:1px solid var(--line)}
+.zone .num{font-size:26px;font-weight:900;line-height:1}
+.zone .lab{font-weight:700;margin-top:6px}
+.zone p{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.z-calm{background:var(--calm)} .z-mid{background:var(--mid)} .z-ext{background:var(--extreme)}
+.scale{margin-top:14px;height:14px;border-radius:999px;overflow:hidden;display:flex;border:1px solid var(--line)}
+.scale i{display:block;height:100%}
+.chain{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.step{flex:1 1 160px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.step .n{width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:14px}
+.step h4{margin:10px 0 6px} .step p{margin:0;color:var(--muted);font-size:14px}
+.arrow{align-self:center;color:var(--muted);font-weight:900}
+@media(max-width:700px){.arrow{display:none}}
+.chart-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 14px 14px;overflow:hidden}
+.chart-card svg{width:100%;height:auto;display:block}
+.matrix{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.matrix{grid-template-columns:1fr}}
+.matrix .cell{border:1px solid var(--line);border-radius:12px;padding:16px;background:var(--surface)}
+.matrix .cell b{display:block;margin-bottom:6px}
+.matrix .cell p{margin:0;color:var(--muted);font-size:14.5px}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:15px}
+th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface2);font-size:13px;letter-spacing:.02em}
+tr:last-child td{border-bottom:none}
+@media(max-width:700px){ table,thead,tbody,tr,th,td{display:block} thead{display:none} tr{border-bottom:1px solid var(--line);padding:8px 0} td{border:none;padding:6px 14px} td::before{content:attr(data-l);display:block;font-size:12px;color:var(--muted);font-weight:700} }
+input[type=range]{width:100%;accent-color:var(--accent);height:36px}
+.trans-out{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:640px){.trans-out{grid-template-columns:1fr}}
+.trans-out div{background:var(--surface2);border-radius:12px;padding:14px}
+.trans-out .v{font-size:22px;font-weight:900}
+.trans-out .k{font-size:13px;color:var(--muted)}
+.note{font-size:13.5px;color:var(--muted);margin-top:12px}
+.callout{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:20px}
+.callout strong{color:var(--red)}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" aria-label="切换亮色暗色主题"><span id="themeIcon">🌙</span><span id="themeText">暗色</span></button>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">Tail Risk Pricing · 尾部风险定价指标</div>
+    <h1>CBOE SKEW：所谓的“黑天鹅指数”</h1>
+    <p class="lede">VIX 测市场预计会晃多大，<strong>SKEW 测机构愿意花多贵的价格给“极端暴跌”买保险</strong>。它不是崩盘倒计时器——恰恰相反，它常常在市场风平浪静时冲高，在真正大跌时反而回落。</p>
+    <div class="hero-links">
+      <a href="../../dashboard/index.html">← 返回实时仪表盘</a>
+      <a href="https://cn.tradingview.com/symbols/CBOE-SKEW/" target="_blank" rel="noopener">在 TradingView 查看 CBOE:SKEW 实时走势 ↗</a>
+    </div>
+    <div class="one-line">✅ 一句话分清：<b>SKEW = 100 代表期权定价对称（正态分布）</b>；数字越高，说明虚值看跌期权比看涨期权贵得越多，市场在为“左尾暴跌”额外加价。</div>
+    <div class="grid2">
+      <div class="card"><h3>正式定义</h3><p>CBOE SKEW Index，从标普 500 深度虚值期权价格反推出未来 30 天收益率分布的<strong>偏度（三阶矩）</strong>：SKEW = 100 − 10 × 偏度。左偏越重，SKEW 越高。</p></div>
+      <div class="card"><h3>在 3+2 组合里的角色</h3><p>属于<strong>进阶辅助指标</strong>。只看绝对值容易误判，它真正有用的地方是和 VIX / VVIX 一起看：区分“平时提前买便宜保险”还是“暴跌中恐慌抢保险”。</p></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>先看区间：SKEW 多少算高？</h2>
+    <p class="sub">SKEW 长期常见活动带大约在 <strong>110–150</strong>。下面三档与本仓库实时仪表盘完全一致；仪表盘推送预警线设在 <strong>≥ 150</strong>。</p>
+    <div class="zones">
+      <div class="zone z-calm"><div class="num">&lt; 120</div><div class="lab">尾部风险定价正常</div><p>虚值看跌期权溢价温和，市场没有额外抢购深度暴跌保护。</p></div>
+      <div class="zone z-mid"><div class="num">120–140</div><div class="lab">尾部风险定价略高</div><p>常态偏上区间。机构保持常规对冲需求，属于近十年最常见读数带。</p></div>
+      <div class="zone z-ext"><div class="num">≥ 140</div><div class="lab">尾部风险定价偏高</div><p>虚值看跌期权明显偏贵，机构在为极端左尾事件付费（≥150 触发仪表盘预警）。</p></div>
+    </div>
+    <div class="scale" aria-hidden="true"><i style="width:33.3%;background:var(--accent)"></i><i style="width:33.3%;background:var(--amber)"></i><i style="width:33.4%;background:var(--red)"></i></div>
+    <p class="note">刻度按仪表盘 100–160 区间绘制：100 为中性正态基准，120 与 140 为分界点。历史上 SKEW 极值曾在 2021 年中及近年平静上涨期触及约 170 附近。</p>
+  </section>
+
+  <section>
+    <h2>它在测什么：正态分布 vs 左尾拉长</h2>
+    <p class="sub">如果市场认为未来 30 天大涨和大跌一样常见，收益率分布左右对称，SKEW 就是 100。现实中股市“涨得慢、跌得急”，左侧尾巴被拉长（示意）。</p>
+    <div class="chart-card">
+      <svg viewBox="0 0 900 300" role="img" aria-label="正态分布与左偏尾部风险分布示意图">
+        <g stroke="var(--grid)" stroke-width="1">
+          <line x1="60" y1="250" x2="840" y2="250"/>
+          <line x1="450" y1="30" x2="450" y2="250" stroke-dasharray="5 5"/>
+        </g>
+        <!-- Left tail highlight -->
+        <path d="M90,250 C140,247 185,232 230,205 L230,250 Z" fill="var(--extreme)" opacity="0.75"/>
+        <!-- Normal bell curve (schematic) -->
+        <path d="M120,250 C220,248 285,220 350,125 C395,58 422,42 450,42 C478,42 505,58 550,125 C615,220 680,248 780,250"
+              fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <!-- Left-skewed curve (schematic) -->
+        <path d="M85,250 C165,246 215,222 275,165 C345,98 430,40 485,44 C540,48 595,120 650,210 C685,244 720,249 760,250"
+              fill="none" stroke="var(--chart-line)" stroke-width="3.2"/>
+        <g fill="var(--muted)" font-size="13">
+          <text x="64" y="275">大幅暴跌（-2σ / -3σ 左尾）</text>
+          <text x="415" y="275">收益 0%</text>
+          <text x="720" y="275">大幅上涨（右尾）</text>
+          <text x="530" y="65" fill="var(--muted)">虚线：正态分布（SKEW = 100）</text>
+          <text x="530" y="90" fill="var(--chart-line)" font-weight="700">实线：左尾拉长（SKEW 140+）</text>
+          <text x="102" y="192" fill="var(--red)" font-weight="700">左尾保险被抬贵</text>
+        </g>
+      </svg>
+      <p class="note" style="padding:0 6px 6px">示意图：阴影区域代表市场为“2 到 3 个标准差以外的极端下跌”赋予了高于正态分布的隐含概率。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>反直觉的一课：2026 年 10–11 月，SKEW 在大跌前最高、大跌当天反而回落</h2>
+    <p class="sub">用本仓库记录的真实收盘数据（2026-10-15 至 2026-11-25）对比 SKEW 与 VIX，能一眼看懂为什么<strong>不能把 SKEW 当成崩盘择时指标</strong>。</p>
+    <div class="chart-card">
+      <svg viewBox="0 0 900 320" role="img" aria-label="2026年10月至11月 SKEW 与 VIX 真实收盘走势对比">
+        <g stroke="var(--grid)" stroke-width="1">
+          <line x1="60" y1="265" x2="840" y2="265"/>
+          <line x1="60" y1="185" x2="840" y2="185"/>
+          <line x1="60" y1="105" x2="840" y2="105"/>
+          <line x1="60" y1="35" x2="840" y2="35"/>
+        </g>
+        <!-- Real sampled closes from dashboard/data.json (Oct 15 - Nov 25, 2026) -->
+        <!-- SKEW (left axis 130..175 -> y = 265 - (v-130)/45*230) -->
+        <polyline fill="none" stroke="var(--chart-line)" stroke-width="3" stroke-linejoin="round"
+          points="60,109 87,68 114,102 141,109 168,161 195,151 222,154 249,158 276,167 303,169 330,157 357,164 384,149 411,163 438,158 465,166 492,145 519,161 546,157 573,167 600,162 627,177 654,182 681,188 708,199 735,209 762,220 789,212 816,218 840,203"/>
+        <!-- VIX (right axis 12..42 -> y = 265 - (v-12)/30*230) -->
+        <polyline fill="none" stroke="var(--red)" stroke-width="2.6" stroke-dasharray="6 4" stroke-linejoin="round"
+          points="60,231 87,204 114,216 141,224 168,229 195,211 222,208 249,216 276,223 303,227 330,225 357,208 384,195 411,197 438,230 465,141 492,160 519,204 546,208 573,223 600,214 627,209 654,181 681,162 708,169 735,139 762,82 789,153 816,155 840,140"/>
+        <!-- Highlight Oct 16 and Nov 20 -->
+        <circle cx="87" cy="68" r="6" fill="var(--chart-line)" stroke="var(--surface)" stroke-width="2"/>
+        <circle cx="762" cy="82" r="6" fill="var(--red)" stroke="var(--surface)" stroke-width="2"/>
+        <circle cx="762" cy="220" r="6" fill="var(--chart-line)" stroke="var(--surface)" stroke-width="2"/>
+        <g fill="var(--muted)" font-size="12">
+          <text x="12" y="40">175</text><text x="12" y="110">160</text><text x="12" y="189">145</text><text x="12" y="269">130</text>
+          <text x="848" y="40" fill="var(--red)">42</text><text x="848" y="110" fill="var(--red)">32</text><text x="848" y="189" fill="var(--red)">22</text><text x="848" y="269" fill="var(--red)">12</text>
+          <text x="60" y="292">10-15</text><text x="245" y="292">10-26</text><text x="455" y="292">11-05</text><text x="645" y="292">11-16</text><text x="742" y="292">11-20</text><text x="815" y="292">11-25</text>
+        </g>
+        <g font-size="12.5" font-weight="700">
+          <text x="100" y="62" fill="var(--chart-line)">10-16：SKEW 168.59（此时 VIX 仅 19.99）</text>
+          <text x="530" y="76" fill="var(--red)">11-20 AI 大跌：VIX 收 35.89（盘中 40.03）</text>
+          <text x="520" y="242" fill="var(--chart-line)">同一天 SKEW 反而回落到 138.84</text>
+        </g>
+      </svg>
+      <p class="note" style="padding:0 6px 6px">数据来源：本仓库 <code>dashboard/data.json</code>（2026-10-15 至 2026-11-25 收盘，共 30 个交易日）。左轴实线为 SKEW，右轴虚线为 VIX。11-25 收盘 SKEW 为 142.06。</p>
+    </div>
+    <div class="callout" style="margin-top:14px">为什么会反着走？<strong>因为 SKEW 测的是“深度虚值看跌期权相对平值期权的贵贱”</strong>。市场平静、VIX 低时，平值期权便宜，但机构依然会买深度虚值看跌期权防崩盘，把 SKEW 推到 150–170；等真正大跌、VIX 暴涨时，平值期权价格飙升，同时机构趁机平仓兑现早先买的尾部保护，SKEW 反而掉下来。</div>
+  </section>
+
+  <section>
+    <h2>读数翻译器：看懂不同 SKEW 的含义</h2>
+    <p class="sub">拖动滑块查看 SKEW 对应的隐含偏度与本仪表盘分档。记住：它衡量的是“尾部保险的相对溢价”，不是明天暴跌的概率。</p>
+    <div class="card">
+      <label for="skewRange" style="font-weight:700">SKEW 读数：<span id="skewVal">142</span> <span id="skewZone" style="color:var(--muted);font-weight:400"></span></label>
+      <input type="range" id="skewRange" min="100" max="175" step="1" value="142">
+      <div class="trans-out">
+        <div><div class="v" id="skewnessOut">—</div><div class="k">对应隐含偏度（(100 − SKEW) / 10）</div></div>
+        <div><div class="v" id="bandOut">—</div><div class="k">仪表盘分档</div></div>
+        <div><div class="v" id="alertOut">—</div><div class="k">报警状态（≥150 预警）</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>SKEW × VIX：四个组合怎么读</h2>
+    <div class="matrix">
+      <div class="cell"><b>SKEW 高 + VIX 低 —— 平静期买保险</b><p>最常见的高 SKEW 场景（例如 2026 年 10 月中旬 SKEW 160–168、VIX 16–20）。说明机构仓位偏满、愿意花钱防尾部风险，但近期并不恐慌。不能用来“精准逃顶”。</p></div>
+      <div class="cell"><b>SKEW 高 + VIX 高 —— 恐慌叠加极端防守</b><p>平值波动和深度尾部保险一起贵，说明市场既在当下剧烈波动，又担心还有二次冲击，是最需要控制杠杆和回撤的状态。</p></div>
+      <div class="cell"><b>SKEW 回落 + VIX 冲高 —— 风险正在兑现</b><p>典型如 2026-11-20（VIX 摸 40、SKEW 回到 138.84）。说明早先的尾部对冲正在被兑现，此时看 VIX 期限结构、MOVE 和 HY OAS 比看 SKEW 更有用。</p></div>
+      <div class="cell"><b>SKEW 低 + VIX 低 —— 尾部保险便宜</b><p>市场既平静又没人抢深度看跌保护。历史经验里这反而意味着买对冲成本较低，但不代表马上就会跌。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>常见误读</h2>
+    <table>
+      <thead><tr><th>常见说法</th><th>实际情况</th></tr></thead>
+      <tbody>
+        <tr><td data-l="常见说法">“SKEW 破 150，黑天鹅马上要来了”</td><td data-l="实际情况">学术与市场实证显示，单看高 SKEW 对未来短期下跌的预测力很弱。很多大牛市平静期 SKEW 连续数周停在 145–160 以上。</td></tr>
+        <tr><td data-l="常见说法">“SKEW 跌回 138，说明风险解除了”</td><td data-l="实际情况">不一定。大跌当天平值期权涨幅快过深度虚值期权，SKEW 经常在大跌时被动下降，必须对照 VIX、期限结构和信用利差看。</td></tr>
+        <tr><td data-l="常见说法">“SKEW 和 VIX 一样有盘中高低波动”</td><td data-l="实际情况">CBOE 官方 SKEW 以日度收盘口径为主，部分行情源返回的盘中高低与收盘相同，监控时看收盘趋势即可。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    <p>口径说明：区间分区（&lt;120 正常 / 120–140 略高 / ≥140 偏高，≥150 推送预警）与本仓库实时仪表盘保持一致，均为经验参考区间而非买卖信号。2026 年 10–11 月对比图取自本仓库收盘记录，正态与左偏分布曲线为原理示意。本页为指数科普可视化，不构成投资建议。</p>
+  </footer>
+</div>
+<script>
+(function(){
+  var root=document.documentElement, btn=document.getElementById('themeToggle'), icon=document.getElementById('themeIcon'), txt=document.getElementById('themeText');
+  function isDark(){
+    var t=root.getAttribute('data-theme');
+    if(t) return t==='dark';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  function paint(){ var d=isDark(); icon.textContent=d?'☀️':'🌙'; txt.textContent=d?'亮色':'暗色'; }
+  var saved=null;
+  try { saved=localStorage.getItem('mm-theme'); } catch(e){}
+  if(saved==='dark'||saved==='light') root.setAttribute('data-theme', saved);
+  btn.addEventListener('click',function(){
+    var next=isDark()?'light':'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('mm-theme', next); } catch(e){}
+    paint();
+  });
+  paint();
+
+  var range=document.getElementById('skewRange'), sv=document.getElementById('skewVal'), sz=document.getElementById('skewZone');
+  function upd(){
+    var v=parseFloat(range.value); sv.textContent=v;
+    var band=v<120?'尾部风险定价正常':v<140?'尾部风险定价略高':'尾部风险定价偏高';
+    sz.textContent='· '+band;
+    document.getElementById('skewnessOut').textContent=((100-v)/10).toFixed(1);
+    document.getElementById('bandOut').textContent=band;
+    document.getElementById('alertOut').textContent=v>=150?'触发预警（≥150）':'未触线（<150）';
+  }
+  range.addEventListener('input', upd); upd();
+})();
+</script>
+</body>
+</html>

@@ -1,24 +1,17 @@
 #!/bin/bash
-# One-shot setup for running the monitoring dashboard fetcher on a Mac
-# (Mac Studio / Mac mini) instead of / in addition to the VPS.
-# Why a Mac: Yahoo rate-limits datacenter IPs (the VPS and GitHub Actions
-# both get 429), but a home broadband IP is not flagged, so the fetch
-# succeeds and the dashboard gets same-day closes.
-# Run in Terminal on the Mac you want to use (the one that is powered on
-# at 05:30 and 07:30 Beijing, or set a wake schedule below):
+# Optional backup fetcher setup for a Mac (Mac Studio / Mac mini) in addition
+# to or instead of the VPS cron.
+# Run in Terminal on the Mac you want to use (powered on at 05:30 and 07:30
+# Beijing on Tue-Sat, right after US Mon-Fri closes):
 #   curl -sL https://raw.githubusercontent.com/fractalcapital/monitoring-metrics/main/api/deploy-mac.sh -o /tmp/deploy-mac.sh
 #   bash /tmp/deploy-mac.sh
 # You will be prompted (typed in your own terminal, never in chat) for:
-#   FEISHU_WEBHOOK_URL, BARK_URL, and a GitHub fine-grained PAT
-#   (only repo fractalcapital/monitoring-metrics, only Contents read/write).
-#   You can reuse the same PAT you created for the VPS.
-# The fetcher runs twice daily (05:30 + 07:30 Beijing, right after the US
-# close) via launchd and pushes data.json + alert_state.json to the repo.
-# The VPS API (api.infidea.app) keeps serving the dashboard buttons; once
-# the Mac fetch has run reliably for a day or two, disable the VPS cron
-# (on proud-pipes-7: crontab -e, remove the push_data.sh line) so its
-# Yahoo 429s don't send false fetch-failure alerts. GitHub Actions stays
-# as the emergency fallback.
+#   FEISHU_WEBHOOK_URL, BARK_URL, FRED_API_KEY (optional), HEALTHCHECK_URL
+#   (optional), and a GitHub fine-grained PAT (only repo
+#   fractalcapital/monitoring-metrics, only Contents read/write).
+# Note: The VPS (proud-pipes-7) is currently the primary fetcher using
+# Futu CLI / CBOE CDN / Yahoo curl_cffi / FRED API. If you enable this Mac
+# schedule as primary instead, disable the VPS cron so they don't both push.
 set -u
 
 REPO_DIR="$HOME/monitoring-metrics"
@@ -43,9 +36,13 @@ if [ ! -f .env ]; then
   echo "== Secrets (typed here, stored in .env, chmod 600) =="
   read -r -p "Feishu webhook URL: " FEISHU_WEBHOOK_URL
   read -r -p "Bark base URL (https://bark.infidea.app/<key>): " BARK_URL
+  read -r -p "FRED API key (optional, Enter to use public CSV): " FRED_API_KEY
+  read -r -p "Healthcheck ping URL (optional): " HEALTHCHECK_URL
   cat > .env <<EOF
 FEISHU_WEBHOOK_URL=$FEISHU_WEBHOOK_URL
 BARK_URL=$BARK_URL
+FRED_API_KEY=$FRED_API_KEY
+HEALTHCHECK_URL=$HEALTHCHECK_URL
 EOF
   chmod 600 .env
   echo ".env written."
@@ -71,7 +68,7 @@ fi
 echo "Testing git push..."
 if git push; then echo "git push OK."; else echo "WARNING: git push failed -- check the PAT and try 'git push' by hand." >&2; fi
 
-# --- launchd job (05:30 + 07:30 local time, twice daily) ---
+# --- launchd job (Tue-Sat 05:30 + 07:30 Beijing = US Mon-Fri closes) ---
 PLIST="$HOME/Library/LaunchAgents/com.infidea.monitoring-fetch.plist"
 mkdir -p "$HOME/Library/LaunchAgents"
 cat > "$PLIST" <<EOF
@@ -90,8 +87,16 @@ cat > "$PLIST" <<EOF
   <string>$REPO_DIR</string>
   <key>StartCalendarInterval</key>
   <array>
-    <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
-    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -107,24 +112,23 @@ cat > "$PLIST" <<EOF
 EOF
 launchctl unload "$PLIST" >/dev/null 2>&1 || true
 launchctl load "$PLIST"
-echo "launchd job installed: com.infidea.monitoring-fetch (05:30 + 07:30 daily)"
+echo "launchd job installed: com.infidea.monitoring-fetch (Tue-Sat 05:30 + 07:30 local)"
 launchctl list | grep monitoring-fetch || echo "WARNING: job not listed -- check with 'launchctl list | grep monitoring'." >&2
 
 # --- wake schedule (optional) ---
 echo
 echo "== Wake schedule =="
-echo "The fetch runs at 05:30 and 07:30. If this Mac sleeps overnight, set a"
-echo "daily wake at 05:25 and keep it awake until after 07:30 (system sleep"
-echo "after 180 min idle on charger). This changes power settings; skip it"
-echo "if this Mac is already on overnight."
+echo "The fetch runs Tue-Sat at 05:30 and 07:30. If this Mac sleeps overnight,"
+echo "set a wake at 05:25 and keep it awake until after 07:30 (system sleep"
+echo "after 180 min idle on charger). Skip if already awake overnight."
 read -r -p "Set the wake schedule? [y/N] " SET_WAKE
 if [ "$SET_WAKE" = "y" ] || [ "$SET_WAKE" = "Y" ]; then
-  sudo pmset repeat wakeorpoweron MTWRFSU 05:25:00
+  sudo pmset repeat wakeorpoweron TWRFS 05:25:00
   sudo pmset -c sleep 180
-  echo "Wake schedule set (05:25 daily, sleep after 180 min idle on charger)."
+  echo "Wake schedule set (Tue-Sat 05:25, sleep after 180 min idle on charger)."
   pmset -g sched | head -5
 else
-  echo "Skipped. Make sure this Mac is awake at 05:30 and 07:30, or the fetch will run late (on wake)."
+  echo "Skipped. Make sure this Mac is awake at 05:30 and 07:30 Tue-Sat."
 fi
 
 # --- smoke test ---
@@ -133,9 +137,4 @@ echo "== Smoke test: one fetch + publish =="
 ./scripts/push_data.sh | tail -5
 
 echo
-echo "Done. Next steps:"
-echo "  1. Watch the next scheduled runs (05:30 / 07:30 Beijing). Log: $REPO_DIR/fetch.log"
-echo "  2. Once the Mac fetch runs reliably for a day or two, disable the VPS cron"
-echo "     (on proud-pipes-7: crontab -e, remove the push_data.sh line) so its"
-echo "     Yahoo 429s don't send false fetch-failure alerts."
-echo "  3. GitHub Actions stays as the emergency fallback."
+echo "Done. Watch the next scheduled runs (Tue-Sat 05:30 / 07:30 Beijing). Log: $REPO_DIR/fetch.log"

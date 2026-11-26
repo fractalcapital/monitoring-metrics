@@ -357,6 +357,11 @@
     color: var(--amber-text);
     border-color: var(--amber-border);
   }
+  .pill.expired {
+    background: var(--red-bg);
+    color: var(--red-text);
+    border-color: var(--red-border);
+  }
 
   @keyframes ring-pulse {
     0% { transform: scale(0.7); opacity: 0.9; }
@@ -1083,6 +1088,7 @@
     position: relative;
     width: 100%;
     height: 62px;
+    touch-action: pan-y;
   }
   .spark-stage.tall {
     height: 112px;
@@ -1279,6 +1285,58 @@
     color: var(--amber-text);
     border: 1px solid var(--amber-border);
     white-space: nowrap;
+  }
+  .stale-pill.err {
+    background: var(--red-bg);
+    color: var(--red-text);
+    border-color: var(--red-border);
+  }
+  .stale-pill.info {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--border);
+  }
+  .stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 8px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: var(--surface2);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    line-height: 1.35;
+  }
+  .stats-bar b { color: var(--text); font-weight: 600; }
+  .credit-tiers-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin-top: 6px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    border: 1px dashed var(--border);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+  }
+  .credit-tiers-bar b { color: var(--text); font-weight: 600; }
+  .composite-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    vertical-align: middle;
   }
   .tv-link {
     display: inline-flex;
@@ -2114,6 +2172,7 @@
         <a href="../metrics/vix/index.html">VIX</a>
         <a href="../metrics/vix-term-structure/index.html">期限结构</a>
         <a href="../metrics/vvix/index.html">VVIX</a>
+        <a href="../metrics/skew/index.html">SKEW</a>
         <a href="../metrics/move/index.html">MOVE</a>
         <a href="../metrics/hy-oas/index.html">HY OAS</a>
       </nav>
@@ -2128,7 +2187,7 @@
         <span class="pulse-dot"></span>
         <span>实时同步</span>
       </span>
-      <span class="timer-pill" title="平时每 30 分钟自动刷新；美股收盘拉取窗口（美东 16:25–17:05 / 18:25–19:05，自动适配夏/冬令时，及北京时间 05:30–06:00 / 07:30–08:00）每 1 分钟刷新">
+      <span class="timer-pill" title="平时每 30 分钟自动刷新；美股收盘拉取窗口（美东 16:25–17:05 / 18:25–19:05，半日市 13:25–14:05，自动适配夏/冬令时）每 1 分钟刷新">
         <svg class="timer-ring" viewBox="0 0 18 18" aria-hidden="true">
           <circle class="timer-ring-bg" cx="9" cy="9" r="7"></circle>
           <circle id="timerArc" class="timer-ring-fg" cx="9" cy="9" r="7" stroke-dasharray="43.98" stroke-dashoffset="0"></circle>
@@ -2145,7 +2204,7 @@
           <path d="M7 17L17 7M7 7h10v10"></path>
         </svg>
       </a>
-      <button id="refreshBtn" class="btn" type="button" title="立刻从 Yahoo / FRED 重新拉一次数据（经 VPS 接口），页面马上显示新数据">
+      <button id="refreshBtn" class="btn" type="button" title="立刻经 VPS 接口重新拉取最新行情（Futu / CBOE / Yahoo / FRED），完成后自动更新">
         <svg id="refreshIcon" width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
           <polyline points="21 3 21 9 15 9"></polyline>
@@ -2362,7 +2421,7 @@
         <div class="meta-group" id="fetchLine">数据拉取：加载中…</div>
       </div>
       <div class="alerts-subnote">
-        报警由服务端定时任务在拉取数据时进行判定与推送，页面仅同源读取并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；同级 24 小时去重防刷屏。详见 <a href="README.md">dashboard/README.md</a>。上方的“飞书推送 / Bark 推送”按钮支持手动即时推送当前五项指标汇总（经 VPS 接口）。
+        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；带回滞防抖、24 小时同级去重与恢复解除通知。详见 <a href="README.md">dashboard/README.md</a>。
       </div>
     </div>
   </section>
@@ -2373,7 +2432,7 @@
       <div>
         <h4>关于 3+2 监控仪表盘</h4>
         <p>聚焦跨市场交叉验证：以股债波动（VIX / MOVE）与高收益信用利差（HY OAS）确认系统性压力，以 VVIX 与 SKEW 捕捉波动率弹性与机构尾部风险定价。</p>
-        <p><strong>更新节奏：</strong>美国 VPS 每日美股收盘后定时拉取两次（UTC 21:30 / 23:30）写入 <code>data.json</code>；页面平时每 30 分钟自动刷新，收盘拉取窗口（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新。点“刷新”经 VPS 接口（<code>api.infidea.app</code>）实时拉取。</p>
+        <p><strong>更新节奏：</strong>美国 VPS 每个美股交易日收盘后定时拉取两次（UTC 21:30 / 23:30，周一至周五）写入 <code>data.json</code>；页面平时每 30 分钟自动刷新，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，自动适配夏/冬令时）每 1 分钟刷新。点“刷新”经 VPS 接口（<code>api.infidea.app</code>）实时拉取。</p>
       </div>
       <div>
         <h4>数据源与口径</h4>
@@ -2387,6 +2446,7 @@
           <li><a href="../metrics/vix/index.html">CBOE VIX 恐慌指数 ↗</a></li>
           <li><a href="../metrics/vix-term-structure/index.html">VIX 期限结构深度解析 ↗</a></li>
           <li><a href="../metrics/vvix/index.html">VVIX 波动率的波动率 ↗</a></li>
+          <li><a href="../metrics/skew/index.html">SKEW 黑天鹅尾部定价 ↗</a></li>
           <li><a href="../metrics/move/index.html">MOVE 美债波动率指数 ↗</a></li>
           <li><a href="../metrics/hy-oas/index.html">HY OAS 高收益信用利差 ↗</a></li>
         </ul>
@@ -2493,27 +2553,39 @@ const SNAPSHOT = {
   term_structure: { vix1d: 26.69, vix9d: 27.76, vix: 26.62, vix3m: 25.50, vix6m: 25.96, date: "2026-11-23" }
 };
 
-/* ---- 波动情况：先按水平定档，再加“异动”覆盖 ---- */
-const STATUS_BANDS = {
-  vix: { bands: [[20,"平静","b-green"],[30,"警惕","b-amber"],[40,"紧张","b-orange"],[Infinity,"恐慌","b-red"]], calm: v => v < 20 },
-  vvix: { bands: [[70,"偏低","b-green"],[120,"正常","b-green"],[140,"偏高","b-amber"],[Infinity,"极端","b-red"]], calm: v => v >= 70 && v < 120 },
-  skew: { bands: [[120,"尾部风险定价正常","b-green"],[140,"尾部风险定价略高","b-amber"],[Infinity,"尾部风险定价偏高","b-red"]], calm: v => v < 120 },
-  move: { bands: [[60,"债市平静","b-green"],[140,"债市常态","b-green"],[Infinity,"债市紧张","b-red"]], calm: v => v >= 60 && v < 140 },
-  hy_oas: { bands: [[300,"信用偏紧","b-green"],[500,"信用常态","b-green"],[800,"信用走阔","b-amber"],[1000,"信用紧张","b-orange"],[Infinity,"信用极端","b-red"]], calm: v => v >= 300 && v < 500 }
+/* ---- 波动情况：默认配置与后端 STATUS_BANDS 1:1 对齐，运行时优先读取 data.config ---- */
+const DEFAULT_STATUS_BANDS = {
+  vix: { bands: [[20,"平静","b-green"],[30,"警惕","b-amber"],[40,"紧张","b-orange"],[null,"恐慌","b-red"]], calm: [null, 20], jump: { pct: 10 } },
+  vvix: { bands: [[70,"偏低","b-green"],[120,"正常","b-green"],[140,"偏高","b-amber"],[null,"极端","b-red"]], calm: [70, 120], jump: { pct: 10 } },
+  skew: { bands: [[120,"尾部风险定价正常","b-green"],[140,"尾部风险定价略高","b-amber"],[null,"尾部风险定价偏高","b-red"]], calm: [null, 120], jump: { pct: 10 } },
+  move: { bands: [[60,"债市平静","b-green"],[120,"债市常态","b-green"],[140,"债市偏高","b-amber"],[null,"债市紧张","b-red"]], calm: [60, 120], jump: { pct: 10 } },
+  hy_oas: { bands: [[300,"信用偏紧","b-green"],[500,"信用常态","b-green"],[800,"信用走阔","b-amber"],[1000,"信用紧张","b-orange"],[null,"信用极端","b-red"]], calm: [300, 500], jump: { abs: 25 } }
 };
+let ACTIVE_STATUS_BANDS = DEFAULT_STATUS_BANDS;
 
-function statusFor(key, value, changePct){
-  const s = STATUS_BANDS[key];
+function inBandRange(v, rng){
+  const lo = rng[0], hi = rng[1];
+  return (lo === null || lo === undefined || v >= lo) && (hi === null || hi === undefined || v < hi);
+}
+
+function statusFor(key, value, changePct, changeAbs){
+  const s = (ACTIVE_STATUS_BANDS && ACTIVE_STATUS_BANDS[key]) || DEFAULT_STATUS_BANDS[key];
   let out = null;
   for(const [max, label, cls] of s.bands){
-    if(value < max){ out = { label, cls }; break; }
+    if(max === null || max === undefined || value < max){ out = { label, cls }; break; }
   }
   if(!out){
     const l = s.bands[s.bands.length - 1];
     out = { label: l[1], cls: l[2] };
   }
-  if(s.calm(value) && changePct !== null && changePct !== undefined && Math.abs(changePct) >= 10){
-    return { label: "异动", cls: "b-amber" };
+  const jump = s.jump || {};
+  if(inBandRange(value, s.calm)){
+    if(jump.pct !== undefined && changePct !== null && changePct !== undefined && Math.abs(changePct) >= jump.pct){
+      return { label: "异动", cls: "b-amber" };
+    }
+    if(jump.abs !== undefined && changeAbs !== null && changeAbs !== undefined && Math.abs(changeAbs) >= jump.abs){
+      return { label: "异动", cls: "b-amber" };
+    }
   }
   return out;
 }
@@ -2541,7 +2613,10 @@ function readingFor(key, st, value, absChg, pct){
       case 'vvix': return dir==='down' ? `单日回落近 ${pr}%，波动率本身在剧烈摆动` : `单日上行近 ${pr}%，波动率本身在剧烈摆动`;
       case 'skew': return `单日变动近 ${pr}% 超 10%，尾部定价异动`;
       case 'move': return `单日变动近 ${pr}% 超 10%，债市波动异动`;
-      case 'hy_oas': return `单日变动 ${p1}% 超 10%，信用利差异动`;
+      case 'hy_oas':
+        return (absChg !== null && absChg !== undefined)
+          ? `单日${absChg > 0 ? '走阔' : '收窄'} ${Math.abs(Math.round(absChg))}bp（≥25bp），信用利差异动`
+          : `单日变动 ${p1}%，信用利差异动`;
     }
   }
   switch(key){
@@ -2563,6 +2638,7 @@ function readingFor(key, st, value, absChg, pct){
     case 'move':
       if(st.label==='债市平静') return '低于 60，债市波动平静';
       if(st.label==='债市常态') return `在 ${Math.floor(value/10)*10} 附近，债市波动未脱离常态`;
+      if(st.label==='债市偏高') return '120–140 区间，债市波动偏高，需留意利率冲击';
       return '已破 140，债市波动紧张';
     case 'hy_oas':
       if(st.label==='信用偏紧') return '低于 300bp，信用利差偏紧';
@@ -2603,7 +2679,7 @@ const META = {
   skew: {
     name: "SKEW", unit: "", role: "adv", roleLabel: "进阶",
     sub: "黑天鹅尾部风险定价",
-    link: "../metrics/vvix/index.html",
+    link: "../metrics/skew/index.html",
     tv: "https://cn.tradingview.com/symbols/CBOE-SKEW/",
     scale: "<120 正常 · 120–140 略高 · ≥140 偏高",
     scaleMin: 100, scaleMax: 160,
@@ -2615,17 +2691,17 @@ const META = {
     sub: "美债收益率隐含波动",
     link: "../metrics/move/index.html",
     tv: "https://cn.tradingview.com/symbols/TVC-MOVE/",
-    scale: "<60 平静 · 60–140 常态 · ≥140 紧张",
+    scale: "<60 平静 · 60–120 常态 · 120–140 偏高 · ≥140 紧张",
     scaleMin: 0, scaleMax: 170,
-    segs: [[0,140,"s-green"],[140,170,"s-red"]],
-    ticks: [60, 140]
+    segs: [[0,120,"s-green"],[120,140,"s-amber"],[140,170,"s-red"]],
+    ticks: [60, 120, 140]
   },
   hy_oas: {
     name: "HY OAS", unit: "bp", role: "core", roleLabel: "必看",
     sub: "高收益债信用利差",
     link: "../metrics/hy-oas/index.html",
     tv: "https://cn.tradingview.com/symbols/FRED-BAMLH0A0HYM2/",
-    scale: "<300 紧 · 300–500 常态 · 500–800 走阔 · ≥800 紧张",
+    scale: "<300 紧 · 300–500 常态 · 500–800 走阔 · 800–1000 紧张 · ≥1000 极端",
     scaleMin: 0, scaleMax: 1100,
     segs: [[0,500,"s-green"],[500,800,"s-amber"],[800,1000,"s-orange"],[1000,1100,"s-red"]],
     ticks: [300, 500, 800, 1000]
@@ -2774,7 +2850,7 @@ function renderIntradayRange(d, key){
   }
   const hiNum = Number(hi), loNum = Number(lo);
   const valid = hi !== null && hi !== undefined && lo !== null && lo !== undefined
-    && Number.isFinite(hiNum) && Number.isFinite(loNum) && loNum > 0 && hiNum >= loNum;
+    && Number.isFinite(hiNum) && Number.isFinite(loNum) && loNum > 0 && hiNum > loNum;
 
   if(!valid){
     if(key === 'hy_oas'){
@@ -2785,11 +2861,19 @@ function renderIntradayRange(d, key){
         </div>
       `;
     }
+    if(key === 'skew'){
+      return `
+        <div class="intraday-row" title="CBOE SKEW 为日度收盘口径指标，无盘中最高/最低波动">
+          <span class="intraday-tag">盘中</span>
+          <span class="intraday-empty">CBOE 日度单值 · 无盘中高低</span>
+        </div>
+      `;
+    }
     if(key === 'spx') return '';
     return `
-      <div class="intraday-row" title="当前数据暂未包含盘中最高/最低价，下次数据拉取后自动显示">
+      <div class="intraday-row" title="当前数据源未提供有效盘中最高/最低价">
         <span class="intraday-tag">盘中</span>
-        <span class="intraday-empty">低 — · 高 —（待下次同步）</span>
+        <span class="intraday-empty">低 — · 高 —</span>
       </div>
     `;
   }
@@ -2804,8 +2888,10 @@ function renderIntradayRange(d, key){
     : 50;
   const base = (d.prev_close && Number(d.prev_close) > 0) ? Number(d.prev_close) : loNum;
   const ampPct = base > 0 ? (span / base * 100).toFixed(2) : null;
+  const yahooMoveCaveat = (key === 'move' && String(d.source || '').startsWith('yahoo'))
+    ? '；注：Yahoo MOVE 盘中低点有时等于前收，仅供参考' : '';
   const tip = `${d.date || ''} 盘中区间：最低 ${fmt(loNum)} · 最高 ${fmt(hiNum)} · 收盘 ${fmt(closeVal)}`
-    + (ampPct !== null ? `（日内振幅 ${ampPct}%，收盘位于日内 ${Math.round(pct)}% 分位）` : '');
+    + (ampPct !== null ? `（日内振幅 ${ampPct}%，收盘位于日内 ${Math.round(pct)}% 分位${yahooMoveCaveat}）` : '');
 
   return `
     <div class="intraday-row" title="${escapeHtml(tip)}">
@@ -2818,6 +2904,47 @@ function renderIntradayRange(d, key){
       <span class="intraday-bound"><span class="intraday-k">高</span><span class="intraday-v">${fmt(hiNum)}</span></span>
     </div>
   `;
+}
+
+/* 历史分位与 5日/20日变化统计条 */
+function renderStatsBar(stats, isBp){
+  if(!stats) return '';
+  const parts = [];
+  if(stats.pct_rank !== null && stats.pct_rank !== undefined){
+    const staleMark = stats.pct_rank_stale ? '*' : '';
+    parts.push(`<span title="当前值在近 ${stats.window || 252} 个交易日中的分位排名">1年分位 <b>${stats.pct_rank}%${staleMark}</b></span>`);
+  }
+  const fmtChg = (absV, pctV) => {
+    if(isBp && absV !== null && absV !== undefined){
+      const n = Math.round(absV);
+      return `${n > 0 ? '+' : ''}${n}bp`;
+    }
+    if(pctV !== null && pctV !== undefined){
+      return `${pctV > 0 ? '+' : ''}${Number(pctV).toFixed(1)}%`;
+    }
+    return null;
+  };
+  const c5 = fmtChg(stats.chg_5d, stats.chg_5d_pct);
+  const c20 = fmtChg(stats.chg_20d, stats.chg_20d_pct);
+  if(c5) parts.push(`<span>5日 <b>${c5}</b></span>`);
+  if(c20) parts.push(`<span>20日 <b>${c20}</b></span>`);
+  if(!parts.length) return '';
+  return `<div class="stats-bar">${parts.join('<span style="opacity:.35">·</span>')}</div>`;
+}
+
+/* 信用分层辅助条（IG / CCC OAS） */
+function renderCreditTiersBar(tiers){
+  if(!tiers || (!tiers.ig && !tiers.ccc)) return '';
+  const items = [];
+  for(const k of ['ig', 'ccc']){
+    const t = tiers[k];
+    if(!t || t.value_bp === undefined || t.value_bp === null) continue;
+    const chg = (t.change_bp !== undefined && t.change_bp !== null)
+      ? ` (${t.change_bp > 0 ? '+' : ''}${Math.round(t.change_bp)})` : '';
+    items.push(`<span title="${escapeHtml(t.label + ' ' + t.series + ' · ' + (t.date || ''))}">${escapeHtml(t.label)} <b>${t.value_bp}bp</b>${chg}</span>`);
+  }
+  if(!items.length) return '';
+  return `<div class="credit-tiers-bar"><span>信用分层</span>${items.join('<span style="opacity:.35">·</span>')}</div>`;
 }
 
 /* 精密分段阈值刻度尺 HTML */
@@ -3486,12 +3613,17 @@ function renderTermStructure(t, staleSet){
 
 /* ---- 核心数据渲染主函数 ---- */
 let hasAnimated = false;
-function render(data, isSnapshot){
+function render(data, isSnapshot, fallbackSource){
   const ind = data.indicators;
   const cards = document.getElementById('cards');
+  if(data.config && data.config.status_bands) ACTIVE_STATUS_BANDS = data.config.status_bands;
+  if(data.config && data.config.alert_thresholds) ACTIVE_ALERT_THRESHOLDS = data.config.alert_thresholds;
 
+  const fallbackTag = fallbackSource === 'localCache'
+    ? ` · 本地缓存`
+    : (isSnapshot ? ` · 快照 ${data.snapshot_date || ind.vix.date}` : '');
   document.getElementById('updatedAt').textContent =
-    (data.updated_at_beijing || data.updated_at_utc || '—') + (isSnapshot ? ` · 快照 ${data.snapshot_date}` : '');
+    (data.updated_at_beijing || data.updated_at_utc || '—') + fallbackTag;
 
   const staleSet = new Set(data.stale_indicators || []);
   ['vix', 'vvix', 'skew', 'move', 'hy_oas'].forEach(k => {
@@ -3507,18 +3639,39 @@ function render(data, isSnapshot){
   };
   const staleNames = [...staleSet].map(k => staleNameMap[k] || k);
 
+  // 客户端独立核算最新 NYSE 交易日，即使 VPS 彻底停机/推库失败也能识别数据过期
+  const clientExpected = expectedNyseCloseDate(new Date());
+  const vixClientLag = nyseTradingLag(ind.vix.date, clientExpected);
+  const moveClientLag = nyseTradingLag(ind.move.date, clientExpected);
+  const etNow = getUsEasternParts(new Date());
+  const inPostCloseGrace = (clientExpected === etNow.iso && etNow.mins < 18 * 60);
+  const maxCoreLag = Math.max(vixClientLag || 0, moveClientLag || 0);
+  const isDataExpired = !isSnapshot && (maxCoreLag - (inPostCloseGrace ? 1 : 0) >= 1);
+
   const livePill = document.getElementById('livePill');
-  if(isSnapshot){
+  if(fallbackSource === 'localCache'){
+    livePill.className = 'pill snapshot';
+    livePill.title = 'data.json 读取失败，当前展示浏览器上次保存的本地缓存';
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>本地缓存 (${escapeHtml(shortDate(ind.vix.date))})</span>`;
+  } else if(isSnapshot){
     livePill.className = 'pill snapshot';
     livePill.title = 'data.json 读取失败，当前展示内置历史快照';
-    livePill.innerHTML = `<span class="pulse-dot"></span><span>快照 (${escapeHtml(data.snapshot_date)})</span>`;
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>快照 (${escapeHtml(data.snapshot_date || ind.vix.date)})</span>`;
+  } else if(isDataExpired){
+    livePill.className = 'pill expired';
+    livePill.title = `数据已落后最近 NYSE 交易日（${clientExpected}）${maxCoreLag} 个交易日，请检查 VPS 拉取与推库状态`;
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>数据过期 (落后${maxCoreLag}日)</span>`;
   } else if(staleSet.size > 0){
     livePill.className = 'pill snapshot';
     livePill.title = `以下指标本次拉取失败，当前展示上次成功缓存值：${staleNames.join('、')}`;
     livePill.innerHTML = `<span class="pulse-dot"></span><span>部分缓存 (${staleSet.size}项)</span>`;
+  } else if(data.intraday){
+    livePill.className = 'pill live';
+    livePill.title = '当前包含美股盘中实时读数（尚未收盘）';
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>盘中同步</span>`;
   } else {
     livePill.className = 'pill live';
-    livePill.title = '全部数据源最新同步正常';
+    livePill.title = `全部数据源最新同步正常（基准交易日 ${clientExpected}）`;
     livePill.innerHTML = `<span class="pulse-dot"></span><span>实时同步</span>`;
   }
 
@@ -3533,7 +3686,7 @@ function render(data, isSnapshot){
 
   const stVix  = statusFor('vix', ind.vix.value, ind.vix.change_pct),
         stMove = statusFor('move', ind.move.value, ind.move.change_pct),
-        stHy   = statusFor('hy_oas', ind.hy_oas.value_bp, hyPct),
+        stHy   = statusFor('hy_oas', ind.hy_oas.value_bp, hyPct, ind.hy_oas.change_bp),
         stVvix = statusFor('vvix', ind.vvix.value, ind.vvix.change_pct),
         stSkew = statusFor('skew', ind.skew.value, ind.skew.change_pct);
 
@@ -3554,10 +3707,15 @@ function render(data, isSnapshot){
     el.className = 'rs-step' + (el.dataset.tier === worst.cls ? ' ' + vInfo[3] : '');
   });
 
+  const comp = data.composite;
+  const compTag = (comp && comp.score !== null && comp.score !== undefined)
+    ? `<span class="composite-tag" title="由 VIX / MOVE / HY OAS / VVIX 近一年分位加权合成（0-100，不含 SKEW）">压力分 ${comp.score}/100</span>`
+    : '';
   document.getElementById('verdict').innerHTML = `
     <h1>
       <span>综合判断：${vInfo[0]}</span>
       <span class="verdict-tag ${worst.cls}">${worst.label}</span>
+      ${compTag}
     </h1>
     <p class="hero-desc">${vInfo[1]} 当前核心读数：VIX ${ind.vix.value}（${stVix.label}）· MOVE ${ind.move.value}（${stMove.label}）· HY OAS ${ind.hy_oas.value_bp}bp（${stHy.label}）· VVIX ${ind.vvix.value}（${stVvix.label}）。</p>
   `;
@@ -3591,7 +3749,7 @@ function render(data, isSnapshot){
 
     if(k === 'hy_oas'){
       const h = ind.hy_oas;
-      const st = statusFor(k, h.value_bp, hyPct);
+      const st = statusFor(k, h.value_bp, hyPct, h.change_bp);
       const toneName = 'tone-' + st.cls.slice(2);
       const read = readingFor(k, st, h.value_bp, h.change_bp, hyPct);
       const chgPill = (h.change_bp === null || h.change_bp === undefined || hyPct === null)
@@ -3631,6 +3789,8 @@ function render(data, isSnapshot){
             </div>
 
             ${buildSparkline(h.history, k, st.cls, h.prev_value_bp, false)}
+            ${renderStatsBar(h.stats, true)}
+            ${renderCreditTiersBar(data.credit_tiers)}
             ${renderScaleHTML(k, h.value_bp)}
           </div>
 
@@ -3638,6 +3798,7 @@ function render(data, isSnapshot){
             <span class="card-foot-meta">
               <span>${h.date} · FRED 日度</span>
               ${(h.stale || staleSet.has('hy_oas')) ? '<span class="stale-pill" title="本次拉取失败，当前展示上次成功缓存的数据">缓存旧值</span>' : ''}
+              ${h.lagging ? `<span class="stale-pill err" title="落后预期交易日 ${h.lag_days} 个交易日">日期落后</span>` : ''}
             </span>
             <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
           </div>
@@ -3683,13 +3844,16 @@ function render(data, isSnapshot){
           </div>
 
           ${buildSparkline(d.history, k, st.cls, d.prev_close, false)}
+          ${renderStatsBar(d.stats, false)}
           ${renderScaleHTML(k, d.value)}
         </div>
 
         <div class="card-foot">
           <span class="card-foot-meta">
-            <span>${d.date} · 收盘</span>
+            <span>${d.date} · ${d.intraday ? '盘中' : '收盘'}</span>
+            ${d.intraday ? '<span class="stale-pill info" title="美股交易时段内拉取，收盘前仍可能变化">盘中</span>' : ''}
             ${(d.stale || staleSet.has(k)) ? '<span class="stale-pill" title="本次拉取失败，当前展示上次成功缓存的数据">缓存旧值</span>' : ''}
+            ${(d.lagging || (!isSnapshot && (nyseTradingLag(d.date, clientExpected) || 0) - (inPostCloseGrace ? 1 : 0) >= 1)) ? '<span class="stale-pill err" title="收盘日期落后于最近交易日">日期落后</span>' : ''}
           </span>
           <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
         </div>
@@ -3738,6 +3902,7 @@ function render(data, isSnapshot){
       </div>
 
       ${buildSparkline(s.history, 'spx', spxTone, s.prev_close, true)}
+      ${renderStatsBar(s.stats, false)}
 
       <div class="spx-stats-grid">
         <div class="spx-stat">
@@ -3762,7 +3927,8 @@ function render(data, isSnapshot){
 
     <div class="card-foot">
       <span class="card-foot-meta">
-        <span>${s.date} · 收盘快照</span>
+        <span>${s.date} · ${s.intraday ? '盘中快照' : '收盘快照'}</span>
+        ${s.intraday ? '<span class="stale-pill info" title="美股交易时段内拉取">盘中</span>' : ''}
         ${(s.stale || staleSet.has('spx')) ? '<span class="stale-pill" title="本次拉取失败，当前展示上次成功缓存的数据">缓存旧值</span>' : ''}
       </span>
       <a href="https://cn.tradingview.com/symbols/SPX/" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
@@ -3786,7 +3952,7 @@ function scrollToMetric(key){
   }
 }
 
-/* ---- Sparkline 交互悬停浮层（支持边界钳制，永不裁剪） ---- */
+/* ---- Sparkline 交互悬停浮层（支持桌面鼠标与移动端触控，边界钳制永不裁剪） ---- */
 function initSparklineInteractivity(){
   document.querySelectorAll('.spark-box').forEach(box => {
     const raw = box.getAttribute('data-history');
@@ -3800,9 +3966,10 @@ function initSparklineInteractivity(){
       const tooltip = box.querySelector('.spark-tooltip');
       if(!stage || !vLine || !hDot || !tooltip) return;
 
-      stage.addEventListener('mousemove', e => {
+      const updateAtClientX = clientX => {
         const rect = stage.getBoundingClientRect();
-        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        if(!rect.width) return;
+        const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
         const idx = Math.round(pct * (data.length - 1));
         const p = data[idx];
         if(!p) return;
@@ -3819,84 +3986,287 @@ function initSparklineInteractivity(){
         tooltip.textContent = (p.lo !== undefined && p.hi !== undefined)
           ? `${shortDate(p.date)} · 收 ${fmtVal(p.val)} · 低 ${fmtVal(p.lo)} / 高 ${fmtVal(p.hi)}`
           : `${shortDate(p.date)} · ${fmtVal(p.val)}`;
-        // 动态边界钳制，防止宽浮层在左右边缘被卡片裁剪
         const stageW = stage.clientWidth || 240;
         const ttW = tooltip.offsetWidth || 120;
         const halfPct = Math.min(48, (ttW / 2 / stageW) * 100 + 2);
         const clampedX = Math.max(halfPct, Math.min(100 - halfPct, p.xp));
         tooltip.style.left = clampedX.toFixed(1) + '%';
-      });
+      };
 
-      stage.addEventListener('mouseleave', () => {
+      const hide = () => {
         vLine.style.display = 'none';
         hDot.style.display = 'none';
         tooltip.style.display = 'none';
+      };
+
+      stage.addEventListener('pointerdown', e => updateAtClientX(e.clientX));
+      stage.addEventListener('pointermove', e => {
+        if(e.pointerType === 'mouse' || e.buttons > 0) updateAtClientX(e.clientX);
       });
+      stage.addEventListener('pointerleave', hide);
+      stage.addEventListener('pointercancel', hide);
     } catch(e){}
   });
 }
 
-/* ---- 美股开闭市与美东时钟 (America/New_York) ---- */
-function updateMarketStatus(){
-  const now = new Date();
-  const et = new Intl.DateTimeFormat('en-US', {
+/* ---- NYSE 交易日历（与后端 _nyse_holidays / _nyse_early_closes 保持一致） ---- */
+function easterSundayUTC(year){
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+function isoUTC(d){
+  return d.toISOString().slice(0, 10);
+}
+function addDaysUTC(d, n){
+  return new Date(d.getTime() + n * 86400000);
+}
+function nthWeekdayUTC(year, month, dow, n){
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const offset = (dow - first.getUTCDay() + 7) % 7;
+  return addDaysUTC(first, offset + (n - 1) * 7);
+}
+function lastWeekdayUTC(year, month, dow){
+  const last = new Date(Date.UTC(year, month, 0));
+  const offset = (last.getUTCDay() - dow + 7) % 7;
+  return addDaysUTC(last, -offset);
+}
+function observedNyseUTC(d, allowFriday){
+  const dow = d.getUTCDay();
+  if(dow === 6) return allowFriday ? addDaysUTC(d, -1) : null;
+  if(dow === 0) return addDaysUTC(d, 1);
+  return d;
+}
+const SPECIAL_NYSE_CLOSURES = new Set(['2025-01-09']);
+const _nyseHolCache = {};
+function nyseHolidays(year){
+  if(_nyseHolCache[year]) return _nyseHolCache[year];
+  const s = new Set();
+  const add = d => { if(d) s.add(isoUTC(d)); };
+  add(observedNyseUTC(new Date(Date.UTC(year, 0, 1)), false));
+  add(nthWeekdayUTC(year, 1, 1, 3));  // MLK Day
+  add(nthWeekdayUTC(year, 2, 1, 3));  // Presidents' Day
+  add(addDaysUTC(easterSundayUTC(year), -2)); // Good Friday
+  add(lastWeekdayUTC(year, 5, 1));    // Memorial Day
+  if(year >= 2022) add(observedNyseUTC(new Date(Date.UTC(year, 5, 19)), true)); // Juneteenth
+  add(observedNyseUTC(new Date(Date.UTC(year, 6, 4)), true));  // Independence Day
+  add(nthWeekdayUTC(year, 9, 1, 1));  // Labor Day
+  add(nthWeekdayUTC(year, 11, 4, 4)); // Thanksgiving
+  add(observedNyseUTC(new Date(Date.UTC(year, 11, 25)), true)); // Christmas
+  SPECIAL_NYSE_CLOSURES.forEach(ds => { if(ds.startsWith(year + '-')) s.add(ds); });
+  _nyseHolCache[year] = s;
+  return s;
+}
+function nyseEarlyCloses(year){
+  const hol = nyseHolidays(year);
+  const cands = [
+    addDaysUTC(nthWeekdayUTC(year, 11, 4, 4), 1), // Day after Thanksgiving
+    new Date(Date.UTC(year, 11, 24)),             // Christmas Eve
+    new Date(Date.UTC(year, 6, 3))                // Independence Day eve
+  ];
+  const s = new Set();
+  cands.forEach(d => {
+    const dow = d.getUTCDay(), iso = isoUTC(d);
+    if(dow >= 1 && dow <= 5 && !hol.has(iso)) s.add(iso);
+  });
+  return s;
+}
+function isNyseTradingDayIso(iso){
+  const d = new Date(iso + 'T00:00:00Z');
+  const dow = d.getUTCDay();
+  if(dow === 0 || dow === 6) return false;
+  return !nyseHolidays(d.getUTCFullYear()).has(iso);
+}
+function nyseCloseMinutesIso(iso){
+  const y = Number(iso.slice(0, 4));
+  return nyseEarlyCloses(y).has(iso) ? 13 * 60 : 16 * 60;
+}
+function getUsEasternParts(now){
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).formatToParts(now);
-  const get = t => et.find(p => p.type === t).value;
-  const wd = get('weekday'), hh = get('hour'), mm = get('minute');
-  const mins = (+hh) * 60 + (+mm);
-  const isOpen = (wd !== 'Sat' && wd !== 'Sun' && mins >= 570 && mins < 960);
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(now || new Date());
+  const get = t => parts.find(p => p.type === t).value;
+  const hh = get('hour') === '24' ? '00' : get('hour');
+  const mm = get('minute');
+  return {
+    iso: `${get('year')}-${get('month')}-${get('day')}`,
+    wd: get('weekday'), hh, mm, mins: (+hh) * 60 + (+mm)
+  };
+}
+function expectedNyseCloseDate(now){
+  const et = getUsEasternParts(now || new Date());
+  if(isNyseTradingDayIso(et.iso) && et.mins >= nyseCloseMinutesIso(et.iso) + 15){
+    return et.iso;
+  }
+  let d = new Date(et.iso + 'T00:00:00Z');
+  for(let i = 0; i < 10; i++){
+    d = addDaysUTC(d, -1);
+    const iso = isoUTC(d);
+    if(isNyseTradingDayIso(iso)) return iso;
+  }
+  return et.iso;
+}
+function nyseTradingLag(dataDate, expectedDate){
+  if(!dataDate || !expectedDate) return null;
+  let a = new Date(dataDate + 'T00:00:00Z');
+  const b = new Date(expectedDate + 'T00:00:00Z');
+  if(isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  let n = 0;
+  while(a < b && n <= 60){
+    a = addDaysUTC(a, 1);
+    if(isNyseTradingDayIso(isoUTC(a))) n++;
+  }
+  return n;
+}
+
+/* ---- 美股开闭市与美东时钟 (America/New_York，含 NYSE 节假日与半日市) ---- */
+function updateMarketStatus(){
+  const et = getUsEasternParts(new Date());
+  const year = Number(et.iso.slice(0, 4));
+  const isHol = nyseHolidays(year).has(et.iso);
+  const isHalf = nyseEarlyCloses(year).has(et.iso);
+  const closeMin = isHalf ? 13 * 60 : 16 * 60;
+  const isTrading = isNyseTradingDayIso(et.iso);
+  const isOpen = isTrading && et.mins >= 570 && et.mins < closeMin;
+
+  let statusText = isOpen ? '美股开盘中' : '美股已收市';
+  if(isHol) statusText = '美股休市（节假日）';
+  else if(isHalf && isOpen) statusText = '美股半日市（13:00 收）';
 
   const el = document.getElementById('marketPill');
   if(el){
     el.className = 'pill ' + (isOpen ? 'open' : 'closed');
-    el.innerHTML = `<span class="pulse-dot"></span><span>${isOpen ? '美股开盘中' : '美股已收市'}</span><span class="pill-sub">ET ${hh}:${mm}</span>`;
+    el.innerHTML = `<span class="pulse-dot"></span><span>${statusText}</span><span class="pill-sub">ET ${et.hh}:${et.mm}</span>`;
   }
   const clockEl = document.getElementById('etClock');
   if(clockEl){
-    clockEl.textContent = `美东 ${wd} ${hh}:${mm}`;
+    clockEl.textContent = `美东 ${et.wd} ${et.hh}:${et.mm}`;
   }
 }
 updateMarketStatus();
 setInterval(updateMarketStatus, 30000);
 
-/* ---- 报警状态面板与触发逼近度渲染 ---- */
-const ALERT_META = {
-  vix:    { name: "VIX 恐慌指数",  thr: "≥35 预警 / ≥40 严重", warn: 35 },
-  vvix:   { name: "VVIX 波动率",   thr: "≥140 预警",           warn: 140 },
-  skew:   { name: "SKEW 黑天鹅",   thr: "≥150 预警",           warn: 150 },
-  move:   { name: "MOVE 债市波动", thr: "≥140 预警",           warn: 140 },
-  hy_oas: { name: "HY OAS 信用利差", thr: "≥500bp 预警 / ≥1000bp 严重", warn: 500 },
-  cross:  { name: "股债综合预警",  thr: "VIX≥30 且 (VVIX≥140 或 MOVE≥140)", warn: 30 }
+/* ---- 报警状态面板与触发逼近度渲染（优先读取 data.config.alert_thresholds） ---- */
+const DEFAULT_ALERT_THRESHOLDS = {
+  vix:      { label: "VIX 恐慌指数",     unit: "",   warning: 35,  critical: 40 },
+  vvix:     { label: "VVIX 波动率",      unit: "",   warning: 140 },
+  skew:     { label: "SKEW 黑天鹅",      unit: "",   warning: 150 },
+  move:     { label: "MOVE 债市波动",    unit: "",   warning: 140 },
+  hy_oas:   { label: "HY OAS 信用利差",  unit: "bp", warning: 500, critical: 1000 },
+  cross:    { label: "股债综合预警",     unit: "",   vix: 30, vvix: 140, move: 140 },
+  term:     { label: "VIX 期限结构倒挂", unit: "",   warning: 1.0, critical: 1.1 },
+  vix_jump: { label: "VIX 单日急升",     unit: "%",  warning: 25,  critical: 50, event: true },
+  hy_widen: { label: "HY OAS 急速走阔",  unit: "bp", warning: 25,  warning_5d: 50, event: true }
 };
+let ACTIVE_ALERT_THRESHOLDS = DEFAULT_ALERT_THRESHOLDS;
+const ALERT_ORDER = ['vix', 'vvix', 'skew', 'move', 'hy_oas', 'term', 'vix_jump', 'hy_widen', 'cross'];
+
+function alertSpec(key){
+  return (ACTIVE_ALERT_THRESHOLDS && ACTIVE_ALERT_THRESHOLDS[key]) || DEFAULT_ALERT_THRESHOLDS[key];
+}
+
+function alertThresholdText(key){
+  const s = alertSpec(key);
+  const u = s.unit || '';
+  if(key === 'cross') return `VIX≥${s.vix} 且 (VVIX≥${s.vvix} 或 MOVE≥${s.move})`;
+  if(key === 'term') return `VIX/VIX3M ≥${s.warning} 预警 / ≥${s.critical} 严重`;
+  if(key === 'vix_jump') return `单日 ≥+${s.warning}% 预警 / ≥+${s.critical}% 严重`;
+  if(key === 'hy_widen') return `单日 ≥+${s.warning}bp 或 5日 ≥+${s.warning_5d}bp`;
+  return s.critical !== undefined
+    ? `≥${s.warning}${u} 预警 / ≥${s.critical}${u} 严重`
+    : `≥${s.warning}${u} 预警`;
+}
+
+function hy5dChange(hy){
+  const hist = (hy && Array.isArray(hy.history)) ? hy.history.filter(x => x && x.value !== undefined && x.value !== null) : [];
+  if(hist.length >= 6) return hist[hist.length - 1].value - hist[hist.length - 6].value;
+  return (hy && hy.stats && hy.stats.chg_5d !== undefined) ? hy.stats.chg_5d : null;
+}
 
 function alertLevel(key, d){
   const ind = d.indicators;
+  const s = alertSpec(key);
   const v = k => k === 'hy_oas' ? ind.hy_oas.value_bp : ind[k].value;
-  switch(key){
-    case 'vix': return v('vix') >= 40 ? 'critical' : v('vix') >= 35 ? 'warning' : 'normal';
-    case 'vvix': return v('vvix') >= 140 ? 'warning' : 'normal';
-    case 'skew': return v('skew') >= 150 ? 'warning' : 'normal';
-    case 'move': return v('move') >= 140 ? 'warning' : 'normal';
-    case 'hy_oas': return v('hy_oas') >= 1000 ? 'critical' : v('hy_oas') >= 500 ? 'warning' : 'normal';
-    case 'cross': return (v('vix') >= 30 && (v('vvix') >= 140 || v('move') >= 140)) ? 'warning' : 'normal';
+  if(key === 'cross'){
+    return (v('vix') >= s.vix && (v('vvix') >= s.vvix || v('move') >= s.move)) ? 'warning' : 'normal';
   }
-  return 'normal';
+  if(key === 'term'){
+    const t = d.term_structure;
+    if(!t || !t.vix || !t.vix3m) return 'normal';
+    const ratio = t.vix / t.vix3m;
+    return ratio >= s.critical ? 'critical' : ratio >= s.warning ? 'warning' : 'normal';
+  }
+  if(key === 'vix_jump'){
+    const pct = ind.vix.change_pct;
+    if(pct === null || pct === undefined) return 'normal';
+    return pct >= s.critical ? 'critical' : pct >= s.warning ? 'warning' : 'normal';
+  }
+  if(key === 'hy_widen'){
+    const d1 = ind.hy_oas.change_bp;
+    const d5 = hy5dChange(ind.hy_oas);
+    return ((d1 !== null && d1 !== undefined && d1 >= s.warning) || (d5 !== null && d5 >= s.warning_5d)) ? 'warning' : 'normal';
+  }
+  const val = v(key);
+  if(s.critical !== undefined && val >= s.critical) return 'critical';
+  return val >= s.warning ? 'warning' : 'normal';
 }
 
 function alertProximity(key, d){
   const ind = d.indicators;
+  const s = alertSpec(key);
   if(key === 'cross'){
-    const pVix = ind.vix.value / 30;
-    const pSec = Math.max(ind.vvix.value / 140, ind.move.value / 140);
-    return Math.min(100, Math.round(Math.min(pVix, pSec) * 100));
+    const pVix = ind.vix.value / s.vix;
+    const pSec = Math.max(ind.vvix.value / s.vvix, ind.move.value / s.move);
+    return Math.max(0, Math.min(100, Math.round(Math.min(pVix, pSec) * 100)));
+  }
+  if(key === 'term'){
+    const t = d.term_structure;
+    if(!t || !t.vix || !t.vix3m) return 0;
+    const ratio = t.vix / t.vix3m;
+    return Math.max(0, Math.min(100, Math.round((ratio / s.warning) * 100)));
+  }
+  if(key === 'vix_jump'){
+    const pct = Math.max(0, Number(ind.vix.change_pct || 0));
+    return Math.max(0, Math.min(100, Math.round((pct / s.warning) * 100)));
+  }
+  if(key === 'hy_widen'){
+    const d1 = Math.max(0, Number(ind.hy_oas.change_bp || 0));
+    const d5 = Math.max(0, Number(hy5dChange(ind.hy_oas) || 0));
+    return Math.max(0, Math.min(100, Math.round(Math.max(d1 / s.warning, d5 / s.warning_5d) * 100)));
   }
   const val = key === 'hy_oas' ? ind.hy_oas.value_bp : ind[key].value;
-  return Math.min(100, Math.round((val / ALERT_META[key].warn) * 100));
+  return Math.max(0, Math.min(100, Math.round((val / s.warning) * 100)));
+}
+
+function alertCurrentText(key, data){
+  const ind = data.indicators;
+  if(key === 'hy_oas') return ind.hy_oas.value_bp + ' bp';
+  if(key === 'cross') return 'VIX ' + ind.vix.value;
+  if(key === 'term'){
+    const t = data.term_structure;
+    return (t && t.vix && t.vix3m) ? (t.vix / t.vix3m).toFixed(3) : '—';
+  }
+  if(key === 'vix_jump'){
+    const p = ind.vix.change_pct;
+    return (p !== null && p !== undefined) ? `${p > 0 ? '+' : ''}${Number(p).toFixed(2)}%` : '—';
+  }
+  if(key === 'hy_widen'){
+    const d1 = ind.hy_oas.change_bp;
+    const d5 = hy5dChange(ind.hy_oas);
+    const s1 = (d1 !== null && d1 !== undefined) ? `${d1 > 0 ? '+' : ''}${Math.round(d1)}bp` : '—';
+    const s5 = (d5 !== null && d5 !== undefined) ? ` / 5日 ${d5 > 0 ? '+' : ''}${Math.round(d5)}bp` : '';
+    return s1 + s5;
+  }
+  return ind[key].value;
 }
 
 function fmtBJ(utcStr){
@@ -3910,7 +4280,6 @@ function renderAlerts(data, state){
   const el = document.getElementById('alertList');
   const st = (state && state.alerts) || {};
 
-  // 推送通道状态胶囊
   const chLine = document.getElementById('channelLine');
   const chSummary = document.getElementById('channelSummary');
   if(state && state.channels_configured){
@@ -3926,7 +4295,6 @@ function renderAlerts(data, state){
     if(chSummary) chSummary.innerHTML = `<span class="mini-chip off">待同步</span>`;
   }
 
-  // 数据源拉取健康度胶囊
   const fs = state && state.fetch_status;
   const fetchLine = document.getElementById('fetchLine');
   const fetchSummary = document.getElementById('fetchSummary');
@@ -3938,10 +4306,10 @@ function renderAlerts(data, state){
       const mkChip = (name, s) => {
         if(!s) return `<span class="mini-chip off">${name} 未知</span>`;
         if(s.ok) return `<span class="mini-chip ok" title="${escapeHtml(s.provider ? '来源: ' + s.provider : '正常')}"><span class="mini-chip-dot"></span>${name} 正常</span>`;
-        return `<span class="mini-chip err" title="${escapeHtml(s.last_error || '未知错误')}"><span class="mini-chip-dot"></span>${name} 失败</span>`;
+        return `<span class="mini-chip err" title="${escapeHtml(s.last_error || '未知错误')}"><span class="mini-chip-dot"></span>${name} 异常</span>`;
       };
-      const labelMap = { equities: '波动/股指', move: 'MOVE', fred: 'FRED', yahoo: 'Yahoo' };
-      const order = ['equities', 'move', 'fred', 'yahoo'].filter(k => fs[k]);
+      const labelMap = { equities: '波动/股指', move: 'MOVE', fred: 'FRED', freshness: '新鲜度', yahoo: 'Yahoo' };
+      const order = ['equities', 'move', 'fred', 'freshness', 'yahoo'].filter(k => fs[k]);
       const html = order.length
         ? order.map(k => mkChip(labelMap[k] || k, fs[k])).join('')
         : mkChip('Yahoo', fs.yahoo) + mkChip('FRED', fs.fred);
@@ -3950,14 +4318,17 @@ function renderAlerts(data, state){
     }
   }
 
-  // 6 项预警状态卡（含阈值逼近进度条）
-  el.innerHTML = Object.keys(ALERT_META).map(key => {
-    const lvl = alertLevel(key, data);
+  el.innerHTML = ALERT_ORDER.map(key => {
+    const spec = alertSpec(key);
+    // 优先采用服务端带回滞判定的状态（如存在且与当前数据同日），否则实时判定
+    const serverLvl = (st[key] && st[key].level && ['normal','warning','critical'].includes(st[key].level))
+      ? st[key].level : null;
+    const rawLvl = alertLevel(key, data);
+    const lvl = (serverLvl && st[key].date === (key === 'hy_oas' || key === 'hy_widen' ? data.indicators.hy_oas.date : data.indicators.vix.date))
+      ? serverLvl : rawLvl;
     const cls = lvl === 'critical' ? 'b-red' : lvl === 'warning' ? 'b-amber' : 'b-green';
     const label = lvl === 'critical' ? '严重告警' : lvl === 'warning' ? '触线预警' : '运行正常';
-    const cur = key === 'hy_oas' ? (data.indicators.hy_oas.value_bp + ' bp')
-      : key === 'cross' ? ('VIX ' + data.indicators.vix.value)
-      : data.indicators[key].value;
+    const cur = alertCurrentText(key, data);
     const last = st[key] ? fmtBJ(st[key].last_sent_at_utc) : '从未报警';
     const prox = alertProximity(key, data);
     const proxCol = lvl === 'critical' ? 'var(--red-solid)'
@@ -3966,12 +4337,12 @@ function renderAlerts(data, state){
     return `
       <div class="alert-box lvl-${lvl}">
         <div class="alert-box-top">
-          <span class="alert-name">${ALERT_META[key].name}</span>
+          <span class="alert-name">${escapeHtml(spec.label)}</span>
           <span class="badge ${cls}">${label}</span>
         </div>
         <div class="alert-metrics">
-          <span class="alert-cur">${cur}</span>
-          <span class="alert-thr">${ALERT_META[key].thr}</span>
+          <span class="alert-cur">${escapeHtml(cur)}</span>
+          <span class="alert-thr">${escapeHtml(alertThresholdText(key))}</span>
         </div>
         <div class="prox-wrap" title="当前值占预警触发线的比例：${prox}%">
           <div class="prox-track">
@@ -3979,30 +4350,27 @@ function renderAlerts(data, state){
           </div>
           <span class="prox-pct">${prox}%</span>
         </div>
-        <div class="alert-last">${ICON_CLOCK}<span>上次告警：${last}</span></div>
+        <div class="alert-last">${ICON_CLOCK}<span>上次告警：${escapeHtml(last)}</span></div>
       </div>
     `;
   }).join('');
 }
 
-/* ---- 智能自动刷新与环形倒计时（平时 30 分钟，收盘窗口 05:30–06:00 / 07:30–08:00 每 1 分钟） ---- */
+/* ---- 智能自动刷新与环形倒计时（平时 30 分钟，美东收盘拉取窗口每 1 分钟，自动适配夏/冬令时与半日市） ---- */
 const NORMAL_INTERVAL_MS = 30 * 60 * 1000;
 const WINDOW_INTERVAL_MS = 60 * 1000;
-const UPDATE_WINDOWS = [[5 * 60 + 30, 6 * 60], [7 * 60 + 30, 8 * 60]];
 const RING_CIRC = 2 * Math.PI * 7; // 43.98
 
-function beijingMinutes(){
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai', hour: 'numeric', minute: 'numeric', hour12: false
-  }).formatToParts(new Date());
-  const get = t => parts.find(p => p.type === t).value;
-  return (+get('hour')) * 60 + (+get('minute'));
-}
-function nextIntervalMs(){
-  const mins = beijingMinutes();
-  for(const [start, end] of UPDATE_WINDOWS){
-    if(mins >= start && mins < end) return WINDOW_INTERVAL_MS;
-    if(mins < start) return Math.min(NORMAL_INTERVAL_MS, (start - mins) * 60 * 1000);
+function nextIntervalMs(now){
+  const et = getUsEasternParts(now || new Date());
+  if(!isNyseTradingDayIso(et.iso)) return NORMAL_INTERVAL_MS;
+  const isHalf = nyseEarlyCloses(Number(et.iso.slice(0, 4))).has(et.iso);
+  const windows = isHalf
+    ? [[13 * 60 + 25, 14 * 60 + 5], [16 * 60 + 25, 17 * 60 + 5]]
+    : [[16 * 60 + 25, 17 * 60 + 5], [18 * 60 + 25, 19 * 60 + 5]];
+  for(const [start, end] of windows){
+    if(et.mins >= start && et.mins < end) return WINDOW_INTERVAL_MS;
+    if(et.mins < start) return Math.min(NORMAL_INTERVAL_MS, (start - et.mins) * 60 * 1000);
   }
   return NORMAL_INTERVAL_MS;
 }
@@ -4029,15 +4397,29 @@ function scheduleNext(){
   refreshTimer = setTimeout(() => { load(); }, ms);
 }
 
+const LAST_DATA_CACHE_KEY = 'mm-last-data-v1';
+
 async function load(){
-  let data = null, isSnapshot = false, state = null;
+  let data = null, isSnapshot = false, fallbackSource = null, state = null;
   try {
     const r = await fetch('./data.json', { cache: 'no-store' });
     if(!r.ok) throw new Error('HTTP ' + r.status);
     data = await r.json();
+    try { localStorage.setItem(LAST_DATA_CACHE_KEY, JSON.stringify(data)); } catch(e){}
   } catch(e){
-    data = SNAPSHOT;
-    isSnapshot = true;
+    try {
+      const cached = JSON.parse(localStorage.getItem(LAST_DATA_CACHE_KEY) || 'null');
+      if(cached && cached.indicators && cached.indicators.vix){
+        data = cached;
+        isSnapshot = true;
+        fallbackSource = 'localCache';
+      }
+    } catch(_){}
+    if(!data){
+      data = SNAPSHOT;
+      isSnapshot = true;
+      fallbackSource = 'snapshot';
+    }
   }
 
   try {
@@ -4047,7 +4429,7 @@ async function load(){
     state = null;
   }
 
-  render(data, isSnapshot);
+  render(data, isSnapshot, fallbackSource);
   renderAlerts(data, state);
   scheduleNext();
   return !isSnapshot;
@@ -4057,7 +4439,7 @@ load();
 
 /* ---- 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md） ----
    刷新和状态推送支持异步轮询 /api/job 避免 Cloudflare 524 超时；
-   接口不可用时，刷新回退读取 data.json，推送提示可前往 GitHub 工作流手动触发。 */
+   接口不可用时，刷新回退读取 data.json，推送返回具体错误提示。 */
 const API_BASE = 'https://api.infidea.app';
 const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
 async function apiPost(path, body){
@@ -4160,7 +4542,7 @@ async function manualPush(channel){
     }
   } catch(e){
     if(label) label.textContent = '发送失败';
-    showToast(`${name}推送失败（${e.message}），可前往 GitHub 工作流手动触发`, true);
+    showToast(`${name}推送失败（${e.message}），请稍后重试或检查 VPS API 服务`, true);
   }
   setTimeout(() => {
     if(label) label.textContent = defaultTxt;

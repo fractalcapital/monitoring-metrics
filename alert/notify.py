@@ -154,14 +154,20 @@ def send_bark(title, body, level):
     BARK_URL (env var only) is the base part: https://<bark server>/<key>,
     without title/body. The request is
         {base}/{quote(title)}/{quote(body)}?group=monitoring-metrics&level=...
-    with level "critical" for severe and "active" for warning.
+    with level "critical" for severe, "passive" for quiet/recovery notices,
+    and "active" for normal warnings.
     The base URL/key is never printed or logged. Returns True on success
     (HTTP 2xx and Bark code 200), False when skipped or on failure.
     """
     base = os.environ.get("BARK_URL")
     if not base:
         return False
-    bark_level = "critical" if level == "critical" else "active"
+    if level == "critical":
+        bark_level = "critical"
+    elif level in ("passive", "recovery"):
+        bark_level = "passive"
+    else:
+        bark_level = "active"
     url = ("%s/%s/%s?group=monitoring-metrics&level=%s"
            % (base.rstrip("/"), urllib.parse.quote(title, safe=""),
               urllib.parse.quote(body, safe=""), bark_level))

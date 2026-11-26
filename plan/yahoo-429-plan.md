@@ -1,7 +1,15 @@
-# 数据源与 Yahoo 429 限流：处理计划
+# 数据源与 Yahoo 429 限流：处理计划（已解决归档）
 
-> 状态：观察期（2026-11-24 起）。先不改动，观察 429 发生的频率，再按本文的决策标准选方案。
-> 相关代码：`scripts/fetch_dashboard.py`（拉取）、`alert/notify.py`（飞书 / Bark 发送）、`scripts/push_data.sh`（发布）、`api/deploy.sh`（VPS 部署）、`api/deploy-mac.sh`（Mac 拉取部署）。
+> **状态：已解决并归档（2026-11-26）**。
+> **最终落地架构**：已彻底摆脱对单一 Yahoo 接口的依赖，采用分指标多源兜底链：
+> - **VIX / VVIX / SKEW / 标普 500**：美区 VPS 优先走 **Futu CLI** → **CBOE 官方 CDN 日线 CSV**（`cdn.cboe.com/api/global/us_indices/daily_prices/*_History.csv`，实测机房直连可用，此前 403 的是 `delayed_quotes/*.json` 端点）→ FRED / Stooq → Yahoo（`curl_cffi` Chrome TLS 模拟 + Cookie/Crumb）。
+> - **VIX 期限结构（1D / 9D / 3M / 6M）**：**CBOE 官方 CDN 日线 CSV** → Yahoo（`curl_cffi`）。
+> - **MOVE**：Yahoo（`curl_cffi` + Cookie/Crumb）→ **TradingView 公开 scanner（`TVC:MOVE`）** → **TheTrading.Tools CSV** 三级兜底。
+> - **HY OAS / IG / CCC**：**FRED 官方 JSON API**（配置 `FRED_API_KEY`）→ FRED CSV。
+> - **可观测性补齐**：新增收盘日期新鲜度告警、`push_data.sh` 连续推库失败告警、可选 `HEALTHCHECK_URL` 外部心跳与 GitHub Actions 外部巡检（`.github/workflows/freshness-watchdog.yml`）。
+>
+> 以下保留 2026-11-24 原始分析记录作历史归档。
+> 相关代码：`scripts/fetch_dashboard.py`、`alert/notify.py`、`scripts/push_data.sh`、`api/deploy.sh`、`api/deploy-mac.sh`。
 
 ## 1. 背景
 
