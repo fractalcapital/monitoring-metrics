@@ -1,7 +1,7 @@
 {
-  "updated_at_utc": "2026-11-26T05:14:49Z",
-  "updated_at_beijing": "2026-11-26 13:14 Beijing",
-  "source": "CBOE CDN (VIX/VVIX/SKEW/期限结构); FRED API (SPX/HY OAS); Yahoo Finance (MOVE)",
+  "updated_at_utc": "2026-11-26T05:17:37Z",
+  "updated_at_beijing": "2026-11-26 13:17 Beijing",
+  "source": "CBOE CDN (VIX/VVIX/SKEW/期限结构); Yahoo Finance (SPX/MOVE); FRED API (HY OAS)",
   "sources_used": {
     "vix": "cboe",
     "vvix": "cboe",
@@ -10,7 +10,7 @@
     "vix9d": "cboe",
     "vix3m": "cboe",
     "vix6m": "cboe",
-    "spx": "fred_api",
+    "spx": "yahoo_cffi",
     "move": "yahoo_cffi",
     "hy_oas": "fred_api"
   },
@@ -834,144 +834,204 @@
     }
   },
   "spx": {
-    "value": 7201.09,
-    "date": "2026-11-24",
-    "prev_close": 7237.17,
-    "prev_date": "2026-11-23",
-    "change_pct": -0.5,
+    "value": 7182.78,
+    "date": "2026-11-25",
+    "prev_close": 7201.09,
+    "prev_date": "2026-11-24",
+    "change_pct": -0.25,
     "history": [
       {
-        "date": "2026-10-14",
-        "value": 7718.94
-      },
-      {
         "date": "2026-10-15",
-        "value": 7744.06
+        "value": 7744.06,
+        "high": 7754.15,
+        "low": 7669.66
       },
       {
         "date": "2026-10-16",
-        "value": 7659.44
+        "value": 7659.44,
+        "high": 7756.84,
+        "low": 7631.77
       },
       {
         "date": "2026-10-19",
-        "value": 7690.73
+        "value": 7690.73,
+        "high": 7731.18,
+        "low": 7684.79
       },
       {
         "date": "2026-10-20",
-        "value": 7712.57
+        "value": 7712.57,
+        "high": 7748.42,
+        "low": 7668.03
       },
       {
         "date": "2026-10-21",
-        "value": 7757.17
+        "value": 7757.17,
+        "high": 7770.4,
+        "low": 7709.34
       },
       {
         "date": "2026-10-22",
-        "value": 7663.43
+        "value": 7663.43,
+        "high": 7702.94,
+        "low": 7637.36
       },
       {
         "date": "2026-10-23",
-        "value": 7623.68
+        "value": 7623.68,
+        "high": 7660.15,
+        "low": 7612.07
       },
       {
         "date": "2026-10-26",
-        "value": 7676.77
+        "value": 7676.77,
+        "high": 7702.13,
+        "low": 7639.7
       },
       {
         "date": "2026-10-27",
-        "value": 7722.6
+        "value": 7722.6,
+        "high": 7736.24,
+        "low": 7677.16
       },
       {
         "date": "2026-10-28",
-        "value": 7743.98
+        "value": 7743.98,
+        "high": 7758.43,
+        "low": 7718.37
       },
       {
         "date": "2026-10-29",
-        "value": 7720.39
+        "value": 7720.39,
+        "high": 7732.21,
+        "low": 7690.94
       },
       {
         "date": "2026-10-30",
-        "value": 7580.07
+        "value": 7580.07,
+        "high": 7637.48,
+        "low": 7527.56
       },
       {
         "date": "2026-11-02",
-        "value": 7541.4
+        "value": 7541.4,
+        "high": 7662.23,
+        "low": 7539.38
       },
       {
         "date": "2026-11-03",
-        "value": 7568.92
+        "value": 7568.92,
+        "high": 7594.61,
+        "low": 7545.39
       },
       {
         "date": "2026-11-04",
-        "value": 7688.62
+        "value": 7688.62,
+        "high": 7715.57,
+        "low": 7635.81
       },
       {
         "date": "2026-11-05",
-        "value": 7353.73
+        "value": 7353.73,
+        "high": 7681.29,
+        "low": 7350.35
       },
       {
         "date": "2026-11-06",
-        "value": 7376.86
+        "value": 7376.86,
+        "high": 7444.2,
+        "low": 7369.55
       },
       {
         "date": "2026-11-09",
-        "value": 7549.94
+        "value": 7549.94,
+        "high": 7577.39,
+        "low": 7422.24
       },
       {
         "date": "2026-11-10",
-        "value": 7520.93
+        "value": 7520.93,
+        "high": 7543.92,
+        "low": 7470.43
       },
       {
         "date": "2026-11-11",
-        "value": 7619.38
+        "value": 7619.38,
+        "high": 7647.2,
+        "low": 7571.88
       },
       {
         "date": "2026-11-12",
-        "value": 7592.4
+        "value": 7592.4,
+        "high": 7652.76,
+        "low": 7550.84
       },
       {
         "date": "2026-11-13",
-        "value": 7561.67
+        "value": 7561.67,
+        "high": 7621.78,
+        "low": 7499.4
       },
       {
         "date": "2026-11-16",
-        "value": 7416.59
+        "value": 7416.59,
+        "high": 7515.6,
+        "low": 7400.15
       },
       {
         "date": "2026-11-17",
-        "value": 7340.53
+        "value": 7340.53,
+        "high": 7415.37,
+        "low": 7288.34
       },
       {
         "date": "2026-11-18",
-        "value": 7323.63
+        "value": 7323.63,
+        "high": 7367.68,
+        "low": 7285.76
       },
       {
         "date": "2026-11-19",
-        "value": 7175.83
+        "value": 7175.83,
+        "high": 7415.64,
+        "low": 7173.63
       },
       {
         "date": "2026-11-20",
-        "value": 6910.39
+        "value": 6910.39,
+        "high": 7198.67,
+        "low": 6882.66
       },
       {
         "date": "2026-11-23",
-        "value": 7237.17
+        "value": 7237.17,
+        "high": 7295.6,
+        "low": 7152.66
       },
       {
         "date": "2026-11-24",
-        "value": 7201.09
+        "value": 7201.09,
+        "high": 7223.95,
+        "low": 7138.93
+      },
+      {
+        "date": "2026-11-25",
+        "value": 7182.78,
+        "high": 7199.31,
+        "low": 6970.11
       }
     ],
-    "source": "fred_api",
+    "day_high": 7199.31,
+    "day_low": 6970.11,
+    "source": "yahoo_cffi",
     "stats": {
-      "window": 252,
-      "pct_rank": 44,
-      "chg_5d": -139.44,
-      "chg_5d_pct": -1.9,
-      "chg_20d": -521.51,
-      "chg_20d_pct": -6.75
-    },
-    "lag_days": 1,
-    "lagging": true
+      "window": 251,
+      "pct_rank": 43,
+      "chg_5d": -140.85,
+      "chg_5d_pct": -1.92,
+      "chg_20d": -561.2,
+      "chg_20d_pct": -7.25
+    }
   },
   "term_structure": {
     "vix1d": 39.36,

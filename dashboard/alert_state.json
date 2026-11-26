@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-11-26T05:14:49Z",
+  "updated_at_utc": "2026-11-26T05:17:37Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
@@ -9,28 +9,29 @@
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-26T05:14:49Z",
+      "last_ok_at_utc": "2026-11-26T05:17:37Z",
       "provider": "fred_api"
     },
     "equities": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-26T05:14:49Z",
-      "provider": "cboe+fred_api"
+      "last_ok_at_utc": "2026-11-26T05:17:37Z",
+      "provider": "cboe+yahoo_cffi"
     },
     "move": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-26T05:14:49Z",
+      "last_ok_at_utc": "2026-11-26T05:17:37Z",
       "provider": "yahoo_cffi"
     },
     "freshness": {
-      "ok": false,
-      "last_error": "预期收盘日 2026-11-25：标普 500 2026-11-24（落后 1 个交易日）",
+      "ok": true,
+      "last_error": null,
       "last_failed_at_utc": "2026-11-26T05:14:49Z",
-      "last_ok_at_utc": null
+      "last_ok_at_utc": "2026-11-26T05:17:37Z",
+      "provider": "ok (expected 2026-11-25)"
     }
   },
   "alerts": {
@@ -194,9 +195,9 @@
       "channels": {}
     },
     "fetch_freshness": {
-      "level": "warning",
-      "level_label": "预警",
-      "value": "预期收盘日 2026-11-25：标普 500 2026-11-24（落后 1 个交易日）",
+      "level": "normal",
+      "level_label": "正常",
+      "value": "ok",
       "date": "2026-11-26",
       "threshold": "-",
       "change": "数据新鲜度（收盘日期 vs 最近交易日）",
@@ -212,7 +213,7 @@
           "last_sent_value": "预期收盘日 2026-11-25：标普 500 2026-11-24（落后 1 个交易日）"
         }
       },
-      "episode_sent": true
+      "episode_sent": false
     },
     "term": {
       "level": "warning",
