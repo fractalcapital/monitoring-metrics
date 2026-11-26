@@ -1171,6 +1171,27 @@
     font-size: 11.5px;
     color: var(--text-dim);
   }
+  .card-foot-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .stale-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1.4;
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    border: 1px solid var(--amber-border);
+    white-space: nowrap;
+  }
   .tv-link {
     display: inline-flex;
     align-items: center;
@@ -1619,6 +1640,17 @@
   .tenor-spread.is-pos { color: var(--green); }
   .tenor-spread.is-neg { color: var(--red); }
   .tenor-spread.is-base { color: var(--accent); }
+  .tenor-pill.is-mismatch {
+    background: var(--amber-bg);
+    border-color: var(--amber-border);
+  }
+  .tenor-date {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--amber-text);
+    margin-top: 1px;
+    font-weight: 600;
+  }
   @media (max-width: 640px) {
     .term-tenor-row {
       padding-left: 36px;
@@ -1981,7 +2013,7 @@
         <span class="pulse-dot"></span>
         <span>实时同步</span>
       </span>
-      <span class="timer-pill" title="平时每 30 分钟自动刷新，收盘拉取时段（北京时间 05:30–06:00、07:30–08:00）每 1 分钟刷新">
+      <span class="timer-pill" title="平时每 30 分钟自动刷新；美股收盘拉取窗口（美东 16:25–17:05 / 18:25–19:05，自动适配夏/冬令时，及北京时间 05:30–06:00 / 07:30–08:00）每 1 分钟刷新">
         <svg class="timer-ring" viewBox="0 0 18 18" aria-hidden="true">
           <circle class="timer-ring-bg" cx="9" cy="9" r="7"></circle>
           <circle id="timerArc" class="timer-ring-fg" cx="9" cy="9" r="7" stroke-dasharray="43.98" stroke-dashoffset="0"></circle>
@@ -2274,13 +2306,21 @@ const ICON_CLOCK = '<svg width="11.5" height="11.5" viewBox="0 0 24 24" fill="no
   }
 })();
 
-/* ---- Toast 提示 ---- */
+/* ---- Toast 提示 & HTML 转义 ---- */
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 let toastTimer = null;
 function showToast(text, isErr){
   const el = document.getElementById('toast');
   if(!el) return;
   const dotColor = isErr ? '#f87171' : '#34d399';
-  el.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex:none;"></span><span>${text}</span>`;
+  el.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex:none;"></span><span>${escapeHtml(text)}</span>`;
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
@@ -2622,7 +2662,8 @@ const TERM_STATE = {
   coords: [],
   layout: null,
   bound: false,
-  ro: null
+  ro: null,
+  staleSet: null
 };
 
 function niceTicks(minVal, maxVal, targetCount){
@@ -2646,18 +2687,36 @@ function niceTicks(minVal, maxVal, targetCount){
 }
 
 function getTenorMeta(t){
+  const tDates = (t && t.dates) || {};
+  const fallback = t && t.date;
   return [
-    { key: '1D',  lbl: '1天',      shortLbl: '1天预期',   full: 'VIX1D', days: 1,   val: t.vix1d, spot: false,
+    { key: '1D', field: 'vix1d', lbl: '1天',      shortLbl: '1天预期',   full: 'VIX1D', days: 1,   val: t.vix1d, date: tDates.vix1d || fallback, spot: false,
       desc: '今明两个交易日的极短期事件波动定价，对重磅数据与突发消息最敏感。' },
-    { key: '9D',  lbl: '9天',      shortLbl: '9天预期',   full: 'VIX9D', days: 9,   val: t.vix9d, spot: false,
+    { key: '9D', field: 'vix9d', lbl: '9天',      shortLbl: '9天预期',   full: 'VIX9D', days: 9,   val: t.vix9d, date: tDates.vix9d || fallback, spot: false,
       desc: '未来约一周半的短期隐含波动率，反映近期事件与财报/议息窗口风险。' },
-    { key: '30D', lbl: '30天 现货', shortLbl: '30天现货', full: 'VIX',   days: 30,  val: t.vix,   spot: true,
+    { key: '30D', field: 'vix', lbl: '30天 现货', shortLbl: '30天现货', full: 'VIX',   days: 30,  val: t.vix,   date: tDates.vix || fallback, spot: true,
       desc: '全曲线基准锚：标普 500 未来 30 天隐含波动率（现货收盘基准）。' },
-    { key: '3M',  lbl: '3个月',    shortLbl: '3个月预期', full: 'VIX3M', days: 90,  val: t.vix3m, spot: false,
+    { key: '3M', field: 'vix3m', lbl: '3个月',    shortLbl: '3个月预期', full: 'VIX3M', days: 90,  val: t.vix3m, date: tDates.vix3m || fallback, spot: false,
       desc: '中期隐含波动率，与 VIX 现货之比（VIX / VIX3M）是判断倒挂的核心标尺。' },
-    { key: '6M',  lbl: '6个月',    shortLbl: '6个月预期', full: 'VIX6M', days: 180, val: t.vix6m, spot: false,
+    { key: '6M', field: 'vix6m', lbl: '6个月',    shortLbl: '6个月预期', full: 'VIX6M', days: 180, val: t.vix6m, date: tDates.vix6m || fallback, spot: false,
       desc: '半年期远端隐含波动率，体现市场对中期波动能否回归常态的预期。' }
   ];
+}
+
+function termFreshness(t, staleSet){
+  const pts = getTenorMeta(t);
+  const uniqueDates = [...new Set(pts.map(p => p.date).filter(Boolean))];
+  const staleTenorSet = new Set((t && t.stale_tenors) || []);
+  if(staleSet){
+    ['vix1d','vix9d','vix','vix3m','vix6m'].forEach(k => { if(staleSet.has(k)) staleTenorSet.add(k); });
+  }
+  return {
+    uniqueDates,
+    dateMismatch: Boolean(t && (t.date_mismatch || uniqueDates.length > 1)),
+    staleTenorSet,
+    hasStaleTenor: Boolean(t && t.stale) || staleTenorSet.size > 0,
+    spotDate: (t && t.dates && t.dates.vix) || (t && t.date)
+  };
 }
 
 function buildLinearPath(pts){
@@ -3130,16 +3189,21 @@ function drawTermChart(){
 
   // 底部 5 个交互期限按钮（悬停联动图面，点击切换对比基准）
   if(tenorRow){
+    const fresh = termFreshness(TERM_STATE.data, TERM_STATE.staleSet);
     tenorRow.innerHTML = pts.map((p, i) => {
       const isBase = i === TERM_STATE.baseIdx;
       const diff = p.val - base.val;
       const diffText = isBase ? (p.spot ? '现货基准' : '对比基准') : fmtSigned(diff, 2);
       const diffCls = isBase ? 'is-base' : (diff >= 0 ? 'is-pos' : 'is-neg');
+      const isDiffDate = fresh.dateMismatch && p.date && fresh.spotDate && p.date !== fresh.spotDate;
+      const isStale = fresh.staleTenorSet.has(p.field);
+      const titleStr = `${p.full} (${p.shortLbl}): ${p.val.toFixed(2)}` + (p.date ? ` (${p.date})` : '') + (isStale ? ' · 缓存旧值' : '') + ' — 点击设为对比基准';
       return `
-        <button type="button" class="tenor-pill${isBase ? ' is-base' : ''}" data-idx="${i}" aria-pressed="${isBase ? 'true' : 'false'}" title="${p.full} (${p.shortLbl}): ${p.val.toFixed(2)} — 点击设为对比基准">
+        <button type="button" class="tenor-pill${isBase ? ' is-base' : ''}${isDiffDate || isStale ? ' is-mismatch' : ''}" data-idx="${i}" aria-pressed="${isBase ? 'true' : 'false'}" title="${escapeHtml(titleStr)}">
           <span class="tenor-lbl">${p.lbl}</span>
           <span class="tenor-code">${p.full}</span>
           <span class="tenor-spread ${diffCls}">${diffText}</span>
+          ${isDiffDate || isStale ? `<span class="tenor-date">${shortDate(p.date)}${isStale ? ' 缓存' : ''}</span>` : ''}
         </button>
       `;
     }).join('');
@@ -3164,9 +3228,10 @@ function drawTermChart(){
   }
 }
 
-function renderTermStructure(t){
+function renderTermStructure(t, staleSet){
   if(!t) return;
   TERM_STATE.data = t;
+  TERM_STATE.staleSet = staleSet || null;
   bindTermControlsOnce();
 
   const ratioNum = t.vix / t.vix3m;
@@ -3205,9 +3270,18 @@ function renderTermStructure(t){
   const shapeDesc = isInverted
     ? `贴水（Backwardation）：近端波动率高于远端，恐慌情绪集中在眼前（VIX / VIX3M = ${ratio}）。移动鼠标查看各期限详情，点击任意期限可切换对比基准。`
     : `升水（Contango）：近低远高呈正常期限溢价形态（VIX / VIX3M = ${ratio}）。移动鼠标查看各期限详情，点击任意期限可切换对比基准。`;
+  const fresh = termFreshness(t, staleSet);
+  const termPts = getTenorMeta(t);
+  const termWarnBadges = [
+    fresh.dateMismatch ? `<span class="stale-pill" title="各期限收盘日期：${escapeHtml(termPts.map(p => p.key + ' ' + shortDate(p.date)).join(' / '))}">日期不一致</span>` : '',
+    fresh.hasStaleTenor ? `<span class="stale-pill" title="部分期限本次拉取失败，当前为缓存旧值">含缓存旧值</span>` : ''
+  ].filter(Boolean).join('');
+  const mismatchNote = fresh.dateMismatch
+    ? ` 注意：各期限收盘日未完全对齐（${fresh.uniqueDates.map(shortDate).join(' / ')}），跨日拼接可能影响升贴水判断。`
+    : '';
   document.getElementById('termNote').innerHTML = `
-    <div class="reading-head">期限形态解读 · ${t.date}</div>
-    <div class="reading-body">${shapeDesc}</div>
+    <div class="reading-head"><span>期限形态解读 · ${escapeHtml(fresh.spotDate || '—')}</span>${termWarnBadges}</div>
+    <div class="reading-body">${shapeDesc}${mismatchNote}</div>
   `;
 }
 
@@ -3220,12 +3294,32 @@ function render(data, isSnapshot){
   document.getElementById('updatedAt').textContent =
     (data.updated_at_beijing || data.updated_at_utc || '—') + (isSnapshot ? ` · 快照 ${data.snapshot_date}` : '');
 
+  const staleSet = new Set(data.stale_indicators || []);
+  ['vix', 'vvix', 'skew', 'move', 'hy_oas'].forEach(k => {
+    if(ind[k] && ind[k].stale) staleSet.add(k);
+  });
+  if(data.spx && data.spx.stale) staleSet.add('spx');
+  if(data.term_structure && Array.isArray(data.term_structure.stale_tenors)){
+    data.term_structure.stale_tenors.forEach(k => staleSet.add(k));
+  }
+  const staleNameMap = {
+    vix: 'VIX', vvix: 'VVIX', skew: 'SKEW', move: 'MOVE', hy_oas: 'HY OAS',
+    spx: '标普 500', vix1d: 'VIX1D', vix9d: 'VIX9D', vix3m: 'VIX3M', vix6m: 'VIX6M'
+  };
+  const staleNames = [...staleSet].map(k => staleNameMap[k] || k);
+
   const livePill = document.getElementById('livePill');
   if(isSnapshot){
     livePill.className = 'pill snapshot';
-    livePill.innerHTML = `<span class="pulse-dot"></span><span>快照 (${data.snapshot_date})</span>`;
+    livePill.title = 'data.json 读取失败，当前展示内置历史快照';
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>快照 (${escapeHtml(data.snapshot_date)})</span>`;
+  } else if(staleSet.size > 0){
+    livePill.className = 'pill snapshot';
+    livePill.title = `以下指标本次拉取失败，当前展示上次成功缓存值：${staleNames.join('、')}`;
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>部分缓存 (${staleSet.size}项)</span>`;
   } else {
     livePill.className = 'pill live';
+    livePill.title = '全部数据源最新同步正常';
     livePill.innerHTML = `<span class="pulse-dot"></span><span>实时同步</span>`;
   }
 
@@ -3341,7 +3435,10 @@ function render(data, isSnapshot){
           </div>
 
           <div class="card-foot">
-            <span>${h.date} · FRED 日度</span>
+            <span class="card-foot-meta">
+              <span>${h.date} · FRED 日度</span>
+              ${(h.stale || staleSet.has('hy_oas')) ? '<span class="stale-pill" title="本次拉取失败，当前展示上次成功缓存的数据">缓存旧值</span>' : ''}
+            </span>
             <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
           </div>
         </article>
@@ -3389,7 +3486,10 @@ function render(data, isSnapshot){
         </div>
 
         <div class="card-foot">
-          <span>${d.date} · 收盘</span>
+          <span class="card-foot-meta">
+            <span>${d.date} · 收盘</span>
+            ${(d.stale || staleSet.has(k)) ? '<span class="stale-pill" title="本次拉取失败，当前展示上次成功缓存的数据">缓存旧值</span>' : ''}
+          </span>
           <a href="${m.tv}" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
         </div>
       </article>
@@ -3459,13 +3559,16 @@ function render(data, isSnapshot){
     </div>
 
     <div class="card-foot">
-      <span>${s.date} · 收盘快照</span>
+      <span class="card-foot-meta">
+        <span>${s.date} · 收盘快照</span>
+        ${(s.stale || staleSet.has('spx')) ? '<span class="stale-pill" title="本次拉取失败，当前展示上次成功缓存的数据">缓存旧值</span>' : ''}
+      </span>
       <a href="https://cn.tradingview.com/symbols/SPX/" target="_blank" rel="noopener" class="tv-link">TradingView ${ICON_EXT}</a>
     </div>
   `;
 
   /* VIX 期限结构曲线 */
-  renderTermStructure(data.term_structure);
+  renderTermStructure(data.term_structure, staleSet);
 
   initSparklineInteractivity();
   hasAnimated = true;
@@ -3627,8 +3730,8 @@ function renderAlerts(data, state){
     } else {
       const mkChip = (name, s) => {
         if(!s) return `<span class="mini-chip off">${name} 未知</span>`;
-        if(s.ok) return `<span class="mini-chip ok" title="${s.provider ? '来源: ' + s.provider : '正常'}"><span class="mini-chip-dot"></span>${name} 正常</span>`;
-        return `<span class="mini-chip err" title="${s.last_error || '未知错误'}"><span class="mini-chip-dot"></span>${name} 失败</span>`;
+        if(s.ok) return `<span class="mini-chip ok" title="${escapeHtml(s.provider ? '来源: ' + s.provider : '正常')}"><span class="mini-chip-dot"></span>${name} 正常</span>`;
+        return `<span class="mini-chip err" title="${escapeHtml(s.last_error || '未知错误')}"><span class="mini-chip-dot"></span>${name} 失败</span>`;
       };
       const labelMap = { equities: '波动/股指', move: 'MOVE', fred: 'FRED', yahoo: 'Yahoo' };
       const order = ['equities', 'move', 'fred', 'yahoo'].filter(k => fs[k]);

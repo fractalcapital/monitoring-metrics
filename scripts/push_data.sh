@@ -9,6 +9,45 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# Serialize concurrent runs (cron + manual VPS API refresh) to avoid
+# git index.lock / rebase / data.json write races. Uses flock on Linux,
+# falling back to an atomic mkdir lockdir (with stale-PID recovery) on macOS.
+LOCK_WAIT_SECONDS="${LOCK_WAIT_SECONDS:-120}"
+LOCK_BASE="${TMPDIR:-/tmp}"
+LOCK_FILE="${LOCK_BASE%/}/monitoring-metrics-push.lock"
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_FILE"
+  if ! flock -w "$LOCK_WAIT_SECONDS" 9; then
+    echo "LOCK_BUSY (another push_data.sh run is still active after ${LOCK_WAIT_SECONDS}s)" >&2
+    exit 1
+  fi
+else
+  LOCK_DIR="${LOCK_FILE}.d"
+  _lock_acquired=0
+  _waited=0
+  while [ "$_waited" -lt "$LOCK_WAIT_SECONDS" ]; do
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+      printf '%s\n' "$$" > "$LOCK_DIR/pid"
+      _lock_acquired=1
+      break
+    fi
+    if [ -f "$LOCK_DIR/pid" ]; then
+      _old_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+      if [ -n "$_old_pid" ] && ! kill -0 "$_old_pid" 2>/dev/null; then
+        rm -rf "$LOCK_DIR"
+        continue
+      fi
+    fi
+    sleep 1
+    _waited=$((_waited + 1))
+  done
+  if [ "$_lock_acquired" -ne 1 ]; then
+    echo "LOCK_BUSY (another push_data.sh run is still active after ${LOCK_WAIT_SECONDS}s)" >&2
+    exit 1
+  fi
+  trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
+fi
+
 # Load secrets for cron (the API service already has them via systemd).
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
 

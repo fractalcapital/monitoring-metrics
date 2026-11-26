@@ -64,6 +64,11 @@ import urllib.request
 from pathlib import Path
 
 try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+
+try:
     from curl_cffi import requests as cffi_requests  # type: ignore
 except ImportError:
     cffi_requests = None
@@ -252,12 +257,100 @@ def _finalize_pairs(pairs, round_digits=2, keep=40):
     return out
 
 
-def _latest_us_weekday_iso(now_utc=None):
-    """Best-effort latest US Eastern weekday date (YYYY-MM-DD)."""
+def _easter_sunday(year):
+    """Gregorian Easter Sunday (Anonymous Gregorian / Meeus-Jones-Butcher algorithm)."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return dt.date(year, month, day)
+
+
+def _nth_weekday(year, month, weekday, n):
+    """Return the n-th (1-based) occurrence of weekday (Mon=0..Sun=6) in year/month."""
+    first = dt.date(year, month, 1)
+    offset = (weekday - first.weekday()) % 7
+    return first + dt.timedelta(days=offset + (n - 1) * 7)
+
+
+def _last_weekday(year, month, weekday):
+    """Return the last occurrence of weekday (Mon=0..Sun=6) in year/month."""
+    if month == 12:
+        last = dt.date(year + 1, 1, 1) - dt.timedelta(days=1)
+    else:
+        last = dt.date(year, month + 1, 1) - dt.timedelta(days=1)
+    offset = (last.weekday() - weekday) % 7
+    return last - dt.timedelta(days=offset)
+
+
+def _observed_nyse(d, allow_friday=True):
+    """Apply NYSE weekend observation rule (Sat -> Fri if allowed, Sun -> Mon)."""
+    if d.weekday() == 5:
+        return d - dt.timedelta(days=1) if allow_friday else None
+    if d.weekday() == 6:
+        return d + dt.timedelta(days=1)
+    return d
+
+
+def _nyse_holidays(year):
+    """Return set of standard NYSE full-day market closure dates for `year`."""
+    holidays = set()
+    # New Year's Day: if Saturday, NYSE does NOT observe on prior Dec 31.
+    nyd = _observed_nyse(dt.date(year, 1, 1), allow_friday=False)
+    if nyd:
+        holidays.add(nyd)
+    # Martin Luther King Jr. Day: 3rd Monday in January
+    holidays.add(_nth_weekday(year, 1, 0, 3))
+    # Washington's Birthday / Presidents' Day: 3rd Monday in February
+    holidays.add(_nth_weekday(year, 2, 0, 3))
+    # Good Friday: Friday before Easter Sunday
+    holidays.add(_easter_sunday(year) - dt.timedelta(days=2))
+    # Memorial Day: last Monday in May
+    holidays.add(_last_weekday(year, 5, 0))
+    # Juneteenth National Independence Day (observed by NYSE since 2022)
+    if year >= 2022:
+        holidays.add(_observed_nyse(dt.date(year, 6, 19)))
+    # Independence Day
+    holidays.add(_observed_nyse(dt.date(year, 7, 4)))
+    # Labor Day: 1st Monday in September
+    holidays.add(_nth_weekday(year, 9, 0, 1))
+    # Thanksgiving Day: 4th Thursday in November
+    holidays.add(_nth_weekday(year, 11, 3, 4))
+    # Christmas Day
+    holidays.add(_observed_nyse(dt.date(year, 12, 25)))
+    return {d for d in holidays if d is not None}
+
+
+def _is_nyse_holiday(d):
+    return d in _nyse_holidays(d.year)
+
+
+def _us_eastern_now(now_utc=None):
+    """Convert UTC datetime to US Eastern (DST-aware via America/New_York)."""
     now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
-    et = now_utc - dt.timedelta(hours=5)
+    if ZoneInfo is not None:
+        try:
+            return now_utc.astimezone(ZoneInfo("America/New_York"))
+        except Exception:  # noqa: BLE001
+            pass
+    return now_utc - dt.timedelta(hours=5)
+
+
+def _latest_us_weekday_iso(now_utc=None):
+    """Best-effort latest NYSE trading day in US Eastern time (YYYY-MM-DD)."""
+    et = _us_eastern_now(now_utc)
     d = et.date()
-    while d.weekday() >= 5:
+    while d.weekday() >= 5 or _is_nyse_holiday(d):
         d -= dt.timedelta(days=1)
     return d.isoformat()
 
@@ -294,7 +387,7 @@ def _upsert_history(prev_history, date, close_val, prev_close_val=None,
 
     if not hist and prev_r is not None:
         prev_day = dt.date.fromisoformat(date) - dt.timedelta(days=1)
-        while prev_day.weekday() >= 5:
+        while prev_day.weekday() >= 5 or _is_nyse_holiday(prev_day):
             prev_day -= dt.timedelta(days=1)
         hist.append({"date": prev_day.isoformat(), "value": prev_r})
     hist.append({"date": date, "value": close_r})
@@ -850,9 +943,10 @@ def _prev_pairs_for(prev_payload, key):
             ], round_digits=2, keep=40)
         if key in ("vix1d", "vix9d", "vix3m", "vix6m"):
             ts = prev_payload.get("term_structure") or {}
-            if ts.get(key) is not None and ts.get("date"):
+            ts_dates = ts.get("dates") or {}
+            d = ts_dates.get(key) or ts.get("date")
+            if ts.get(key) is not None and d:
                 v = float(ts[key])
-                d = ts["date"]
                 return [{"date": d, "value": v}, {"date": d, "value": v}]
             return None
         if key == "hy_oas":
@@ -1324,6 +1418,8 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
     fetch_status = dict(state.get("fetch_status", {}) or {})
     fetch_status.pop("yahoo", None)
     state["fetch_status"] = fetch_status
+    alerts = state.setdefault("alerts", {})
+    alerts.pop("fetch_yahoo", None)
     for gkey in ("equities", "move", "fred"):
         if gkey in group_errors:
             record_fetch_failure_in_state(gkey, group_errors[gkey], state, now_utc)
@@ -1458,8 +1554,26 @@ def build_status_message(payload, stale=False):
     spx = payload["spx"]
     spx_abs = (spx["value"] - spx["prev_close"]
                if spx.get("prev_close") is not None else None)
+    stale_labels = {
+        "vix": "VIX", "vvix": "VVIX", "skew": "SKEW",
+        "move": "MOVE", "hy_oas": "HY OAS", "spx": "标普 500",
+        "vix1d": "VIX1D", "vix9d": "VIX9D", "vix3m": "VIX3M", "vix6m": "VIX6M",
+    }
+    stale_keys = set(payload.get("stale_indicators") or [])
+    for k in ("vix", "vvix", "skew", "move"):
+        if ind[k].get("stale"):
+            stale_keys.add(k)
+    if hy.get("stale"):
+        stale_keys.add("hy_oas")
+    if spx.get("stale"):
+        stale_keys.add("spx")
+    ts = payload.get("term_structure") or {}
+    for tk in (ts.get("stale_tenors") or []):
+        stale_keys.add(tk)
+    has_stale = stale or bool(stale_keys)
+
     lines = ["综合判断：%s" % _VERDICT_TITLES[worst_cls]]
-    if stale:
+    if has_stale:
         lines.append("注意：部分数据源本次拉取失败，相应项保留上次成功数据")
     for k in ("vix", "vvix", "skew", "move"):
         lines.append("%s %s（%s，%s%%）· %s" % (
@@ -1475,18 +1589,18 @@ def build_status_message(payload, stale=False):
         format(spx["value"], ","),
         _signed(spx_abs) if spx_abs is not None else "—",
         _signed(spx["change_pct"])))
-    ts = payload.get("term_structure") or {}
     ts_vals = [ts.get(k) for k in ("vix1d", "vix9d", "vix3m", "vix6m")]
     if all(v is not None for v in ts_vals):
-        lines.append("期限结构：1D %.2f / 9D %.2f / 3M %.2f / 6M %.2f"
-                     % tuple(ts_vals))
+        ts_line = "期限结构：1D %.2f / 9D %.2f / 3M %.2f / 6M %.2f" % tuple(ts_vals)
+        if ts.get("date_mismatch"):
+            ts_line += "（各期限日期不一致）"
+        lines.append(ts_line)
     lines.append("数据：VIX %s，MOVE %s，HY OAS %s" % (
         ind["vix"]["date"], ind["move"]["date"], hy["date"]))
-    stale_notes = []
-    if ind["move"].get("stale"):
-        stale_notes.append("MOVE")
-    if hy.get("stale"):
-        stale_notes.append("HY OAS")
+    stale_notes = [stale_labels[k] for k in (
+        "vix", "vvix", "skew", "move", "hy_oas", "spx",
+        "vix1d", "vix9d", "vix3m", "vix6m",
+    ) if k in stale_keys]
     if stale_notes:
         lines.append("（%s 为上次缓存值，本次未拉到）" % " / ".join(stale_notes))
     lines.append("查看仪表盘：%s" % DASHBOARD_URL)
@@ -1574,8 +1688,11 @@ def main():
     if eq_errors:
         group_errors["equities"] = "; ".join(eq_errors)[:300]
     else:
-        eq_used = sorted({sources_map[k] for k in ("vix", "vvix", "skew", "vix1d", "spx")
-                          if k in sources_map})
+        eq_used = sorted({
+            sources_map[k]
+            for k in ("vix", "vvix", "skew", "vix1d", "vix9d", "vix3m", "vix6m", "spx")
+            if k in sources_map
+        })
         group_providers["equities"] = "+".join(eq_used)
 
     # Use VIX trading date as reference for MOVE quote-only fallback (TradingView).
@@ -1609,7 +1726,35 @@ def main():
     hy_prev = fred_rows[-2]
     hy_change_bp = round(hy_last["value"] - hy_prev["value"], 2)
 
-    stale_indicators = sorted(stale_eq | ({"move"} if move_stale else set()))
+    stale_indicators = sorted(
+        stale_eq
+        | ({"move"} if move_stale else set())
+        | ({"hy_oas"} if hy_stale else set())
+    )
+
+    term_dates = {
+        "vix1d": pairs["vix1d"][-1]["date"],
+        "vix9d": pairs["vix9d"][-1]["date"],
+        "vix": pairs["vix"][-1]["date"],
+        "vix3m": pairs["vix3m"][-1]["date"],
+        "vix6m": pairs["vix6m"][-1]["date"],
+    }
+    term_stale_tenors = sorted(
+        k for k in ("vix1d", "vix9d", "vix", "vix3m", "vix6m") if k in stale_eq
+    )
+    term_structure_payload = {
+        "vix1d": pairs["vix1d"][-1]["value"],
+        "vix9d": pairs["vix9d"][-1]["value"],
+        "vix": pairs["vix"][-1]["value"],
+        "vix3m": pairs["vix3m"][-1]["value"],
+        "vix6m": pairs["vix6m"][-1]["value"],
+        "date": pairs["vix"][-1]["date"],
+        "dates": term_dates,
+        "date_mismatch": len(set(term_dates.values())) > 1,
+    }
+    if term_stale_tenors:
+        term_structure_payload["stale"] = True
+        term_structure_payload["stale_tenors"] = term_stale_tenors
 
     now_utc = dt.datetime.now(dt.timezone.utc)
     beijing = now_utc.astimezone(dt.timezone(dt.timedelta(hours=8)))
@@ -1644,14 +1789,7 @@ def main():
         },
         "spx": indicator(pairs["spx"], stale=("spx" in stale_eq),
                          source=sources_map.get("spx")),
-        "term_structure": {
-            "vix1d": pairs["vix1d"][-1]["value"],
-            "vix9d": pairs["vix9d"][-1]["value"],
-            "vix": pairs["vix"][-1]["value"],
-            "vix3m": pairs["vix3m"][-1]["value"],
-            "vix6m": pairs["vix6m"][-1]["value"],
-            "date": pairs["vix"][-1]["date"],
-        },
+        "term_structure": term_structure_payload,
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

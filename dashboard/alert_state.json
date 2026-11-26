@@ -28,26 +28,6 @@
     }
   },
   "alerts": {
-    "fetch_yahoo": {
-      "level": "warning",
-      "level_label": "预警",
-      "value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx",
-      "date": "2026-11-25",
-      "threshold": "-",
-      "change": "Yahoo Finance（VIX / VVIX / SKEW / MOVE / 标普 500 / 期限结构）",
-      "last_sent_at_utc": "2026-11-25T05:54:42Z",
-      "last_sent_value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx",
-      "channels": {
-        "feishu": {
-          "last_sent_at_utc": "2026-11-25T05:54:42Z",
-          "last_sent_value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx"
-        },
-        "bark": {
-          "last_sent_at_utc": "2026-11-25T05:54:42Z",
-          "last_sent_value": "failed symbols (kept previous values): move, vix1d, vix9d, vix3m, vix6m, spx"
-        }
-      }
-    },
     "fetch_fred": {
       "level": "normal",
       "level_label": "正常",
