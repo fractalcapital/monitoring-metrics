@@ -22,6 +22,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 SVC_USER="monitoring"
+SVC_HOME="/var/lib/monitoring"
 REPO_DIR="/opt/monitoring-metrics"
 LOG_DIR="/var/log/monitoring-metrics"
 
@@ -36,8 +37,11 @@ fi
 
 if ! id "$SVC_USER" >/dev/null 2>&1; then
   echo "== Creating dedicated system user ($SVC_USER) =="
-  useradd --system --home-dir "$REPO_DIR" --shell /bin/bash "$SVC_USER"
+  useradd --system --create-home --home-dir "$SVC_HOME" --shell /bin/bash "$SVC_USER"
 fi
+mkdir -p "$SVC_HOME"
+chown "$SVC_USER:$SVC_USER" "$SVC_HOME"
+chmod 700 "$SVC_HOME"
 
 if [ -d "$REPO_DIR/.git" ]; then
   echo "== Updating existing checkout =="

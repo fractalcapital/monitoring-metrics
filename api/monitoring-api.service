@@ -14,7 +14,7 @@ Restart=always
 RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/opt/monitoring-metrics /tmp /var/log/monitoring-metrics
+ReadWritePaths=/opt/monitoring-metrics /var/lib/monitoring /tmp /var/log/monitoring-metrics
 
 [Install]
 WantedBy=multi-user.target
