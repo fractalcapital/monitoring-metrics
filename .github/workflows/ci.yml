@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
       - name: Syntax check Python and shell scripts
         run: |
-          python3 -m py_compile scripts/fetch_dashboard.py api/api_server.py alert/notify.py
+          python3 -m py_compile scripts/fetch_dashboard.py scripts/monitoring/*.py api/api_server.py alert/notify.py
           bash -n scripts/push_data.sh api/deploy.sh api/deploy-mac.sh
       - name: Check dashboard JS syntax
         run: |

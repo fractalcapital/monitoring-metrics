@@ -186,6 +186,45 @@ class StatsAndAlertsTests(unittest.TestCase):
         self.assertEqual(comp["score"], 60)
         self.assertNotIn("skew", comp["components"])
 
+    def test_composite_history_and_modular_imports(self):
+        # Verify the modular package exports match the facade
+        from monitoring import alerts, calendar, config, providers, series
+        self.assertIs(fd.STATUS_BANDS, config.STATUS_BANDS)
+        self.assertIs(fd._nyse_holidays, calendar._nyse_holidays)
+        self.assertIs(fd.build_composite, series.build_composite)
+        self.assertIs(fd.resolve_move, providers.resolve_move)
+        self.assertIs(fd.evaluate_alerts, alerts.evaluate_alerts)
+
+        # Build 260 trading-day synthetic series where all 4 components rise
+        # monotonically, with HY OAS lagging 1 day behind VIX.
+        base = dt.date(2025, 11, 1)
+        dates = []
+        d = base
+        while len(dates) < 260:
+            if d.weekday() < 5:
+                dates.append(d.isoformat())
+            d += dt.timedelta(days=1)
+
+        pairs_map = {
+            "vix": [{"date": ds, "value": 12.0 + i * 0.1} for i, ds in enumerate(dates)],
+            "move": [{"date": ds, "value": 70.0 + i * 0.2} for i, ds in enumerate(dates)],
+            "vvix": [{"date": ds, "value": 80.0 + i * 0.2} for i, ds in enumerate(dates)],
+            # HY OAS lags by 1 trading day (missing the very last date)
+            "hy_oas": [{"date": ds, "value": 300 + i} for i, ds in enumerate(dates[:-1])],
+        }
+        stats = {k: fd.compute_stats(pairs_map[k], is_bp=(k == "hy_oas")) for k in pairs_map}
+        comp = fd.build_composite(stats, pairs_map, keep=30)
+        self.assertIsNotNone(comp)
+        self.assertEqual(len(comp["history"]), 30)
+        self.assertEqual(comp["history"][-1]["date"], dates[-1])
+        self.assertEqual(comp["history"][-1]["value"], comp["score"])
+        self.assertGreaterEqual(comp["score"], 99)
+        self.assertIn("change", comp)
+        self.assertIn("chg_5d", comp)
+        # Ensure no look-ahead bias: even 29 days earlier (monotonically rising),
+        # trailing window rank is still near 100, NOT suppressed by future values.
+        self.assertGreaterEqual(comp["history"][0]["value"], 99)
+
     def test_hysteresis_term_velocity_and_recovery(self):
         # VIX/VIX3M = 28.29 / 26.29 = 1.076 -> term warning
         p = _make_payload(vix=28.29, vix3m=26.29)

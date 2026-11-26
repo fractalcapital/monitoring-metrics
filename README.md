@@ -98,7 +98,7 @@ API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/pus
 
 - `metrics/`：六个指标的独立页面（VIX、期限结构、VVIX、SKEW、MOVE、HY OAS，各带一份 README）
 - `dashboard/`：实时仪表盘页面 + `data.json` + `alert_state.json`
-- `scripts/`：拉取脚本（`fetch_dashboard.py`）与发布脚本（`push_data.sh`）
+- `scripts/`：拉取入口（`fetch_dashboard.py`）、模块化核心包（`monitoring/{config,calendar,series,providers,alerts}.py`）与发布脚本（`push_data.sh`）
 - `alert/`：飞书 + Bark 发送模块（`notify.py`）
 - `api/`：VPS 上的 API 服务与部署脚本
 - `tests/`：单元测试与 Python / JS 一致性测试

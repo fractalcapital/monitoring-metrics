@@ -1338,6 +1338,121 @@
     border: 1px solid var(--border);
     vertical-align: middle;
   }
+
+  /* 综合情绪压力分走势卡 */
+  .composite-card {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    align-items: center;
+    padding: 18px 20px;
+  }
+  @media (min-width: 960px) {
+    .composite-card {
+      grid-template-columns: 310px 1fr;
+      gap: 26px;
+    }
+  }
+  .comp-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .comp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .comp-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .comp-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .comp-score-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .comp-score-num {
+    font-family: var(--font-mono);
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .comp-score-num small {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-left: 2px;
+  }
+  .comp-bars {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px 14px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+  }
+  .comp-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .comp-bar-top {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+  }
+  .comp-bar-top b { color: var(--text); font-weight: 600; }
+  .comp-bar-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--surface2);
+    overflow: hidden;
+  }
+  .comp-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+  }
+  .comp-chart-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .comp-chart-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+  .comp-stage {
+    position: relative;
+    width: 100%;
+    height: 118px;
+    cursor: crosshair;
+    touch-action: pan-y;
+  }
+  .comp-axis-lbl {
+    position: absolute;
+    left: 2px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-dim);
+    pointer-events: none;
+    line-height: 1;
+  }
   .tv-link {
     display: inline-flex;
     align-items: center;
@@ -2281,6 +2396,9 @@
       </div>
     </div>
   </div>
+
+  <!-- 综合情绪压力分历史走势 -->
+  <section id="compositeSection" style="display:none;margin-top:18px;margin-bottom:26px;"></section>
 
   <!-- 五项核心指标网格 (宽屏 5 列平铺) -->
   <section id="indicatorsSection">
@@ -3938,8 +4056,186 @@ function render(data, isSnapshot, fallbackSource){
   /* VIX 期限结构曲线 */
   renderTermStructure(data.term_structure, staleSet);
 
+  /* 综合情绪压力分历史走势卡 */
+  renderCompositeCard(data.composite);
+
   initSparklineInteractivity();
   hasAnimated = true;
+}
+
+/* ---- 综合情绪压力分走势卡（0-100 固定坐标 + 分项分位条 + 触控十字线） ---- */
+function compositeTone(score){
+  if(score >= 85) return { cls: 'b-red',    tone: 'tone-red',    label: '高压区间', color: 'var(--red-solid)',    glow: 'var(--red-bg)' };
+  if(score >= 70) return { cls: 'b-orange', tone: 'tone-orange', label: '偏高区间', color: 'var(--orange-solid)', glow: 'var(--orange-bg)' };
+  if(score >= 40) return { cls: 'b-amber',  tone: 'tone-amber',  label: '温和升温', color: 'var(--amber-solid)',  glow: 'var(--amber-bg)' };
+  return { cls: 'b-green', tone: 'tone-green', label: '相对平静', color: 'var(--green-solid)', glow: 'var(--green-bg)' };
+}
+
+function renderCompositeCard(comp){
+  const sec = document.getElementById('compositeSection');
+  if(!sec) return;
+  if(!comp || comp.score === null || comp.score === undefined){
+    sec.style.display = 'none';
+    sec.innerHTML = '';
+    return;
+  }
+  sec.style.display = 'block';
+  const score = Number(comp.score);
+  const t = compositeTone(score);
+  const chg = comp.change;
+  const chg5 = comp.chg_5d;
+  const deltaChip = (chg !== null && chg !== undefined)
+    ? `<span class="chip ${chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat'}">${chg > 0 ? '▲ +' : chg < 0 ? '▼ ' : '— '}${chg} 较前日</span>`
+    : '';
+  const delta5Meta = (chg5 !== null && chg5 !== undefined)
+    ? `<span class="prev-meta">5日 ${chg5 > 0 ? '+' : ''}${chg5}</span>`
+    : '';
+
+  const compMeta = [
+    ['vix', 'VIX', '×1.0'],
+    ['hy_oas', 'HY OAS', '×1.0'],
+    ['move', 'MOVE', '×1.0'],
+    ['vvix', 'VVIX', '×0.5']
+  ];
+  const comps = comp.components || {};
+  const barsHTML = compMeta.map(([k, name, w]) => {
+    const val = comps[k];
+    if(val === null || val === undefined) return '';
+    const bt = compositeTone(val);
+    return `
+      <div class="comp-bar-item" title="${name} 近一年分位 ${val}%（权重 ${w}）">
+        <div class="comp-bar-top"><span>${name} <span style="opacity:.55">${w}</span></span><b>${val}%</b></div>
+        <div class="comp-bar-track"><div class="comp-bar-fill" style="width:${Math.max(2, Math.min(100, val))}%;background:${bt.color};"></div></div>
+      </div>
+    `;
+  }).join('');
+
+  const hist = Array.isArray(comp.history) ? comp.history.filter(p => p && p.date && p.value !== null && p.value !== undefined) : [];
+  let chartHTML = '';
+  if(hist.length >= 2){
+    const w = 640, h = 118, padX = 24, padTop = 10, padBot = 10;
+    const yOf = v => h - padBot - (Math.max(0, Math.min(100, Number(v))) / 100) * (h - padTop - padBot);
+    const pts = hist.map((p, i) => [
+      padX + i * (w - padX - 8) / (hist.length - 1),
+      yOf(p.value)
+    ]);
+    const linePath = buildSmoothPath(pts);
+    const firstPt = pts[0], lastPt = pts[pts.length - 1];
+    const areaPath = `${linePath} L ${lastPt[0].toFixed(2)},${h - padBot} L ${firstPt[0].toFixed(2)},${h - padBot} Z`;
+    const y80 = yOf(80).toFixed(1), y40 = yOf(40).toFixed(1);
+    const vals = hist.map(p => Number(p.value));
+    const minV = Math.min(...vals), maxV = Math.max(...vals);
+    const payload = JSON.stringify(hist.map((p, i) => ({
+      xp: +(pts[i][0] / w * 100).toFixed(2),
+      yp: +(pts[i][1] / h * 100).toFixed(2),
+      date: p.date,
+      val: Number(p.value),
+      chg: i > 0 ? Number(p.value) - Number(hist[i - 1].value) : null
+    }))).replace(/"/g, '&quot;');
+    const endLeftPct = (lastPt[0] / w * 100).toFixed(2);
+    const endTopPct = (lastPt[1] / h * 100).toFixed(2);
+
+    chartHTML = `
+      <div class="comp-chart-wrap" style="--spark-color:${t.color};--spark-glow:${t.glow};">
+        <div class="comp-chart-head">
+          <span>近 ${hist.length} 个交易日情绪压力分走势（0–100 固定坐标 · 无前视偏差）</span>
+          <span style="font-family:var(--font-mono);">80 高压线 · 40 平静线</span>
+        </div>
+        <div class="comp-stage" id="compStage" data-history="${payload}">
+          <span class="comp-axis-lbl" style="top:${(yOf(80) / h * 100 - 4).toFixed(1)}%;">80</span>
+          <span class="comp-axis-lbl" style="top:${(yOf(40) / h * 100 - 4).toFixed(1)}%;">40</span>
+          <svg class="spark-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="sg-composite" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${t.color}" stop-opacity="0.26"/>
+                <stop offset="100%" stop-color="${t.color}" stop-opacity="0.00"/>
+              </linearGradient>
+            </defs>
+            <rect x="${padX}" y="${padTop}" width="${w - padX - 8}" height="${(yOf(80) - padTop).toFixed(1)}" fill="var(--red-bg)" opacity="0.45"/>
+            <line x1="${padX}" y1="${y80}" x2="${w - 8}" y2="${y80}" stroke="var(--red-solid)" stroke-opacity="0.38" stroke-dasharray="4 4" stroke-width="1"/>
+            <line x1="${padX}" y1="${y40}" x2="${w - 8}" y2="${y40}" stroke="var(--green-solid)" stroke-opacity="0.38" stroke-dasharray="4 4" stroke-width="1"/>
+            <path d="${areaPath}" fill="url(#sg-composite)"/>
+            <path class="spark-line" d="${linePath}"/>
+          </svg>
+          <span class="spark-dot-end" style="left:${endLeftPct}%;top:${endTopPct}%;"></span>
+          <span class="spark-hover-v"></span>
+          <span class="spark-hover-dot"></span>
+          <div class="spark-tooltip"></div>
+        </div>
+        <div class="spark-meta">
+          <span>${shortDate(hist[0].date)} → ${shortDate(hist[hist.length - 1].date)} (${hist.length}日)</span>
+          <span>L ${minV} · H ${maxV}</span>
+        </div>
+      </div>
+    `;
+  } else {
+    chartHTML = `
+      <div class="comp-chart-wrap" style="justify-content:center;align-items:center;min-height:96px;border:1px dashed var(--border);border-radius:10px;padding:14px;color:var(--text-dim);font-size:12px;">
+        综合情绪压力分历史曲线将在下次服务端同步后自动显示
+      </div>
+    `;
+  }
+
+  sec.innerHTML = `
+    <div class="card has-tone ${t.tone} composite-card">
+      <div class="comp-left">
+        <div class="comp-head">
+          <div>
+            <div class="comp-title">综合情绪压力分</div>
+            <div class="comp-sub">${escapeHtml(comp.basis || '近一年分位加权')}（不含 SKEW）</div>
+          </div>
+          <span class="badge ${t.cls}">${t.label}</span>
+        </div>
+        <div class="comp-score-row">
+          <div class="comp-score-num" style="color:${t.color};">${score}<small>/ 100</small></div>
+          ${deltaChip}
+          ${delta5Meta}
+        </div>
+        <div class="comp-bars">${barsHTML}</div>
+      </div>
+      ${chartHTML}
+    </div>
+  `;
+
+  const stage = document.getElementById('compStage');
+  if(stage){
+    try {
+      const data = JSON.parse(stage.getAttribute('data-history') || '[]');
+      const vLine = stage.querySelector('.spark-hover-v');
+      const hDot = stage.querySelector('.spark-hover-dot');
+      const tooltip = stage.querySelector('.spark-tooltip');
+      const updateAt = clientX => {
+        const rect = stage.getBoundingClientRect();
+        if(!rect.width || !data.length) return;
+        const padLeftFrac = 24 / 640, padRightFrac = 8 / 640;
+        const innerW = rect.width * (1 - padLeftFrac - padRightFrac);
+        const pct = Math.max(0, Math.min(1, (clientX - rect.left - rect.width * padLeftFrac) / innerW));
+        const p = data[Math.round(pct * (data.length - 1))];
+        if(!p) return;
+        vLine.style.display = 'block';
+        vLine.style.left = p.xp + '%';
+        hDot.style.display = 'block';
+        hDot.style.left = p.xp + '%';
+        hDot.style.top = p.yp + '%';
+        tooltip.style.display = 'block';
+        const dStr = p.chg !== null ? `（${p.chg > 0 ? '+' : ''}${p.chg}）` : '';
+        tooltip.textContent = `${shortDate(p.date)} · 压力分 ${p.val}/100${dStr}`;
+        const stageW = stage.clientWidth || 320;
+        const ttW = tooltip.offsetWidth || 130;
+        const halfPct = Math.min(48, (ttW / 2 / stageW) * 100 + 2);
+        tooltip.style.left = Math.max(halfPct, Math.min(100 - halfPct, p.xp)).toFixed(1) + '%';
+      };
+      const hide = () => {
+        vLine.style.display = 'none';
+        hDot.style.display = 'none';
+        tooltip.style.display = 'none';
+      };
+      stage.addEventListener('pointerdown', e => updateAt(e.clientX));
+      stage.addEventListener('pointermove', e => { if(e.pointerType === 'mouse' || e.buttons > 0) updateAt(e.clientX); });
+      stage.addEventListener('pointerleave', hide);
+      stage.addEventListener('pointercancel', hide);
+    } catch(e){}
+  }
 }
 
 /* 锚点平滑滚动并脉冲高亮卡片 */
