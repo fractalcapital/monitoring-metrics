@@ -17,8 +17,8 @@ import api_server  # noqa: E402
 from alert import notify  # noqa: E402
 
 
-def _invoke_get(path, req_headers=None):
-    """Run api_server.Handler.do_GET in memory without binding any TCP port."""
+def _invoke_get(path, req_headers=None, method="GET"):
+    """Run api_server.Handler.do_GET/do_HEAD in memory without binding any TCP port."""
     h = api_server.Handler.__new__(api_server.Handler)
     h.path = path
     h.headers = Message()
@@ -40,7 +40,10 @@ def _invoke_get(path, req_headers=None):
     h.send_response = _send_response
     h.send_header = _send_header
     h.end_headers = _end_headers
-    h.do_GET()
+    if method == "HEAD":
+        h.do_HEAD()
+    else:
+        h.do_GET()
     return status_box[0], resp_headers, h.wfile.getvalue()
 
 
@@ -103,6 +106,13 @@ class ApiServerTests(unittest.TestCase):
                 self.assertEqual(status304, 304)
                 self.assertEqual(headers304.get("ETag"), etag)
                 self.assertEqual(raw304, b"")
+
+                # HEAD returns 200 with headers & Content-Length but empty body
+                status_h, headers_h, raw_h = _invoke_get("/api/data", method="HEAD")
+                self.assertEqual(status_h, 200)
+                self.assertEqual(headers_h.get("ETag"), etag)
+                self.assertEqual(int(headers_h.get("Content-Length", "0")), len(raw))
+                self.assertEqual(raw_h, b"")
 
                 # Alert state endpoint
                 status_s, headers_s, raw_s = _invoke_get("/api/alert-state")

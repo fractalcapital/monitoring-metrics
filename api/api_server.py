@@ -282,13 +282,14 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # to stdout, picked up by journald
         print("%s %s" % (self.address_string(), fmt % args), flush=True)
 
-    def _send_json(self, status, payload, public_cors=False, cache_control=None):
+    def _send_json(self, status, payload, public_cors=False,
+                   cache_control=None, head_only=False):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self._send_raw_json(status, body, public_cors=public_cors,
-                            cache_control=cache_control)
+                            cache_control=cache_control, head_only=head_only)
 
     def _send_raw_json(self, status, body, public_cors=False,
-                       cache_control=None, etag=None):
+                       cache_control=None, etag=None, head_only=False):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         if cache_control:
@@ -304,14 +305,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Vary", "Origin")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        if body:
+        if body and not head_only:
             self.wfile.write(body)
 
-    def _serve_data_file(self, filename):
+    def _serve_data_file(self, filename, head_only=False):
         raw = _read_json_bytes(filename)
         if raw is None:
             self._send_json(404, {"ok": False, "error": "%s not found" % filename},
-                            public_cors=True, cache_control="no-store")
+                            public_cors=True, cache_control="no-store",
+                            head_only=head_only)
             return
         etag = '"%s"' % hashlib.sha256(raw).hexdigest()[:16]
         inm = (self.headers.get("If-None-Match") or "").strip()
@@ -324,39 +326,46 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         self._send_raw_json(200, raw, public_cors=True,
-                            cache_control=DATA_CACHE_CONTROL, etag=etag)
+                            cache_control=DATA_CACHE_CONTROL, etag=etag,
+                            head_only=head_only)
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
         self.send_response(204)
         if origin == ALLOWED_ORIGIN:
             self.send_header("Access-Control-Allow-Origin", origin)
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers",
                              "Content-Type, X-Api-Token")
             self.send_header("Access-Control-Max-Age", "86400")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def do_GET(self):
+    def do_HEAD(self):
+        self.do_GET(head_only=True)
+
+    def do_GET(self, head_only=False):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/health"):
             self._send_json(200, {
                 "ok": True, "service": "monitoring-api",
                 "time": dt.datetime.now(dt.timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ")},
-                public_cors=True, cache_control="no-store")
+                public_cors=True, cache_control="no-store",
+                head_only=head_only)
         elif path == "/api/data":
-            self._serve_data_file("data.json")
+            self._serve_data_file("data.json", head_only=head_only)
         elif path == "/api/alert-state":
-            self._serve_data_file("alert_state.json")
+            self._serve_data_file("alert_state.json", head_only=head_only)
         elif path == "/api/job":
             # Copy snapshot under lock so slow socket writes never block _lock.
             with _lock:
                 snap = {"running": _job["running"], "last_result": _job["result"]}
-            self._send_json(200, snap, cache_control="no-store")
+            self._send_json(200, snap, cache_control="no-store",
+                            head_only=head_only)
         else:
-            self._send_json(404, {"ok": False, "error": "not found"})
+            self._send_json(404, {"ok": False, "error": "not found"},
+                            head_only=head_only)
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
