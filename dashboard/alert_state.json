@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-11-26T05:07:42Z",
+  "updated_at_utc": "2026-11-26T05:14:49Z",
   "channels_configured": {
     "feishu": true,
     "bark": true
@@ -9,27 +9,27 @@
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-26T05:07:42Z",
+      "last_ok_at_utc": "2026-11-26T05:14:49Z",
       "provider": "fred_api"
     },
     "equities": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-26T05:07:42Z",
+      "last_ok_at_utc": "2026-11-26T05:14:49Z",
       "provider": "cboe+fred_api"
     },
     "move": {
       "ok": true,
       "last_error": null,
       "last_failed_at_utc": null,
-      "last_ok_at_utc": "2026-11-26T05:07:42Z",
+      "last_ok_at_utc": "2026-11-26T05:14:49Z",
       "provider": "yahoo_cffi"
     },
     "freshness": {
       "ok": false,
       "last_error": "预期收盘日 2026-11-25：标普 500 2026-11-24（落后 1 个交易日）",
-      "last_failed_at_utc": "2026-11-26T05:07:42Z",
+      "last_failed_at_utc": "2026-11-26T05:14:49Z",
       "last_ok_at_utc": null
     }
   },

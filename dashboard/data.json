@@ -1,6 +1,6 @@
 {
-  "updated_at_utc": "2026-11-26T05:07:42Z",
-  "updated_at_beijing": "2026-11-26 13:07 Beijing",
+  "updated_at_utc": "2026-11-26T05:14:49Z",
+  "updated_at_beijing": "2026-11-26 13:14 Beijing",
   "source": "CBOE CDN (VIX/VVIX/SKEW/期限结构); FRED API (SPX/HY OAS); Yahoo Finance (MOVE)",
   "sources_used": {
     "vix": "cboe",
