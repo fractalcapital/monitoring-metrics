@@ -109,7 +109,9 @@ su - monitoring -c "futu auth login"
 
 ## 7. 后续架构升级：VPS API 直出数据（取消每次 git commit）
 
-- **改造内容**：
+> 完整迁移记录、方案对比、问题排障与验收结果见独立运维文档：[ops-api-data-migration.md](ops-api-data-migration.md)。
+
+- **改造要点**：
   - `api_server.py` 新增只读端点 `GET /api/data` 与 `GET /api/alert-state`（支持 `ETag`/`304`、`Cache-Control: public, max-age=60, stale-while-revalidate=300` 及 `MM_OUT_DIR`）；
   - 生产运行时数据目录迁至 `/var/lib/monitoring/data`（通过 `.env` 的 `MM_OUT_DIR` 指定），与 `/opt/monitoring-metrics` git 工作区彻底隔离；
   - `scripts/push_data.sh` 移除全部 `git pull / commit / push` 与推库失败报警逻辑，仅保留并发锁、拉取与 `HEALTHCHECK_URL` 心跳；
