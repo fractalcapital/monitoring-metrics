@@ -37,6 +37,7 @@ SKEW 衡量的是深度虚值看跌期权相对平值期权的溢价。实证与
 $$P_k(t) = \operatorname{round}\!\left(100 \times \frac{\#\{v \in \text{window}_k(t) : v < x_k(t)\} + 0.5 \times \#\{v \in \text{window}_k(t) : v = x_k(t)\}}{|\text{window}_k(t)|}\right)$$
 
 - 采用「低于次数 + 0.5 × 等于次数」的中位排名法（mid-rank），避免重复值造成边界跳变。
+- 直观含义与单张指标卡上的 **「1年分位 %」** 一致：例如 `98`（即 `98%`）代表当前读数高于过去一年约 98% 的交易日收盘价，处于年内极高位置；`50` 附近为年内中位数，`0` 附近为年内低点（更多卡片统计说明见 [dashboard/README.md](../dashboard/README.md)）。
 - 各指标量纲不同（VIX 约 15–40、MOVE 约 80–140、HY OAS 约 300–500bp），转成 0–100 分位数后即可在统一尺度下加权。
 
 ### 第二步：加权平均
