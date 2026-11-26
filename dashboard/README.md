@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | VIX / VVIX / SKEW | 美区 VPS Futu CLI → CBOE 官方 CDN CSV → Yahoo (`curl_cffi`) | 每个交易日收盘 |
 | VIX 期限结构（1D / 9D / 3M / 6M） | CBOE 官方 CDN CSV → Yahoo (`curl_cffi`) | 每个交易日收盘 |
-| 标普 500 | Futu CLI → FRED `SP500` → Stooq → Yahoo (`curl_cffi`) | 每个交易日收盘 |
+| 标普 500 | Futu CLI → Yahoo (`curl_cffi`) → Stooq → FRED `SP500` | 每个交易日收盘 |
 | MOVE | Yahoo (`curl_cffi` + Crumb) → TradingView (`TVC:MOVE`) → TheTrading.Tools CSV | 每个交易日收盘 |
 | HY OAS / IG / CCC | FRED 官方 JSON API (`BAMLH0A0HYM2` / `BAMLC0A0CM` / `BAMLH0A3HYC`) → FRED CSV | **每日一次**（通常滞后 1 个工作日） |
 

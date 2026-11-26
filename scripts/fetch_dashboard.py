@@ -15,9 +15,9 @@ Multi-source architecture (server-side only -- browsers are blocked by CORS):
       2. Yahoo Finance (`curl_cffi` + Cookie/Crumb)
   - S&P 500 (SPX):
       1. Futu CLI (`US..SPX`) when Futu is enabled
-      2. FRED (`SP500`, official JSON API if FRED_API_KEY is set, else CSV)
-      3. Stooq daily CSV (`^spx`)
-      4. Yahoo Finance (`^GSPC`)
+      2. Yahoo Finance (`^GSPC`, via `curl_cffi` + Cookie/Crumb; same-day close + H/L)
+      3. Stooq daily CSV (`^spx`; same-day close + H/L)
+      4. FRED (`SP500`, official JSON API / CSV; 1-business-day lag fallback)
   - MOVE Index (ICE BofA MOVE):
       Configurable via MOVE_SOURCE_ORDER (default: "yahoo,tradingview,thetrading_tools")
       1. Yahoo Finance (`^MOVE`, single symbol via `curl_cffi` + Cookie/Crumb)
@@ -1305,15 +1305,15 @@ def resolve_equities_and_term(prev_payload):
             else:
                 raise RuntimeError("No data or cache for %s: %s" % (key, exc)) from exc
 
-    # 3. S&P 500: Futu CLI -> FRED SP500 -> Stooq -> Yahoo
+    # 3. S&P 500: Futu CLI -> Yahoo (same-day + H/L) -> Stooq -> FRED SP500 (1d lag fallback)
     prev_spx = _prev_pairs_for(prev_payload, "spx")
     spx_chain = []
     if has_futu and "spx" in futu_map:
         spx_sym = futu_map["spx"]
         spx_chain.append(("futu", lambda s=spx_sym, h=prev_spx: fetch_futu(s, h)))
-    spx_chain.append(("fred", lambda: fetch_fred_series("SP500", scale=1.0, round_digits=2)))
-    spx_chain.append(("stooq", fetch_stooq_spx))
     spx_chain.append(("yahoo", lambda: fetch_yahoo(YAHOO_SYMBOLS["spx"], fast_fail=True)))
+    spx_chain.append(("stooq", fetch_stooq_spx))
+    spx_chain.append(("fred", lambda: fetch_fred_series("SP500", scale=1.0, round_digits=2)))
     try:
         pairs_map["spx"], sources_map["spx"] = _try_providers("spx", spx_chain)
     except Exception as exc:  # noqa: BLE001
