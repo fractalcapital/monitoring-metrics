@@ -3,8 +3,8 @@
 页面：[index.html](index.html) —— VIX / VVIX / SKEW / MOVE / HY OAS 五项核心指标 + 标普 500 + VIX 期限结构 + IG/CCC 信用分层，一页看完。支持亮/暗双主题、移动端触控查看走势、NYSE 节假日与半日市识别、以及客户端数据过期检测。
 
 状态栏与风控区提供三个手动按钮（均走 VPS 接口 `https://api.infidea.app`，页面不保存任何推送密钥）：
-- **刷新**：异步触发服务端重新拉取最新行情并推库，完成后自动刷新页面。
-- **飞书推送 / Bark 推送**：同步使用已缓存的 `data.json` 立即发送五项指标状态汇总（1–2 秒返回），通道之间独立限速。
+- **刷新**：异步触发服务端重新拉取最新行情并写入运行时数据目录，完成后立即刷新页面（无需等待 GitHub Pages 构建）。
+- **飞书推送 / Bark 推送**：同步使用服务端已缓存的 `data.json` 立即发送五项指标状态汇总（1–2 秒返回），通道之间独立限速。
 
 ## 波动情况
 
@@ -30,9 +30,9 @@
 | MOVE | Yahoo (`curl_cffi` + Crumb) → TradingView (`TVC:MOVE`) → TheTrading.Tools CSV | 每个交易日收盘 |
 | HY OAS / IG / CCC | FRED 官方 JSON API (`BAMLH0A0HYM2` / `BAMLC0A0CM` / `BAMLH0A3HYC`) → FRED CSV | **每日一次**（通常滞后 1 个工作日） |
 
-- 美区 VPS 定时任务在美股交易日收盘后运行两次（UTC 21:30 / 23:30，周一至周五），拉取约一年历史用于计算 1 年分位与 5 日 / 20 日变化，`data.json` 保留最近 30 日走势，写入采用原子替换（`.tmp` + `fsync` + `os.replace`）。
+- 美区 VPS 定时任务在美股交易日收盘后运行两次（UTC 21:30 / 23:30，周一至周五），拉取约一年历史用于计算 1 年分位与 5 日 / 20 日变化，`data.json` 保留最近 30 日走势，原子写入 `/var/lib/monitoring/data/`（与 git 仓库隔离，不提交 commit）。
 - 盘中高低价经过合理性过滤（丢弃平盘 `H == L` 与异常坏 tick）；交易时段内手动刷新会自动标注“盘中”。
-- 页面平时每 30 分钟同源拉取 `./data.json`，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，半日市 13:25–14:05 ET，自动适配夏/冬令时）每 1 分钟刷新；读取失败时优先回退浏览器 `localStorage` 中上次成功缓存的数据，其次回退内置快照。
+- 页面平时每 30 分钟从 `https://api.infidea.app/api/data` 拉取实时数据，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，半日市 13:25–14:05 ET，自动适配夏/冬令时）每 1 分钟刷新；API 不可用时按浏览器 `localStorage` 缓存 → 静态 `./data.json` → 内置快照依次兜底。
 
 ## 报警规则
 
@@ -51,7 +51,7 @@
 | HY OAS 急速走阔 | 单日 ≥ +25bp 或 5 日 ≥ +50bp | — | 事件型速度报警 |
 
 - 同级 24 小时去重，级别升级立刻推送；水平报警回落到回滞带下方后发送“解除”通知（Bark 使用静默 `passive` 级别）。
-- 数据源拉取失败、收盘日期落后（`freshness`）或 `push_data.sh` 连续推库失败时均会报警；此外 `.github/workflows/freshness-watchdog.yml` 作为独立外部巡检，每天在 VPS 定时任务之后核验仓库 `data.json` 是否停更。
+- 数据源拉取失败或收盘日期落后（`freshness`）时均会报警；此外 `.github/workflows/freshness-watchdog.yml` 作为独立外部巡检，每天在 VPS 定时任务之后直接请求 `https://api.infidea.app/api/data` 核验接口可用性与数据新鲜度。
 
 ## 本地查看与测试
 

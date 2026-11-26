@@ -1,8 +1,11 @@
-"""Unit tests for api/api_server.py and alert/notify.py (local mock server only)."""
+"""Unit tests for api/api_server.py and alert/notify.py (in-memory, no sockets)."""
+import io
 import json
 import os
 import sys
+import tempfile
 import unittest
+from email.message import Message
 from pathlib import Path
 from unittest import mock
 
@@ -12,6 +15,33 @@ sys.path.insert(0, str(REPO / "api"))
 
 import api_server  # noqa: E402
 from alert import notify  # noqa: E402
+
+
+def _invoke_get(path, req_headers=None):
+    """Run api_server.Handler.do_GET in memory without binding any TCP port."""
+    h = api_server.Handler.__new__(api_server.Handler)
+    h.path = path
+    h.headers = Message()
+    for k, v in (req_headers or {}).items():
+        h.headers[k] = v
+    h.wfile = io.BytesIO()
+    status_box = []
+    resp_headers = {}
+
+    def _send_response(code, message=None):
+        status_box.append(code)
+
+    def _send_header(key, value):
+        resp_headers[key] = value
+
+    def _end_headers():
+        pass
+
+    h.send_response = _send_response
+    h.send_header = _send_header
+    h.end_headers = _end_headers
+    h.do_GET()
+    return status_box[0], resp_headers, h.wfile.getvalue()
 
 
 class ApiServerTests(unittest.TestCase):
@@ -47,6 +77,45 @@ class ApiServerTests(unittest.TestCase):
         out = "  manual push status (feishu,bark): feishu=True bark=False\n"
         self.assertEqual(api_server._parse_push_results(out),
                          {"feishu": True, "bark": False})
+
+    def test_get_data_and_alert_state_with_etag_and_mm_out_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            data_path = Path(td) / "data.json"
+            state_path = Path(td) / "alert_state.json"
+            data_path.write_text(json.dumps({"updated_at_utc": "2026-11-26T00:00:00Z", "v": 1}),
+                                 encoding="utf-8")
+            state_path.write_text(json.dumps({"updated_at_utc": "2026-11-26T00:00:00Z", "alerts": {}}),
+                                  encoding="utf-8")
+
+            with mock.patch.dict(os.environ, {"MM_OUT_DIR": td}):
+                status, headers, raw = _invoke_get("/api/data?t=123")
+                body = json.loads(raw.decode("utf-8"))
+                etag = headers.get("ETag")
+                self.assertEqual(status, 200)
+                self.assertEqual(body["v"], 1)
+                self.assertEqual(headers.get("Access-Control-Allow-Origin"), "*")
+                self.assertIn("max-age=60", headers.get("Cache-Control", ""))
+                self.assertTrue(etag)
+
+                # Conditional GET with matching ETag -> 304 Not Modified
+                status304, headers304, raw304 = _invoke_get(
+                    "/api/data", {"If-None-Match": etag})
+                self.assertEqual(status304, 304)
+                self.assertEqual(headers304.get("ETag"), etag)
+                self.assertEqual(raw304, b"")
+
+                # Alert state endpoint
+                status_s, headers_s, raw_s = _invoke_get("/api/alert-state")
+                state_body = json.loads(raw_s.decode("utf-8"))
+                self.assertEqual(status_s, 200)
+                self.assertEqual(state_body["alerts"], {})
+                self.assertEqual(headers_s.get("Access-Control-Allow-Origin"), "*")
+
+                # Corrupt data.json returns 404 when fallback is also absent
+                data_path.write_text("{broken json", encoding="utf-8")
+                with mock.patch.object(api_server, "REPO_DIR", Path(td)):
+                    status_bad, _, _ = _invoke_get("/api/data")
+                    self.assertEqual(status_bad, 404)
 
 
 class _FakeResp:

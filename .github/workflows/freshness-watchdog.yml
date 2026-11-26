@@ -1,8 +1,8 @@
 name: Data Freshness Watchdog
 
-# External dead-man's-switch: checks whether the VPS cron + git push pipeline
-# has kept dashboard/data.json up to date with the latest NYSE trading day.
-# Touches NO market APIs (zero Yahoo/CBOE/FRED requests).
+# External dead-man's-switch: checks both VPS API availability and whether
+# the VPS cron pipeline has kept live data up to date with the latest NYSE
+# trading day. Touches NO upstream market APIs (zero Yahoo/CBOE/FRED calls).
 on:
   schedule:
     # 01:00 UTC Tue-Sat = 09:00 Beijing Tue-Sat (well after 05:30 & 07:30 VPS runs)
@@ -17,20 +17,53 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify dashboard/data.json freshness
+      - name: Verify live API data freshness
         env:
+          DATA_URL: https://api.infidea.app/api/data
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           BARK_URL: ${{ secrets.BARK_URL }}
         run: |
           python3 - <<'PYEOF'
-          import datetime as dt, json, sys
+          import datetime as dt, json, os, sys, time, urllib.request
           from pathlib import Path
           sys.path.insert(0, str(Path.cwd()))
           sys.path.insert(0, str(Path.cwd() / "scripts"))
           import fetch_dashboard as fd
           from alert.notify import send_bark, send_feishu_card
 
-          data = json.loads(Path("dashboard/data.json").read_text(encoding="utf-8"))
+          url = os.environ.get("DATA_URL", "https://api.infidea.app/api/data")
+          data = None
+          last_err = None
+          for attempt in range(3):
+              try:
+                  req = urllib.request.Request(
+                      url,
+                      headers={"User-Agent": "curl/8.5.0", "Cache-Control": "no-cache"},
+                  )
+                  with urllib.request.urlopen(req, timeout=15) as resp:
+                      if resp.status != 200:
+                          raise RuntimeError("HTTP %s" % resp.status)
+                      data = json.loads(resp.read().decode("utf-8"))
+                  break
+              except Exception as exc:
+                  last_err = str(exc)
+                  if attempt < 2:
+                      time.sleep(5)
+
+          if not isinstance(data, dict) or not isinstance(data.get("indicators"), dict):
+              msg = "无法从 %s 读取有效数据：%s" % (url, last_err or "invalid JSON")
+              print("ALERT: %s" % msg, file=sys.stderr)
+              title = "【外部巡检·预警】VPS 数据接口不可达"
+              body = (
+                  "巡检发现：%s\n"
+                  "可能原因：proud-pipes-7 宕机、monitoring-api 服务异常或 Cloudflare Tunnel 断开。\n"
+                  "查看仪表盘：https://mon.infidea.app/dashboard/"
+                  % msg
+              )
+              send_feishu_card(title, body, "red")
+              send_bark(title, body, "critical")
+              sys.exit(1)
+
           now_utc = dt.datetime.now(dt.timezone.utc)
           expected = fd._expected_close_date(now_utc)
           ind = data["indicators"]
@@ -40,7 +73,7 @@ jobs:
               ("move", "MOVE", 0),
               ("hy_oas", "HY OAS", 2),
           ):
-              d = ind[key].get("date")
+              d = (ind.get(key) or {}).get("date")
               lag = fd._trading_lag(d, expected)
               if lag is None or lag > max_lag:
                   problems.append("%s %s（预期 %s，落后 %s 个交易日）" % (label, d, expected, lag))
@@ -49,7 +82,7 @@ jobs:
               problems.append("存在缓存兜底项：%s" % ", ".join(stale))
 
           if not problems:
-              print("OK: data.json is fresh for expected NYSE close %s (updated_at_utc=%s)"
+              print("OK: live API data is fresh for expected NYSE close %s (updated_at_utc=%s)"
                     % (expected, data.get("updated_at_utc")))
               sys.exit(0)
 
@@ -59,7 +92,7 @@ jobs:
           body = (
               "巡检发现：%s\n"
               "最近更新时间：%s\n"
-              "可能原因：VPS 定时任务未执行、网络故障或 GitHub 推送失败，请检查 proud-pipes-7。\n"
+              "可能原因：VPS 定时任务未执行、上游拉取故障或服务异常，请检查 proud-pipes-7。\n"
               "查看仪表盘：https://mon.infidea.app/dashboard/"
               % (detail, data.get("updated_at_beijing") or data.get("updated_at_utc"))
           )

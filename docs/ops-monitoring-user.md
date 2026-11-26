@@ -97,11 +97,32 @@ journalctl -u monitoring-api -n 50 --no-pager
 tail -n 60 /var/log/monitoring-metrics/fetch.log
 crontab -u monitoring -l
 
-# 手动以 monitoring 用户拉取并发布一次
+# 手动以 monitoring 用户拉取一次（写入 /var/lib/monitoring/data，不提交 git）
 su - monitoring -c "cd /opt/monitoring-metrics && /bin/bash ./scripts/push_data.sh"
+
+# 验证实时数据接口
+curl -sI https://api.infidea.app/api/data
 
 # 如未来 Futu OAuth token 失效，重新登录
 su - monitoring -c "futu auth login"
+```
+
+## 7. 后续架构升级：VPS API 直出数据（取消每次 git commit）
+
+- **改造内容**：
+  - `api_server.py` 新增只读端点 `GET /api/data` 与 `GET /api/alert-state`（支持 `ETag`/`304`、`Cache-Control: public, max-age=60, stale-while-revalidate=300` 及 `MM_OUT_DIR`）；
+  - 生产运行时数据目录迁至 `/var/lib/monitoring/data`（通过 `.env` 的 `MM_OUT_DIR` 指定），与 `/opt/monitoring-metrics` git 工作区彻底隔离；
+  - `scripts/push_data.sh` 移除全部 `git pull / commit / push` 与推库失败报警逻辑，仅保留并发锁、拉取与 `HEALTHCHECK_URL` 心跳；
+  - `dashboard/index.html` 改为优先读取 `https://api.infidea.app/api/data` 与 `/api/alert-state`（失败时按 `localStorage` → 静态 `./data.json` → 内置快照依次兜底）；
+  - `.github/workflows/freshness-watchdog.yml` 改为直接巡检 `https://api.infidea.app/api/data`（同时监控 API 存活与收盘新鲜度）。
+- **VPS 升级步骤**（以 root 执行）：
+
+```bash
+cd /opt/monitoring-metrics
+git pull --ff-only
+bash /opt/monitoring-metrics/api/deploy.sh <API_TOKEN>
+# 验证 https://api.infidea.app/api/data 正常返回后，可删除旧凭据并在 GitHub 撤销 PAT：
+rm -f /opt/monitoring-metrics/.git-credentials
 ```
 
 ---

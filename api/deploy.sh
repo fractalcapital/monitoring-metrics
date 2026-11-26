@@ -6,9 +6,9 @@
 # API_TOKEN also goes into the dashboard page, so it is public by design;
 # rate limits (keyed by CF-Connecting-IP) are the real protection.
 # You will be prompted (typed in your own terminal, never in chat) for:
-#   FEISHU_WEBHOOK_URL, BARK_URL, FRED_API_KEY, HEALTHCHECK_URL (optional),
-#   and a GitHub fine-grained PAT (only repo fractalcapital/monitoring-metrics,
-#   only Contents read/write, 90-day expiry) used to push data.json back.
+#   FEISHU_WEBHOOK_URL, BARK_URL, FRED_API_KEY, HEALTHCHECK_URL (optional).
+# Runtime data (data.json / alert_state.json) is stored in /var/lib/monitoring/data
+# and served directly via GET /api/data & GET /api/alert-state (no GitHub PAT needed).
 set -u
 
 API_TOKEN="${1:-}"
@@ -23,6 +23,7 @@ fi
 
 SVC_USER="monitoring"
 SVC_HOME="/var/lib/monitoring"
+DATA_DIR="$SVC_HOME/data"
 REPO_DIR="/opt/monitoring-metrics"
 LOG_DIR="/var/log/monitoring-metrics"
 
@@ -39,8 +40,8 @@ if ! id "$SVC_USER" >/dev/null 2>&1; then
   echo "== Creating dedicated system user ($SVC_USER) =="
   useradd --system --create-home --home-dir "$SVC_HOME" --shell /bin/bash "$SVC_USER"
 fi
-mkdir -p "$SVC_HOME"
-chown "$SVC_USER:$SVC_USER" "$SVC_HOME"
+mkdir -p "$SVC_HOME" "$DATA_DIR"
+chown -R "$SVC_USER:$SVC_USER" "$SVC_HOME"
 chmod 700 "$SVC_HOME"
 
 if [ -d "$REPO_DIR/.git" ]; then
@@ -53,6 +54,15 @@ else
 fi
 cd "$REPO_DIR"
 
+# Seed runtime data dir from repo snapshot on first migration so history & alert
+# dedup state carry over seamlessly without dirtying the git working tree.
+for fname in data.json alert_state.json; do
+  if [ ! -f "$DATA_DIR/$fname" ] && [ -f "$REPO_DIR/dashboard/$fname" ]; then
+    cp "$REPO_DIR/dashboard/$fname" "$DATA_DIR/$fname"
+    echo "Seeded $DATA_DIR/$fname from dashboard/$fname"
+  fi
+done
+
 if [ ! -f .env ]; then
   echo "== Secrets (typed here, stored $SVC_USER-only in .env) =="
   read -r -p "Feishu webhook URL: " FEISHU_WEBHOOK_URL
@@ -61,6 +71,7 @@ if [ ! -f .env ]; then
   read -r -p "Healthcheck ping URL (optional, e.g. https://hc-ping.com/<uuid>): " HEALTHCHECK_URL
   cat > .env <<EOF
 API_TOKEN=$API_TOKEN
+MM_OUT_DIR=$DATA_DIR
 FEISHU_WEBHOOK_URL=$FEISHU_WEBHOOK_URL
 BARK_URL=$BARK_URL
 FRED_API_KEY=$FRED_API_KEY
@@ -70,39 +81,27 @@ EOF
   echo ".env written."
 else
   echo "== .env already exists, keeping it =="
+  if ! grep -q '^MM_OUT_DIR=' .env 2>/dev/null; then
+    printf '\nMM_OUT_DIR=%s\n' "$DATA_DIR" >> .env
+    echo "Appended MM_OUT_DIR=$DATA_DIR to .env."
+  fi
   if ! grep -q "API_TOKEN=$API_TOKEN" .env 2>/dev/null; then
     echo "WARNING: .env already has a different API_TOKEN; keeping the existing one." >&2
     echo "If you want to use the token you just passed, edit .env and restart the service." >&2
   fi
 fi
 
-echo "== Git push credential =="
-git config user.name "monitoring-vps"
-git config user.email "monitoring-vps@infidea.app"
-git config credential.helper "store --file=$REPO_DIR/.git-credentials"
-if [ ! -f .git-credentials ]; then
-  read -r -s -p "GitHub fine-grained PAT (input hidden): " GH_PAT
-  echo
-  printf 'https://x-access-token:%s@github.com\n' "$GH_PAT" > .git-credentials
-  chmod 600 .git-credentials
-  unset GH_PAT
-  echo "Push credential stored."
-else
-  echo ".git-credentials already exists, keeping it."
+if [ -f "$REPO_DIR/.git-credentials" ]; then
+  echo "NOTE: $REPO_DIR/.git-credentials is no longer needed (data is served via API, not pushed to GitHub)."
+  echo "      You can remove it and revoke the old GitHub PAT once you verify /api/data works."
 fi
 
 mkdir -p "$LOG_DIR"
-rm -f /tmp/monitoring-metrics-push.lock /tmp/monitoring-metrics-push-fail.count
-chown -R "$SVC_USER:$SVC_USER" "$REPO_DIR" "$LOG_DIR"
-chmod 600 "$REPO_DIR/.env" "$REPO_DIR/.git-credentials"
+rm -f /tmp/monitoring-metrics-push.lock /tmp/monitoring-metrics-push-fail.count \
+      "$REPO_DIR/.git/monitoring-metrics-push.lock" "$REPO_DIR/.git/monitoring-metrics-push-fail.count"
+chown -R "$SVC_USER:$SVC_USER" "$REPO_DIR" "$SVC_HOME" "$LOG_DIR"
+chmod 600 "$REPO_DIR/.env"
 chmod +x "$REPO_DIR/scripts/push_data.sh" "$REPO_DIR/scripts/fetch_dashboard.py" "$REPO_DIR/api/api_server.py"
-
-echo "Testing git push as $SVC_USER..."
-if su -s /bin/bash "$SVC_USER" -c "cd '$REPO_DIR' && git push"; then
-  echo "git push OK."
-else
-  echo "WARNING: git push failed -- check the PAT and try 'git push' by hand." >&2
-fi
 
 echo "== Installing systemd service ($SVC_USER) =="
 cp api/monitoring-api.service /etc/systemd/system/
@@ -111,8 +110,9 @@ systemctl enable monitoring-api
 systemctl restart monitoring-api
 sleep 2
 systemctl status monitoring-api --no-pager | head -12
-echo "== Health check =="
+echo "== Health & data check =="
 curl -s http://127.0.0.1:8080/health; echo
+curl -s http://127.0.0.1:8080/api/data | head -c 200; echo
 
 echo "== Configuring logrotate =="
 cat > /etc/logrotate.d/monitoring-metrics <<EOF
@@ -138,11 +138,12 @@ crontab -u "$SVC_USER" /tmp/monitoring-cron.tmp
 rm -f /tmp/monitoring-cron.tmp
 crontab -u "$SVC_USER" -l | grep push_data.sh
 
-echo "== Smoke test: one fetch + publish as $SVC_USER =="
+echo "== Smoke test: one fetch as $SVC_USER =="
 su -s /bin/bash "$SVC_USER" -c "cd '$REPO_DIR' && /bin/bash ./scripts/push_data.sh" | tail -10
 
 echo
 echo "Done. Next steps:"
 echo "  1. Ensure the Cloudflare Tunnel maps api.infidea.app -> http://127.0.0.1:8080."
-echo "  2. If using Futu CLI, make sure $SVC_USER can run 'futu' (e.g. /usr/local/bin/futu)."
+echo "  2. Verify https://api.infidea.app/api/data returns the live JSON."
+echo "  3. If using Futu CLI, make sure $SVC_USER can run 'futu' (e.g. /usr/local/bin/futu)."
 echo "API_TOKEN in use: $API_TOKEN"

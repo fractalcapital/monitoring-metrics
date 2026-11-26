@@ -63,12 +63,12 @@ open dashboard/index.html
 
 ### 数据怎么来
 
-仪表盘不直接调行情接口（浏览器跨域拿不到 Yahoo / FRED 的数据），而是由一个服务端拉取脚本每天收盘后更新两次，再把结果写进 `dashboard/data.json`，页面同源读取：
+仪表盘不直接调上游行情接口（浏览器跨域拿不到 Yahoo / FRED 的数据），而是由美区 VPS 服务端定时拉取并原子写入独立数据目录（`/var/lib/monitoring/data`），经 `https://api.infidea.app` 实时提供给静态前端页面（无需每次提交 commit 到 GitHub 仓库）：
 
-- 拉取脚本：`scripts/fetch_dashboard.py`，每个美股交易日收盘后跑两次（UTC 21:30 / 23:30，周一至周五，对应北京时间次日 05:30 / 07:30），并计算近一年历史分位、5 日 / 20 日变动、综合情绪压力分与 IG / CCC 信用分层
+- 拉取脚本：`scripts/fetch_dashboard.py`（由 `scripts/push_data.sh` 加并发锁触发），每个美股交易日收盘后跑两次（UTC 21:30 / 23:30，周一至周五，对应北京时间次日 05:30 / 07:30），并计算近一年历史分位、5 日 / 20 日变动、综合情绪压力分与 IG / CCC 信用分层
 - 数据源：VIX / VVIX / SKEW / 标普 500 优先走美区 VPS 的 Futu CLI（CBOE CDN / FRED 兜底）；VIX 期限结构走 CBOE 官方 CDN CSV；MOVE 走 Yahoo（`curl_cffi`）→ TradingView → CSV 三级兜底；HY OAS / IG / CCC 走 FRED 官方 JSON API
-- 数据质量与防断更：盘中高低价自动过滤平盘假高低与坏 tick；`data.json` / `alert_state.json` 原子写入；`push_data.sh` 自动恢复数据提交冲突、忽略纯时间戳变动并在连续推库失败时报警；同时支持可选 `HEALTHCHECK_URL` 外部心跳与 GitHub Actions 外部新鲜度巡检（`.github/workflows/freshness-watchdog.yml`）
-- 产物：`dashboard/data.json`（最新收盘价与统一配置）和 `dashboard/alert_state.json`（预警去重状态），由 VPS 定时提交进仓库
+- 数据质量与防断更：盘中高低价自动过滤平盘假高低与坏 tick；`data.json` / `alert_state.json` 原子写入并与 git 仓库目录隔离；前端优先读 `GET /api/data`（支持 ETag 与缓存），API 暂不可用时按 `localStorage` 缓存 → 静态 `./data.json` → 内置快照依次兜底；同时支持可选 `HEALTHCHECK_URL` 外部心跳与 GitHub Actions 外部新鲜度巡检（`.github/workflows/freshness-watchdog.yml`）
+- 产物：VPS 本地 `MM_OUT_DIR`（默认 `/var/lib/monitoring/data`）下的 `data.json`（最新收盘价与统一配置）和 `alert_state.json`（预警去重状态）；仓库内 `dashboard/data.json` 仅保留作静态兜底样本，不再随日常行情提交
 
 ### 已知滞后
 
@@ -78,22 +78,23 @@ open dashboard/index.html
 
 每张卡片都有一个“波动情况”状态（定档区间与告警阈值统一由后端随 `data.json` 下发）：先按区间定级（比如 VIX <20 平静、20–30 警惕、30–40 紧张、≥40 恐慌；MOVE 60–120 常态、120–140 偏高、≥140 紧张），再看常态区单日异动（VIX/VVIX/SKEW/MOVE 单日涨跌 ≥10%，HY OAS 单日变动 ≥25bp 记为“异动”）。预警阈值：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，以及股债综合预警。预警带回滞防抖、同级 24 小时去重，并在警报回落解除时发恢复通知。
 
-预警走两个通道（由 VPS 服务端发，密钥只放在服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败、收盘日期落后与连续推库失败同样会报警。
+预警走两个通道（由 VPS 服务端发，密钥只放在服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败、收盘日期落后与 API 不可达同样会报警。
 
 ### 手动刷新与推送
 
-仪表盘上有三个按钮，走 VPS 上的 API（`https://api.infidea.app`）：
+仪表盘通过 VPS 上的 API（`https://api.infidea.app`）提供实时读取与三个手动按钮：
 
-- 刷新数据：重新拉取并更新 `data.json`（异步）
+- 实时读取：`GET /api/data` 与 `GET /api/alert-state`（公开只读，带 ETag 与 `Cache-Control`）
+- 刷新数据：重新拉取并立即更新服务端 `data.json`（异步，无需等待 GitHub Pages 构建）
 - 推送到飞书 / 推送到 Bark：用已缓存的数据发一份当前状态汇总（不重新拉取，1–2 秒）
 
-API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/push`、`GET /api/job`，有 token 鉴权与基于 `CF-Connecting-IP` 的限速。
+API 端点：`GET /health`、`GET /api/data`、`GET /api/alert-state`、`POST /api/refresh`、`POST /api/push`、`GET /api/job`，写端点有 token 鉴权与基于 `CF-Connecting-IP` 的限速。
 
 ### 拉取跑在哪
 
 - **VPS**（主力）：`proud-pipes-7` 上独立 `monitoring` 用户的定时任务（工作日 cron + logrotate）+ 加固后的 systemd API 服务（`api/`），部署见 `api/deploy.sh`
-- **Mac Studio**（可选备用）：部署见 `api/deploy-mac.sh`（launchd，周二至周六 05:30 / 07:30）
-- **外部巡检与 CI**：`.github/workflows/freshness-watchdog.yml`（不拉行情，只核验 `data.json` 日期是否落后）与 `.github/workflows/ci.yml`（`tests/` 单元测试与前后端一致性测试）
+- **Mac Studio**（可选备用）：部署见 `api/deploy-mac.sh`（launchd，周二至周六 05:30 / 07:30，仅写本地数据目录，不推库）
+- **外部巡检与 CI**：`.github/workflows/freshness-watchdog.yml`（不拉行情，只请求 `https://api.infidea.app/api/data` 核验接口可用性与日期是否落后）与 `.github/workflows/ci.yml`（`tests/` 单元测试与前后端一致性测试）
 
 ### 仓库结构
 

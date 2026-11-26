@@ -1,20 +1,18 @@
 #!/bin/bash
-# Optional backup fetcher setup for a Mac (Mac Studio / Mac mini) in addition
-# to or instead of the VPS cron.
+# Optional local backup fetcher/alerter setup for a Mac (Mac Studio / Mac mini).
 # Run in Terminal on the Mac you want to use (powered on at 05:30 and 07:30
 # Beijing on Tue-Sat, right after US Mon-Fri closes):
 #   curl -sL https://raw.githubusercontent.com/fractalcapital/monitoring-metrics/main/api/deploy-mac.sh -o /tmp/deploy-mac.sh
 #   bash /tmp/deploy-mac.sh
 # You will be prompted (typed in your own terminal, never in chat) for:
-#   FEISHU_WEBHOOK_URL, BARK_URL, FRED_API_KEY (optional), HEALTHCHECK_URL
-#   (optional), and a GitHub fine-grained PAT (only repo
-#   fractalcapital/monitoring-metrics, only Contents read/write).
-# Note: The VPS (proud-pipes-7) is currently the primary fetcher using
-# Futu CLI / CBOE CDN / Yahoo curl_cffi / FRED API. If you enable this Mac
-# schedule as primary instead, disable the VPS cron so they don't both push.
+#   FEISHU_WEBHOOK_URL, BARK_URL, FRED_API_KEY (optional), HEALTHCHECK_URL (optional).
+# Note: The VPS (proud-pipes-7) is the primary fetcher and serves live data via
+# https://api.infidea.app/api/data. This Mac job writes locally to MM_OUT_DIR
+# (no git push) and can serve as an independent alert backup if VPS cron is off.
 set -u
 
 REPO_DIR="$HOME/monitoring-metrics"
+DATA_DIR="$HOME/.local/share/monitoring-metrics"
 
 # --- prerequisites ---
 command -v git >/dev/null 2>&1 || { echo "git not found. Install Xcode Command Line Tools first: xcode-select --install" >&2; exit 1; }
@@ -31,7 +29,14 @@ else
 fi
 cd "$REPO_DIR"
 
-# --- secrets (no API_TOKEN needed on the Mac: it runs no API server) ---
+mkdir -p "$DATA_DIR"
+for fname in data.json alert_state.json; do
+  if [ ! -f "$DATA_DIR/$fname" ] && [ -f "$REPO_DIR/dashboard/$fname" ]; then
+    cp "$REPO_DIR/dashboard/$fname" "$DATA_DIR/$fname"
+  fi
+done
+
+# --- secrets (no API_TOKEN or GitHub PAT needed on the Mac) ---
 if [ ! -f .env ]; then
   echo "== Secrets (typed here, stored in .env, chmod 600) =="
   read -r -p "Feishu webhook URL: " FEISHU_WEBHOOK_URL
@@ -39,6 +44,7 @@ if [ ! -f .env ]; then
   read -r -p "FRED API key (optional, Enter to use public CSV): " FRED_API_KEY
   read -r -p "Healthcheck ping URL (optional): " HEALTHCHECK_URL
   cat > .env <<EOF
+MM_OUT_DIR=$DATA_DIR
 FEISHU_WEBHOOK_URL=$FEISHU_WEBHOOK_URL
 BARK_URL=$BARK_URL
 FRED_API_KEY=$FRED_API_KEY
@@ -48,25 +54,11 @@ EOF
   echo ".env written."
 else
   echo "== .env already exists, keeping it =="
+  if ! grep -q '^MM_OUT_DIR=' .env 2>/dev/null; then
+    printf '\nMM_OUT_DIR=%s\n' "$DATA_DIR" >> .env
+    echo "Appended MM_OUT_DIR=$DATA_DIR to .env."
+  fi
 fi
-
-# --- git push credential ---
-git config user.name "monitoring-mac"
-git config user.email "monitoring-mac@infidea.app"
-git config credential.helper "store --file=$REPO_DIR/.git-credentials"
-if [ ! -f .git-credentials ]; then
-  echo "== GitHub PAT (you can reuse the same PAT you created for the VPS) =="
-  read -r -s -p "GitHub fine-grained PAT (input hidden): " GH_PAT
-  echo
-  printf 'https://x-access-token:%s@github.com\n' "$GH_PAT" > .git-credentials
-  chmod 600 .git-credentials
-  unset GH_PAT
-  echo "Push credential stored."
-else
-  echo ".git-credentials already exists, keeping it."
-fi
-echo "Testing git push..."
-if git push; then echo "git push OK."; else echo "WARNING: git push failed -- check the PAT and try 'git push' by hand." >&2; fi
 
 # --- launchd job (Tue-Sat 05:30 + 07:30 Beijing = US Mon-Fri closes) ---
 PLIST="$HOME/Library/LaunchAgents/com.infidea.monitoring-fetch.plist"
@@ -133,7 +125,7 @@ fi
 
 # --- smoke test ---
 echo
-echo "== Smoke test: one fetch + publish =="
+echo "== Smoke test: one fetch =="
 ./scripts/push_data.sh | tail -5
 
 echo

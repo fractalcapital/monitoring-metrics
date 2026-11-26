@@ -2,31 +2,38 @@
 """Monitoring dashboard API (runs on the VPS, behind Cloudflare Tunnel).
 
 The dashboard page is static (GitHub Pages) and holds no secrets, so it
-cannot trigger a data fetch or send a push by itself. This tiny service
-is the backend for the dashboard's manual buttons:
+cannot fetch market data or send a push by itself. This tiny service is
+the single backend for both reading live data and triggering manual actions:
 
-  GET  /health       -> {"ok": true} (tunnel / monitoring check)
-  POST /api/refresh  -> start a background fetch+publish job and return
-                        {"status": "started"} at once (the fetch can take
-                        up to a few minutes if fallback retries trigger;
-                        Cloudflare cuts a tunnel request off at ~100s, so a
-                        synchronous reply would 524). Poll GET /api/job for
-                        the outcome; the page re-reads data.json when done.
-  GET  /api/job      -> {"running": "refresh"|"push"|null,
-                        "last_result": {...}|null}; no auth needed
-                        (read-only, and the page only reads it same-origin)
-  POST /api/push     -> {"mode": "test"|"status", "channels": [...]}; both
-                        run synchronously and return per-channel results
-                        (fast). "test" sends one test message; "status"
-                        sends the summary built from the cached data.json
-                        (MANUAL_PUSH=status-cached, no fetch). Channels
-                        default to both; the dashboard has one button per
-                        channel, rate-limited per channel so the two
-                        buttons don't block each other.
+  GET  /health          -> {"ok": true} (tunnel / monitoring check)
+  GET  /api/data        -> latest dashboard data.json (public read-only,
+                           ETag + Cache-Control; no git commit needed)
+  GET  /api/alert-state -> latest alert_state.json (public read-only)
+  POST /api/refresh     -> start a background fetch job and return
+                           {"status": "started"} at once (the fetch can take
+                           up to a few minutes if fallback retries trigger;
+                           Cloudflare cuts a tunnel request off at ~100s, so a
+                           synchronous reply would 524). Poll GET /api/job for
+                           the outcome.
+  GET  /api/job         -> {"running": "refresh"|"push"|null,
+                           "last_result": {...}|null}; no auth needed
+                           (read-only)
+  POST /api/push        -> {"mode": "test"|"status", "channels": [...]}; both
+                           run synchronously and return per-channel results
+                           (fast). "test" sends one test message; "status"
+                           sends the summary built from the cached data.json
+                           (MANUAL_PUSH=status-cached, no fetch). Channels
+                           default to both; the dashboard has one button per
+                           channel, rate-limited per channel so the two
+                           buttons don't block each other.
 
-Auth: the X-Api-Token header must match the API_TOKEN env var. The token
-is ALSO in the dashboard page source (public), so it is NOT real
-security. The real protections are:
+Data files (data.json, alert_state.json) are stored in MM_OUT_DIR
+(production: /var/lib/monitoring/data, decoupled from the git working tree;
+local dev default: <repo>/dashboard).
+
+Auth: the X-Api-Token header must match the API_TOKEN env var on POST
+endpoints. The token is ALSO in the dashboard page source (public), so it is
+NOT real security. The real protections are:
   - rate limits (1/min per IP, and a daily cap per endpoint), keyed by
     Cloudflare's non-spoofable CF-Connecting-IP header, and
   - these endpoints can only send to the owner's Feishu/Bark and fetch
@@ -39,6 +46,7 @@ Stdlib only. Binds 127.0.0.1:8080 by default; Cloudflare Tunnel maps
 https://api.infidea.app to it (no open ports, no cert to manage).
 """
 import datetime as dt
+import hashlib
 import hmac
 import json
 import os
@@ -55,8 +63,10 @@ PORT = int(os.environ.get("API_PORT", "8080"))
 API_TOKEN = os.environ.get("API_TOKEN", "")
 REPO_DIR = Path(os.environ.get(
     "REPO_DIR", str(Path(__file__).resolve().parent.parent)))
+DATA_DIR = Path(os.environ.get("MM_OUT_DIR") or str(REPO_DIR / "dashboard"))
 ALLOWED_ORIGIN = "https://mon.infidea.app"
 DASHBOARD_URL = "https://mon.infidea.app/dashboard/"
+DATA_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300"
 
 # Rate limits: (calls per 60s per IP, calls per day per IP, calls per day global)
 LIMITS = {
@@ -151,54 +161,81 @@ def _parse_push_results(out):
     return results
 
 
+def _data_dir():
+    """Return the active runtime data directory (respects MM_OUT_DIR override)."""
+    env_dir = os.environ.get("MM_OUT_DIR", "").strip()
+    return Path(env_dir) if env_dir else DATA_DIR
+
+
+def _read_json_bytes(filename):
+    """Read raw UTF-8 bytes of a JSON file from DATA_DIR (fallback: repo dashboard/)."""
+    candidates = [_data_dir() / filename]
+    fallback = REPO_DIR / "dashboard" / filename
+    if fallback != candidates[0]:
+        candidates.append(fallback)
+    for path in candidates:
+        try:
+            raw = path.read_bytes()
+            # Ensure valid JSON so a corrupted file never gets served as 200.
+            json.loads(raw.decode("utf-8"))
+            return raw
+        except (OSError, ValueError, UnicodeDecodeError):
+            continue
+    return None
+
+
 def _do_refresh():
-    """Fetch now and publish data.json; return a response dict."""
-    code, out, err = _run(["bash", "scripts/push_data.sh"])
-    pushed = "PUSH_OK" in out
+    """Fetch latest closes into DATA_DIR; return a response dict."""
+    code, out, err = _run(
+        ["bash", "scripts/push_data.sh"],
+        {"MM_OUT_DIR": str(_data_dir())},
+    )
     data = None
+    alert_state = None
     try:
-        data = json.loads((REPO_DIR / "dashboard" / "data.json")
+        data = json.loads((_data_dir() / "data.json")
                           .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    try:
+        alert_state = json.loads((_data_dir() / "alert_state.json")
+                                 .read_text(encoding="utf-8"))
     except (OSError, ValueError):
         pass
     if code != 0 or data is None:
         return {"ok": False,
-                "error": "fetch failed: %s" % (err.strip()[-300:] or out.strip()[-300:]),
-                "pushed": False}
-    resp = {"ok": True, "pushed": pushed, "data": data}
-    if not pushed:
-        resp["warning"] = ("data fetched but git push failed; "
-                           "the page shows the fresh data, but it will "
-                           "revert on the next load until a push succeeds")
+                "error": "fetch failed: %s" % (err.strip()[-300:] or out.strip()[-300:])}
+    resp = {"ok": True, "data": data}
+    if alert_state is not None:
+        resp["alert_state"] = alert_state
     return resp
 
 
 def _do_push(mode, channels):
     """Send a test/status push to the given channels; return a dict."""
     channels = [c for c in channels if c in ("feishu", "bark")] or ["feishu", "bark"]
+    env_base = {"MM_OUT_DIR": str(_data_dir())}
     if mode == "test":
         code, out, err = _run(
             ["python3", "scripts/fetch_dashboard.py"],
-            {"MANUAL_PUSH": "test", "MANUAL_CHANNELS": ",".join(channels)})
-        pushed = None
+            {**env_base, "MANUAL_PUSH": "test",
+             "MANUAL_CHANNELS": ",".join(channels)})
     elif mode == "status":
         # Cached: build the summary from the existing data.json without
         # fetching. Fast enough to answer synchronously (1-2s).
         code, out, err = _run(
             ["python3", "scripts/fetch_dashboard.py"],
-            {"MANUAL_PUSH": "status-cached",
+            {**env_base, "MANUAL_PUSH": "status-cached",
              "MANUAL_CHANNELS": ",".join(channels)})
-        pushed = None
     else:
         return {"ok": False, "error": "mode must be test or status"}
     results = _parse_push_results(out)
     if code != 0 or results is None:
         return {"ok": False,
-                "error": "push failed: %s" % (err.strip()[-300:] or out.strip()[-300:]),
-                "pushed": pushed}
+                "error": "push failed: %s" % (err.strip()[-300:] or out.strip()[-300:])}
     resp = {"ok": True, "mode": mode, "channels": channels,
             "feishu": results.get("feishu"),
-            "bark": results.get("bark"), "pushed": pushed}
+            "bark": results.get("bark")}
     sent = [v for k, v in results.items() if k in channels]
     if not any(sent):
         resp["ok"] = False
@@ -245,17 +282,49 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # to stdout, picked up by journald
         print("%s %s" % (self.address_string(), fmt % args), flush=True)
 
-    def _send_json(self, status, payload):
+    def _send_json(self, status, payload, public_cors=False, cache_control=None):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._send_raw_json(status, body, public_cors=public_cors,
+                            cache_control=cache_control)
+
+    def _send_raw_json(self, status, body, public_cors=False,
+                       cache_control=None, etag=None):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        if cache_control:
+            self.send_header("Cache-Control", cache_control)
+        if etag:
+            self.send_header("ETag", etag)
+        if public_cors:
+            self.send_header("Access-Control-Allow-Origin", "*")
+        else:
+            origin = self.headers.get("Origin", "")
+            if origin == ALLOWED_ORIGIN:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
         self.send_header("Content-Length", str(len(body)))
-        origin = self.headers.get("Origin", "")
-        if origin == ALLOWED_ORIGIN:
-            self.send_header("Access-Control-Allow-Origin", origin)
-            self.send_header("Vary", "Origin")
         self.end_headers()
-        self.wfile.write(body)
+        if body:
+            self.wfile.write(body)
+
+    def _serve_data_file(self, filename):
+        raw = _read_json_bytes(filename)
+        if raw is None:
+            self._send_json(404, {"ok": False, "error": "%s not found" % filename},
+                            public_cors=True, cache_control="no-store")
+            return
+        etag = '"%s"' % hashlib.sha256(raw).hexdigest()[:16]
+        inm = (self.headers.get("If-None-Match") or "").strip()
+        if inm == etag or inm == "W/" + etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", DATA_CACHE_CONTROL)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self._send_raw_json(200, raw, public_cors=True,
+                            cache_control=DATA_CACHE_CONTROL, etag=etag)
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
@@ -270,21 +339,28 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path in ("/", "/health"):
+        path = self.path.split("?", 1)[0]
+        if path in ("/", "/health"):
             self._send_json(200, {
                 "ok": True, "service": "monitoring-api",
                 "time": dt.datetime.now(dt.timezone.utc)
-                        .strftime("%Y-%m-%dT%H:%M:%SZ")})
-        elif self.path == "/api/job":
+                        .strftime("%Y-%m-%dT%H:%M:%SZ")},
+                public_cors=True, cache_control="no-store")
+        elif path == "/api/data":
+            self._serve_data_file("data.json")
+        elif path == "/api/alert-state":
+            self._serve_data_file("alert_state.json")
+        elif path == "/api/job":
             # Copy snapshot under lock so slow socket writes never block _lock.
             with _lock:
                 snap = {"running": _job["running"], "last_result": _job["result"]}
-            self._send_json(200, snap)
+            self._send_json(200, snap, cache_control="no-store")
         else:
             self._send_json(404, {"ok": False, "error": "not found"})
 
     def do_POST(self):
-        if self.path not in ("/api/refresh", "/api/push"):
+        path = self.path.split("?", 1)[0]
+        if path not in ("/api/refresh", "/api/push"):
             self._send_json(404, {"ok": False, "error": "not found"})
             return
         if not API_TOKEN:
@@ -313,17 +389,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
         scope = ""
         channels = []
-        if self.path == "/api/push":
+        if path == "/api/push":
             # Rate-limit per channel so the Feishu and Bark buttons don't
             # block each other when clicked one after another.
             channels = [str(c).lower() for c in body.get("channels", [])
                         if str(c).lower() in ("feishu", "bark")]
             scope = ",".join(sorted(channels)) or "both"
-        limited = _rate_limited(self.path, ip, scope)
+        limited = _rate_limited(path, ip, scope)
         if limited:
             self._send_json(429, {"ok": False, "error": limited})
             return
-        if self.path == "/api/refresh":
+        if path == "/api/refresh":
             # Async: the fetch can run minutes, past Cloudflare's ~100s
             # tunnel timeout. Start the job and let the page poll /api/job.
             self._send_json(200, _start_job("refresh", _do_refresh))
@@ -339,8 +415,8 @@ def main():
         print("WARNING: API_TOKEN is not set -- all POSTs will fail",
               flush=True)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print("monitoring-api listening on %s:%d repo=%s"
-          % (HOST, PORT, REPO_DIR), flush=True)
+    print("monitoring-api listening on %s:%d repo=%s data_dir=%s"
+          % (HOST, PORT, REPO_DIR, _data_dir()), flush=True)
     server.serve_forever()
 
 

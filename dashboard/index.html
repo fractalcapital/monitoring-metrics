@@ -2550,7 +2550,7 @@
       <div>
         <h4>关于 3+2 监控仪表盘</h4>
         <p>聚焦跨市场交叉验证：以股债波动（VIX / MOVE）与高收益信用利差（HY OAS）确认系统性压力，以 VVIX 与 SKEW 捕捉波动率弹性与机构尾部风险定价。</p>
-        <p><strong>更新节奏：</strong>美国 VPS 每个美股交易日收盘后定时拉取两次（UTC 21:30 / 23:30，周一至周五）写入 <code>data.json</code>；页面平时每 30 分钟自动刷新，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，自动适配夏/冬令时）每 1 分钟刷新。点“刷新”经 VPS 接口（<code>api.infidea.app</code>）实时拉取。</p>
+        <p><strong>更新节奏：</strong>美国 VPS 每个美股交易日收盘后定时拉取两次（UTC 21:30 / 23:30，周一至周五），经 <code>api.infidea.app</code> 实时提供；页面平时每 30 分钟自动刷新，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，自动适配夏/冬令时）每 1 分钟刷新。点“刷新”可触发服务端实时拉取。</p>
       </div>
       <div>
         <h4>数据源与口径</h4>
@@ -3757,7 +3757,7 @@ function render(data, isSnapshot, fallbackSource){
   };
   const staleNames = [...staleSet].map(k => staleNameMap[k] || k);
 
-  // 客户端独立核算最新 NYSE 交易日，即使 VPS 彻底停机/推库失败也能识别数据过期
+  // 客户端独立核算最新 NYSE 交易日，即使 VPS 停机或定时任务未执行也能识别数据过期
   const clientExpected = expectedNyseCloseDate(new Date());
   const vixClientLag = nyseTradingLag(ind.vix.date, clientExpected);
   const moveClientLag = nyseTradingLag(ind.move.date, clientExpected);
@@ -3769,15 +3769,19 @@ function render(data, isSnapshot, fallbackSource){
   const livePill = document.getElementById('livePill');
   if(fallbackSource === 'localCache'){
     livePill.className = 'pill snapshot';
-    livePill.title = 'data.json 读取失败，当前展示浏览器上次保存的本地缓存';
+    livePill.title = 'VPS API 暂不可用，当前展示浏览器上次保存的本地缓存';
     livePill.innerHTML = `<span class="pulse-dot"></span><span>本地缓存 (${escapeHtml(shortDate(ind.vix.date))})</span>`;
+  } else if(fallbackSource === 'staticFallback'){
+    livePill.className = 'pill snapshot';
+    livePill.title = 'VPS API 暂不可用，当前展示静态兜底数据';
+    livePill.innerHTML = `<span class="pulse-dot"></span><span>静态兜底 (${escapeHtml(shortDate(ind.vix.date))})</span>`;
   } else if(isSnapshot){
     livePill.className = 'pill snapshot';
-    livePill.title = 'data.json 读取失败，当前展示内置历史快照';
+    livePill.title = 'VPS API 与本地数据均读取失败，当前展示内置历史快照';
     livePill.innerHTML = `<span class="pulse-dot"></span><span>快照 (${escapeHtml(data.snapshot_date || ind.vix.date)})</span>`;
   } else if(isDataExpired){
     livePill.className = 'pill expired';
-    livePill.title = `数据已落后最近 NYSE 交易日（${clientExpected}）${maxCoreLag} 个交易日，请检查 VPS 拉取与推库状态`;
+    livePill.title = `数据已落后最近 NYSE 交易日（${clientExpected}）${maxCoreLag} 个交易日，请检查 VPS 拉取与 API 服务状态`;
     livePill.innerHTML = `<span class="pulse-dot"></span><span>数据过期 (落后${maxCoreLag}日)</span>`;
   } else if(staleSet.size > 0){
     livePill.className = 'pill snapshot';
@@ -4693,38 +4697,94 @@ function scheduleNext(){
   refreshTimer = setTimeout(() => { load(); }, ms);
 }
 
+/* ---- VPS 接口（https://api.infidea.app，见 api/README.md） ----
+   读数据优先走 GET /api/data 与 GET /api/alert-state（由 VPS 直出，无需每次提交 GitHub）；
+   API 不可用时按 浏览器 localStorage 缓存 → 静态 ./data.json → 内置快照 依次兜底。
+   手动刷新支持异步轮询 /api/job 避免 Cloudflare 524 超时。 */
+const API_BASE = 'https://api.infidea.app';
+const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
 const LAST_DATA_CACHE_KEY = 'mm-last-data-v1';
+const LAST_STATE_CACHE_KEY = 'mm-last-alert-state-v1';
+
+async function fetchJsonWithTimeout(url, timeoutMs = 8000){
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally {
+    if(timer) clearTimeout(timer);
+  }
+}
+
+async function loadAlertState(){
+  try {
+    const s = await fetchJsonWithTimeout(API_BASE + '/api/alert-state', 8000);
+    if(s && typeof s === 'object'){
+      try { localStorage.setItem(LAST_STATE_CACHE_KEY, JSON.stringify(s)); } catch(_){}
+      return s;
+    }
+  } catch(_){}
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(LAST_STATE_CACHE_KEY) || 'null'); } catch(_){}
+  let staticState = null;
+  try {
+    const rs = await fetch('./alert_state.json', { cache: 'no-store' });
+    if(rs.ok) staticState = await rs.json();
+  } catch(_){}
+  if(cached && staticState){
+    return String(cached.updated_at_utc || '') >= String(staticState.updated_at_utc || '') ? cached : staticState;
+  }
+  return cached || staticState || null;
+}
 
 async function load(){
-  let data = null, isSnapshot = false, fallbackSource = null, state = null;
+  let data = null, isSnapshot = false, fallbackSource = null;
   try {
-    const r = await fetch('./data.json', { cache: 'no-store' });
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    data = await r.json();
-    try { localStorage.setItem(LAST_DATA_CACHE_KEY, JSON.stringify(data)); } catch(e){}
+    const apiData = await fetchJsonWithTimeout(API_BASE + '/api/data', 8000);
+    if(!apiData || !apiData.indicators || !apiData.indicators.vix) throw new Error('invalid payload');
+    data = apiData;
+    try { localStorage.setItem(LAST_DATA_CACHE_KEY, JSON.stringify(data)); } catch(_){}
   } catch(e){
+    let cached = null;
     try {
-      const cached = JSON.parse(localStorage.getItem(LAST_DATA_CACHE_KEY) || 'null');
-      if(cached && cached.indicators && cached.indicators.vix){
-        data = cached;
-        isSnapshot = true;
-        fallbackSource = 'localCache';
+      const c = JSON.parse(localStorage.getItem(LAST_DATA_CACHE_KEY) || 'null');
+      if(c && c.indicators && c.indicators.vix) cached = c;
+    } catch(_){}
+    let staticData = null;
+    try {
+      const r = await fetch('./data.json', { cache: 'no-store' });
+      if(r.ok){
+        const sd = await r.json();
+        if(sd && sd.indicators && sd.indicators.vix) staticData = sd;
       }
     } catch(_){}
-    if(!data){
+    if(cached && staticData){
+      if(String(cached.updated_at_utc || '') >= String(staticData.updated_at_utc || '')){
+        data = cached;
+        fallbackSource = 'localCache';
+      } else {
+        data = staticData;
+        fallbackSource = 'staticFallback';
+      }
+      isSnapshot = true;
+    } else if(cached){
+      data = cached;
+      isSnapshot = true;
+      fallbackSource = 'localCache';
+    } else if(staticData){
+      data = staticData;
+      isSnapshot = true;
+      fallbackSource = 'staticFallback';
+    } else {
       data = SNAPSHOT;
       isSnapshot = true;
       fallbackSource = 'snapshot';
     }
   }
 
-  try {
-    const rs = await fetch('./alert_state.json', { cache: 'no-store' });
-    if(rs.ok) state = await rs.json();
-  } catch(e){
-    state = null;
-  }
-
+  const state = await loadAlertState();
   render(data, isSnapshot, fallbackSource);
   renderAlerts(data, state);
   scheduleNext();
@@ -4733,11 +4793,6 @@ async function load(){
 
 load();
 
-/* ---- 手动操作走 VPS 接口（https://api.infidea.app，见 api/README.md） ----
-   刷新和状态推送支持异步轮询 /api/job 避免 Cloudflare 524 超时；
-   接口不可用时，刷新回退读取 data.json，推送返回具体错误提示。 */
-const API_BASE = 'https://api.infidea.app';
-const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
 async function apiPost(path, body){
   const r = await fetch(API_BASE + path, {
     method: 'POST',
@@ -4760,6 +4815,16 @@ async function waitForJob(){
   return null;
 }
 
+async function applyRefreshPayload(payload){
+  render(payload.data, false);
+  try { localStorage.setItem(LAST_DATA_CACHE_KEY, JSON.stringify(payload.data)); } catch(_){}
+  const state = payload.alert_state || await loadAlertState();
+  if(state){
+    try { localStorage.setItem(LAST_STATE_CACHE_KEY, JSON.stringify(state)); } catch(_){}
+  }
+  renderAlerts(payload.data, state);
+}
+
 async function manualRefresh(){
   const btn = document.getElementById('refreshBtn');
   const icon = document.getElementById('refreshIcon');
@@ -4774,13 +4839,9 @@ async function manualRefresh(){
       showToast('正在后台拉取最新收盘数据，预计 1–2 分钟后自动更新…');
       const result = await waitForJob();
       if(result && result.ok && result.data){
-        render(result.data, false);
-        try {
-          const rs = await fetch('./alert_state.json', { cache: 'no-store' });
-          if(rs.ok) renderAlerts(result.data, await rs.json());
-        } catch(e){}
+        await applyRefreshPayload(result);
         const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        showToast(`已刷新最新数据 · ${t}` + (result.pushed ? '' : '（未推到仓库）'));
+        showToast(`已刷新最新数据 · ${t}`);
       } else if(result && !result.ok){
         await load();
         showToast('拉取失败：' + (result.error || '未知错误') + '，仍显示上次数据', true);
@@ -4788,20 +4849,16 @@ async function manualRefresh(){
         showToast('拉取时间较长，将在下次定时刷新时自动更新');
       }
     } else if(res.ok && res.data){
-      render(res.data, false);
-      try {
-        const rs = await fetch('./alert_state.json', { cache: 'no-store' });
-        if(rs.ok) renderAlerts(res.data, await rs.json());
-      } catch(e){}
+      await applyRefreshPayload(res);
       const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-      showToast(`已刷新最新数据 · ${t}` + (res.pushed ? '' : '（未推到仓库）'));
+      showToast(`已刷新最新数据 · ${t}`);
     } else {
       throw new Error(res.error || 'refresh failed');
     }
   } catch(e){
     const ok = await load();
     const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    showToast(ok ? `接口不可用，已重新读取 data.json · ${t}` : `已回退本地快照 · ${t}`, !ok);
+    showToast(ok ? `刷新请求失败，已重新读取最新数据 · ${t}` : `接口不可用，已回退缓存/快照 · ${t}`, !ok);
   } finally {
     btn.disabled = false;
     if(icon) icon.classList.remove('spinning');
