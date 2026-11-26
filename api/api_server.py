@@ -65,7 +65,7 @@ REPO_DIR = Path(os.environ.get(
     "REPO_DIR", str(Path(__file__).resolve().parent.parent)))
 DATA_DIR = Path(os.environ.get("MM_OUT_DIR") or str(REPO_DIR / "dashboard"))
 ALLOWED_ORIGIN = "https://mon.infidea.app"
-DASHBOARD_URL = "https://mon.infidea.app/dashboard/"
+DASHBOARD_URL = "https://mon.infidea.app/"
 DATA_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300"
 
 # Rate limits: (calls per 60s per IP, calls per day per IP, calls per day global)

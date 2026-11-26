@@ -167,7 +167,7 @@ class NotifyTests(unittest.TestCase):
         }), mock.patch.object(notify._NO_PROXY_OPENER, "open", side_effect=fake_open):
             ok_f = notify.send_feishu_card(
                 "【测试】",
-                "综合判断：警惕\nVIX 28.29（+1.93，+7.32%）· 警惕\n查看仪表盘：https://mon.infidea.app/dashboard/",
+                "综合判断：警惕\nVIX 28.29（+1.93，+7.32%）· 警惕\n查看仪表盘：https://mon.infidea.app/",
                 "orange",
             )
             self.assertTrue(ok_f)

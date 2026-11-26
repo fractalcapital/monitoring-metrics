@@ -57,7 +57,7 @@ jobs:
               body = (
                   "巡检发现：%s\n"
                   "可能原因：proud-pipes-7 宕机、monitoring-api 服务异常或 Cloudflare Tunnel 断开。\n"
-                  "查看仪表盘：https://mon.infidea.app/dashboard/"
+                  "查看仪表盘：https://mon.infidea.app/"
                   % msg
               )
               send_feishu_card(title, body, "red")
@@ -93,7 +93,7 @@ jobs:
               "巡检发现：%s\n"
               "最近更新时间：%s\n"
               "可能原因：VPS 定时任务未执行、上游拉取故障或服务异常，请检查 proud-pipes-7。\n"
-              "查看仪表盘：https://mon.infidea.app/dashboard/"
+              "查看仪表盘：https://mon.infidea.app/"
               % (detail, data.get("updated_at_beijing") or data.get("updated_at_utc"))
           )
           send_feishu_card(title, body, "red")

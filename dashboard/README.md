@@ -1,6 +1,6 @@
 # 实时监控仪表盘
 
-页面：[index.html](index.html) —— VIX / VVIX / SKEW / MOVE / HY OAS 五项核心指标 + 标普 500 + VIX 期限结构 + IG/CCC 信用分层，一页看完。支持亮/暗双主题、移动端触控查看走势、NYSE 节假日与半日市识别、以及客户端数据过期检测。
+页面：[../index.html](../index.html)（`https://mon.infidea.app/` 首页直接打开；本目录 `index.html` 保留作旧路径 `/dashboard/` 的兼容跳转）—— VIX / VVIX / SKEW / MOVE / HY OAS 五项核心指标 + 标普 500 + VIX 期限结构 + IG/CCC 信用分层，一页看完。支持亮/暗双主题、移动端触控查看走势、NYSE 节假日与半日市识别、以及客户端数据过期检测。
 
 状态栏与风控区提供三个手动按钮（均走 VPS 接口 `https://api.infidea.app`，页面不保存任何推送密钥）：
 - **刷新**：异步触发服务端重新拉取最新行情并写入运行时数据目录，完成后立即刷新页面（无需等待 GitHub Pages 构建）。
@@ -32,7 +32,7 @@
 
 - 美区 VPS 定时任务在美股交易日收盘后运行两次（UTC 21:30 / 23:30，周一至周五），拉取约一年历史用于计算 1 年分位与 5 日 / 20 日变化，`data.json` 保留最近 30 日走势，原子写入 `/var/lib/monitoring/data/`（与 git 仓库隔离，不提交 commit）。
 - 盘中高低价经过合理性过滤（丢弃平盘 `H == L` 与异常坏 tick）；交易时段内手动刷新会自动标注“盘中”。
-- 页面平时每 30 分钟从 `https://api.infidea.app/api/data` 拉取实时数据，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，半日市 13:25–14:05 ET，自动适配夏/冬令时）每 1 分钟刷新；API 不可用时按浏览器 `localStorage` 缓存 → 静态 `./data.json` → 内置快照依次兜底。
+- 页面平时每 30 分钟从 `https://api.infidea.app/api/data` 拉取实时数据，美东收盘拉取窗口（16:25–17:05 / 18:25–19:05 ET，半日市 13:25–14:05 ET，自动适配夏/冬令时）每 1 分钟刷新；API 不可用时按浏览器 `localStorage` 缓存 → 静态 `./dashboard/data.json` → 内置快照依次兜底。
 
 ## 报警规则
 
@@ -57,6 +57,6 @@
 
 ```bash
 python3 scripts/fetch_dashboard.py            # 生成 dashboard/data.json（未配密钥不发推送）
-python3 -m http.server -d dashboard 8000      # 浏览器打开 http://localhost:8000/
+python3 -m http.server 8000                   # 仓库根目录启动，浏览器打开 http://localhost:8000/
 python3 -m unittest discover -s tests -v      # 运行单元测试与 Python/JS 一致性测试
 ```

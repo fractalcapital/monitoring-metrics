@@ -25,6 +25,6 @@ jobs:
           bash -n scripts/push_data.sh api/deploy.sh api/deploy-mac.sh
       - name: Check dashboard JS syntax
         run: |
-          node -e "const fs=require('fs'), h=fs.readFileSync('dashboard/index.html','utf8'); const m=h.match(/<script>([\s\S]*)<\/script>/); new Function(m[1]);"
+          node -e "const fs=require('fs'), h=fs.readFileSync('index.html','utf8'); const m=h.match(/<script>([\s\S]*)<\/script>/); new Function(m[1]);"
       - name: Run unit and Python/JS parity tests
         run: python3 -m unittest discover -s tests -v

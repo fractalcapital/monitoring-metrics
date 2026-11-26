@@ -1,4 +1,4 @@
-"""Cross-language parity (Python vs dashboard/index.html JS) and HTML link checks."""
+"""Cross-language parity (Python vs root index.html JS) and HTML link checks."""
 import datetime as dt
 import json
 import re
@@ -15,9 +15,9 @@ import fetch_dashboard as fd  # noqa: E402
 
 
 def _extract_js_snippet():
-    html = (REPO / "dashboard" / "index.html").read_text(encoding="utf-8")
+    html = (REPO / "index.html").read_text(encoding="utf-8")
     m = re.search(r"<script>([\s\S]*)</script>", html)
-    assert m, "missing <script> in dashboard/index.html"
+    assert m, "missing <script> in index.html"
     js = m.group(1)
     # Strip DOM-touching immediate invocations so we can evaluate pure logic in Node.
     # Extract the status bands block + NYSE calendar + alert logic cleanly.
@@ -107,10 +107,10 @@ class PythonJsParityTests(unittest.TestCase):
 
 class HtmlLinkChecks(unittest.TestCase):
     def test_relative_links_resolve(self):
-        pages = [REPO / "dashboard" / "index.html"] + sorted((REPO / "metrics").glob("*/index.html"))
-        self.assertGreaterEqual(len(pages), 7)  # dashboard + 6 metric pages incl. skew
+        pages = [REPO / "index.html", REPO / "dashboard" / "index.html"] + sorted((REPO / "metrics").glob("*/index.html"))
+        self.assertGreaterEqual(len(pages), 8)  # root dashboard + legacy redirect + 6 metric pages incl. skew
         href_re = re.compile(r'href="([^"]+)"')
-        meta_link_re = re.compile(r'link:\s*"(\.\./metrics/[^"]+)"')
+        meta_link_re = re.compile(r'link:\s*"((?:\.\./)?metrics/[^"]+)"')
         for page in pages:
             text = page.read_text(encoding="utf-8")
             for href in href_re.findall(text):

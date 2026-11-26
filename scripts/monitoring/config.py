@@ -52,7 +52,7 @@ TRADING_TOOLS_MOVE_URL = (
     "https://www.thetrading.tools/data/indicators/move-index.csv"
 )
 
-DASHBOARD_URL = "https://mon.infidea.app/dashboard/"
+DASHBOARD_URL = "https://mon.infidea.app/"
 
 # --- Alert thresholds (from the repo READMEs' bands; edit here to change) ---
 # warning = alert, critical = severe. Keys without "critical" only ever warn.

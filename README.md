@@ -2,20 +2,19 @@
 
 市场波动与风险监控指标的可视化合集：VIX、VIX 期限结构、VVIX、MOVE、高收益债信用利差（HY OAS）。每个指标一页独立的交互式 HTML，可直接在浏览器打开；右上角都有手动亮色 / 暗色切换（默认跟随系统）。
 
-在线访问：https://mon.infidea.app/  
-实时仪表盘：https://mon.infidea.app/dashboard/ 
+在线访问（实时仪表盘）：https://mon.infidea.app/
 
 ## 页面一览
 
 | 指标 | 页面 | 一句话 |
 | --- | --- | --- |
+| 实时仪表盘（首页） | [index.html](index.html) | VIX + VVIX + SKEW + MOVE + HY OAS 五项同页实时监控（每天美股收盘后更新两次，05:30 / 07:30 北京时间；飞书 + Bark 预警） |
 | VIX | [metrics/vix/index.html](metrics/vix/index.html) | CBOE 波动率指数：标普 500 未来 30 天的隐含波动率，“恐慌指数”只是外号 |
 | VIX 期限结构 | [metrics/vix-term-structure/index.html](metrics/vix-term-structure/index.html) | 现货 + 不同到期日 VIX 期货连成的曲线：升水 vs 贴水 |
 | VVIX | [metrics/vvix/index.html](metrics/vvix/index.html) | 波动率的波动率：VIX 本身预计会怎么动 |
 | SKEW | [metrics/skew/index.html](metrics/skew/index.html) | 尾部风险定价：“黑天鹅保险”有多贵，常在平静期偏高、大跌时回落 |
 | MOVE | [metrics/move/index.html](metrics/move/index.html) | 债市的 VIX：美债收益率未来一个月的隐含波动 |
 | HY OAS | [metrics/hy-oas/index.html](metrics/hy-oas/index.html) | 高收益债信用利差：企业借钱比美债多付多少，测违约担忧 |
-| 实时仪表盘 | [dashboard/index.html](dashboard/index.html) | VIX + VVIX + SKEW + MOVE + HY OAS 五项同页实时监控（每天美股收盘后更新两次，05:30 / 07:30 北京时间；飞书 + Bark 预警） |
 
 每个子目录里还有一份对应的 `README.md`，讲该指标的定义、区间、关键读数和常见误读。
 
@@ -48,13 +47,13 @@
 
 ```bash
 # 任选其一，用浏览器打开即可，无需构建
+open index.html
 open metrics/vix/index.html
 open metrics/vix-term-structure/index.html
 open metrics/vvix/index.html
 open metrics/skew/index.html
 open metrics/move/index.html
 open metrics/hy-oas/index.html
-open dashboard/index.html
 ```
 
 页面除 Google Fonts 外均为自包含静态 HTML；离线时字体会回退到系统字体，不影响内容和交互。
@@ -98,8 +97,9 @@ API 端点：`GET /health`、`GET /api/data`、`GET /api/alert-state`、`POST /a
 
 ### 仓库结构
 
+- `index.html`：实时仪表盘主页面（`https://mon.infidea.app/` 首页直接访问）
 - `metrics/`：六个指标的独立页面（VIX、期限结构、VVIX、SKEW、MOVE、HY OAS，各带一份 README）
-- `dashboard/`：实时仪表盘页面 + `data.json` + `alert_state.json`
+- `dashboard/`：静态兜底数据（`data.json` + `alert_state.json`）、说明文档与旧路径 `/dashboard/` 兼容跳转页
 - `scripts/`：拉取入口（`fetch_dashboard.py`）、模块化核心包（`monitoring/{config,calendar,series,providers,alerts}.py`）与发布脚本（`push_data.sh`）
 - `alert/`：飞书 + Bark 发送模块（`notify.py`）
 - `api/`：VPS 上的 API 服务与部署脚本
