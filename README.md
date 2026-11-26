@@ -2,7 +2,8 @@
 
 市场波动与风险监控指标的可视化合集：VIX、VIX 期限结构、VVIX、MOVE、高收益债信用利差（HY OAS）。每个指标一页独立的交互式 HTML，可直接在浏览器打开；右上角都有手动亮色 / 暗色切换（默认跟随系统）。
 
-在线访问：https://mon.infidea.app/（实时仪表盘：https://mon.infidea.app/dashboard/）。
+在线访问：https://mon.infidea.app/  
+实时仪表盘：https://mon.infidea.app/dashboard/ 
 
 ## 页面一览
 
