@@ -1,6 +1,6 @@
 {
-  "updated_at_utc": "2026-11-26T05:28:07Z",
-  "updated_at_beijing": "2026-11-26 13:28 Beijing",
+  "updated_at_utc": "2026-11-26T05:46:11Z",
+  "updated_at_beijing": "2026-11-26 13:46 Beijing",
   "source": "Futu CLI (VIX/VVIX/SKEW/SPX); CBOE CDN (期限结构); Yahoo Finance (MOVE); FRED API (HY OAS)",
   "sources_used": {
     "vix": "futu",
@@ -745,7 +745,7 @@
       "day_low": 97.4,
       "source": "yahoo_cffi",
       "stats": {
-        "window": 249,
+        "window": 252,
         "pct_rank": 84,
         "chg_5d": -0.61,
         "chg_5d_pct": -0.62,
@@ -1125,7 +1125,133 @@
       "hy_oas": 1.0,
       "vvix": 0.5
     },
-    "basis": "近一年分位加权"
+    "basis": "近一年分位加权",
+    "history": [
+      {
+        "date": "2026-10-15",
+        "value": 71
+      },
+      {
+        "date": "2026-10-16",
+        "value": 91
+      },
+      {
+        "date": "2026-10-19",
+        "value": 86
+      },
+      {
+        "date": "2026-10-20",
+        "value": 78
+      },
+      {
+        "date": "2026-10-21",
+        "value": 72
+      },
+      {
+        "date": "2026-10-22",
+        "value": 89
+      },
+      {
+        "date": "2026-10-23",
+        "value": 90
+      },
+      {
+        "date": "2026-10-26",
+        "value": 83
+      },
+      {
+        "date": "2026-10-27",
+        "value": 76
+      },
+      {
+        "date": "2026-10-28",
+        "value": 70
+      },
+      {
+        "date": "2026-10-29",
+        "value": 75
+      },
+      {
+        "date": "2026-10-30",
+        "value": 88
+      },
+      {
+        "date": "2026-11-02",
+        "value": 91
+      },
+      {
+        "date": "2026-11-03",
+        "value": 89
+      },
+      {
+        "date": "2026-11-04",
+        "value": 68
+      },
+      {
+        "date": "2026-11-05",
+        "value": 96
+      },
+      {
+        "date": "2026-11-06",
+        "value": 92
+      },
+      {
+        "date": "2026-11-09",
+        "value": 82
+      },
+      {
+        "date": "2026-11-10",
+        "value": 81
+      },
+      {
+        "date": "2026-11-11",
+        "value": 71
+      },
+      {
+        "date": "2026-11-12",
+        "value": 79
+      },
+      {
+        "date": "2026-11-13",
+        "value": 83
+      },
+      {
+        "date": "2026-11-16",
+        "value": 92
+      },
+      {
+        "date": "2026-11-17",
+        "value": 95
+      },
+      {
+        "date": "2026-11-18",
+        "value": 93
+      },
+      {
+        "date": "2026-11-19",
+        "value": 95
+      },
+      {
+        "date": "2026-11-20",
+        "value": 99
+      },
+      {
+        "date": "2026-11-23",
+        "value": 94
+      },
+      {
+        "date": "2026-11-24",
+        "value": 93
+      },
+      {
+        "date": "2026-11-25",
+        "value": 93
+      }
+    ],
+    "prev_score": 93,
+    "prev_date": "2026-11-24",
+    "change": 0,
+    "chg_5d": 0
   },
   "credit_tiers": {
     "ig": {
