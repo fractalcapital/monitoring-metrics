@@ -41,6 +41,7 @@ fi
 
 if [ -d "$REPO_DIR/.git" ]; then
   echo "== Updating existing checkout =="
+  git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
   git -C "$REPO_DIR" pull --ff-only
 else
   echo "== Cloning repo =="
@@ -89,6 +90,7 @@ fi
 mkdir -p "$LOG_DIR"
 chown -R "$SVC_USER:$SVC_USER" "$REPO_DIR" "$LOG_DIR"
 chmod 600 "$REPO_DIR/.env" "$REPO_DIR/.git-credentials"
+chmod +x "$REPO_DIR/scripts/push_data.sh" "$REPO_DIR/scripts/fetch_dashboard.py" "$REPO_DIR/api/api_server.py"
 
 echo "Testing git push as $SVC_USER..."
 if su -s /bin/bash "$SVC_USER" -c "cd '$REPO_DIR' && git push"; then
@@ -100,7 +102,8 @@ fi
 echo "== Installing systemd service ($SVC_USER) =="
 cp api/monitoring-api.service /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now monitoring-api
+systemctl enable monitoring-api
+systemctl restart monitoring-api
 sleep 2
 systemctl status monitoring-api --no-pager | head -12
 echo "== Health check =="
@@ -125,13 +128,13 @@ if crontab -l 2>/dev/null | grep -q "monitoring-metrics.*push_data.sh"; then
   crontab -l 2>/dev/null | grep -v "monitoring-metrics.*push_data.sh" | crontab - || true
 fi
 crontab -u "$SVC_USER" -l 2>/dev/null | grep -v "monitoring-metrics.*push_data.sh" > /tmp/monitoring-cron.tmp || true
-echo "30 21,23 * * 1-5 cd $REPO_DIR && ./scripts/push_data.sh >> $LOG_DIR/fetch.log 2>&1" >> /tmp/monitoring-cron.tmp
+echo "30 21,23 * * 1-5 cd $REPO_DIR && /bin/bash ./scripts/push_data.sh >> $LOG_DIR/fetch.log 2>&1" >> /tmp/monitoring-cron.tmp
 crontab -u "$SVC_USER" /tmp/monitoring-cron.tmp
 rm -f /tmp/monitoring-cron.tmp
 crontab -u "$SVC_USER" -l | grep push_data.sh
 
 echo "== Smoke test: one fetch + publish as $SVC_USER =="
-su -s /bin/bash "$SVC_USER" -c "cd '$REPO_DIR' && ./scripts/push_data.sh" | tail -5
+su -s /bin/bash "$SVC_USER" -c "cd '$REPO_DIR' && /bin/bash ./scripts/push_data.sh" | tail -10
 
 echo
 echo "Done. Next steps:"
