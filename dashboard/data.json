@@ -1,16 +1,16 @@
 {
-  "updated_at_utc": "2026-11-26T05:17:37Z",
-  "updated_at_beijing": "2026-11-26 13:17 Beijing",
-  "source": "CBOE CDN (VIX/VVIX/SKEW/期限结构); Yahoo Finance (SPX/MOVE); FRED API (HY OAS)",
+  "updated_at_utc": "2026-11-26T05:28:07Z",
+  "updated_at_beijing": "2026-11-26 13:28 Beijing",
+  "source": "Futu CLI (VIX/VVIX/SKEW/SPX); CBOE CDN (期限结构); Yahoo Finance (MOVE); FRED API (HY OAS)",
   "sources_used": {
-    "vix": "cboe",
-    "vvix": "cboe",
-    "skew": "cboe",
+    "vix": "futu",
+    "vvix": "futu",
+    "skew": "futu",
     "vix1d": "cboe",
     "vix9d": "cboe",
     "vix3m": "cboe",
     "vix6m": "cboe",
-    "spx": "yahoo_cffi",
+    "spx": "futu",
     "move": "yahoo_cffi",
     "hy_oas": "fred_api"
   },
@@ -205,7 +205,7 @@
       ],
       "day_high": 34.95,
       "day_low": 27.49,
-      "source": "cboe",
+      "source": "futu",
       "stats": {
         "window": 252,
         "pct_rank": 98,
@@ -224,126 +224,188 @@
       "history": [
         {
           "date": "2026-10-15",
-          "value": 92.57
+          "value": 92.57,
+          "high": 98.49,
+          "low": 91.25
         },
         {
           "date": "2026-10-16",
-          "value": 109.91
+          "value": 109.91,
+          "high": 121.17,
+          "low": 87.4
         },
         {
           "date": "2026-10-19",
-          "value": 106.93
+          "value": 106.93,
+          "high": 107.21,
+          "low": 99.17
         },
         {
           "date": "2026-10-20",
-          "value": 97.15
+          "value": 97.15,
+          "high": 109.31,
+          "low": 96.71
         },
         {
           "date": "2026-10-21",
-          "value": 94.55
+          "value": 94.55,
+          "high": 97.99,
+          "low": 94.1
         },
         {
           "date": "2026-10-22",
-          "value": 107.94
+          "value": 107.94,
+          "high": 111.76,
+          "low": 97.77
         },
         {
           "date": "2026-10-23",
-          "value": 109.7
+          "value": 109.7,
+          "high": 118.17,
+          "low": 109.09
         },
         {
           "date": "2026-10-26",
-          "value": 101.43
+          "value": 101.43,
+          "high": 108.57,
+          "low": 99.91
         },
         {
           "date": "2026-10-27",
-          "value": 99.45
+          "value": 99.45,
+          "high": 100.53,
+          "low": 98.43
         },
         {
           "date": "2026-10-28",
-          "value": 96.61
+          "value": 96.61,
+          "high": 99.5,
+          "low": 95.0
         },
         {
           "date": "2026-10-29",
-          "value": 98.01
+          "value": 98.01,
+          "high": 98.02,
+          "low": 91.76
         },
         {
           "date": "2026-10-30",
-          "value": 106.43
+          "value": 106.43,
+          "high": 124.06,
+          "low": 105.71
         },
         {
           "date": "2026-11-02",
-          "value": 110.47
+          "value": 110.47,
+          "high": 111.85,
+          "low": 100.6
         },
         {
           "date": "2026-11-03",
-          "value": 107.4
+          "value": 107.4,
+          "high": 111.28,
+          "low": 105.41
         },
         {
           "date": "2026-11-04",
-          "value": 90.41
+          "value": 90.41,
+          "high": 96.21,
+          "low": 88.38
         },
         {
           "date": "2026-11-05",
-          "value": 134.99
+          "value": 134.99,
+          "high": 136.91,
+          "low": 92.2
         },
         {
           "date": "2026-11-06",
-          "value": 121.94
+          "value": 121.94,
+          "high": 130.8,
+          "low": 116.21
         },
         {
           "date": "2026-11-09",
-          "value": 98.43
+          "value": 98.43,
+          "high": 115.3,
+          "low": 97.94
         },
         {
           "date": "2026-11-10",
-          "value": 96.63
+          "value": 96.63,
+          "high": 104.11,
+          "low": 96.19
         },
         {
           "date": "2026-11-11",
-          "value": 90.47
+          "value": 90.47,
+          "high": 98.3,
+          "low": 89.87
         },
         {
           "date": "2026-11-12",
-          "value": 96.71
+          "value": 96.71,
+          "high": 98.63,
+          "low": 90.37
         },
         {
           "date": "2026-11-13",
-          "value": 101.53
+          "value": 101.53,
+          "high": 108.02,
+          "low": 93.91
         },
         {
           "date": "2026-11-16",
-          "value": 114.23
+          "value": 114.23,
+          "high": 119.32,
+          "low": 102.31
         },
         {
           "date": "2026-11-17",
-          "value": 121.28
+          "value": 121.28,
+          "high": 127.85,
+          "low": 108.95
         },
         {
           "date": "2026-11-18",
-          "value": 118.37
+          "value": 118.37,
+          "high": 122.03,
+          "low": 112.09
         },
         {
           "date": "2026-11-19",
-          "value": 127.1
+          "value": 127.1,
+          "high": 128.93,
+          "low": 111.25
         },
         {
           "date": "2026-11-20",
-          "value": 138.03
+          "value": 138.03,
+          "high": 146.55,
+          "low": 118.94
         },
         {
           "date": "2026-11-23",
-          "value": 117.36
+          "value": 117.36,
+          "high": 120.19,
+          "low": 112.63
         },
         {
           "date": "2026-11-24",
-          "value": 114.07
+          "value": 114.07,
+          "high": 122.81,
+          "low": 113.09
         },
         {
           "date": "2026-11-25",
-          "value": 115.38
+          "value": 115.38,
+          "high": 131.48,
+          "low": 114.49
         }
       ],
-      "source": "cboe",
+      "day_high": 131.48,
+      "day_low": 114.49,
+      "source": "futu",
       "stats": {
         "window": 252,
         "pct_rank": 88,
@@ -481,7 +543,7 @@
           "value": 142.06
         }
       ],
-      "source": "cboe",
+      "source": "futu",
       "stats": {
         "window": 252,
         "pct_rank": 29,
@@ -1023,9 +1085,9 @@
     ],
     "day_high": 7199.31,
     "day_low": 6970.11,
-    "source": "yahoo_cffi",
+    "source": "futu",
     "stats": {
-      "window": 251,
+      "window": 252,
       "pct_rank": 43,
       "chg_5d": -140.85,
       "chg_5d_pct": -1.92,
