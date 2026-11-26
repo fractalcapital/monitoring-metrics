@@ -102,7 +102,7 @@ API 只有这几个端点：`GET /health`、`POST /api/refresh`、`POST /api/pus
 - `alert/`：飞书 + Bark 发送模块（`notify.py`）
 - `api/`：VPS 上的 API 服务与部署脚本
 - `tests/`：单元测试与 Python / JS 一致性测试
-- `docs/`：仪表盘亮/暗色预览截图
+- `docs/`：仪表盘预览截图、综合情绪压力分算法说明（[composite-stress-score.md](docs/composite-stress-score.md)）与 VPS 运维日志（[ops-monitoring-user.md](docs/ops-monitoring-user.md)）
 
 ## 数据口径与免责
 
