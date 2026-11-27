@@ -20,6 +20,10 @@
 | 股债综合预警 | VIX ≥ 30 且 (VVIX ≥ 140 或 MOVE ≥ 140) | — |
 | VIX 单日急升 | 单日 ≥ +25% | 单日 ≥ +50% |
 | HY OAS 急速走阔 | 单日 ≥ +25bp 或 5 日 ≥ +50bp | — |
+| Sell Put 恐慌卖方窗 | 恐慌机会窗（VIX ≥ 20 且满足溢价/倒挂/回撤） | 高溢价黄金窗（VIX ≥ 26 + 倒挂 + 债信稳健；HY ≥ 600bp / VRP < -5 熔断） |
+| Sell Call 备兑收租窗 | 高位过热（RSI ≥ 65）或高波反抽（VIX ≥ 20） | 过热锁利（RSI ≥ 72 + 距 MA200 ≥ +10%）或强肥波反抽（VIX ≥ 25） |
+
+- 期权窗口提醒属于机会提示（`kind: "opportunity"`）：飞书用蓝色/靛蓝头、Bark 用常规 `active`（不破勿扰）、同级 24 小时去重、窗口关闭不发“解除”噪音；完整规则与演算见 [options-seller-windows.md](options-seller-windows.md)。
 
 - 状态原子写入 `MM_OUT_DIR/alert_state.json`（生产 VPS 为 `/var/lib/monitoring/data/alert_state.json`，本地默认 `data/alert_state.json`）。
 - **防刷屏与回滞**：仅在新触发、级别升级、或同级持续超过 24 小时时推送；水平类报警带 5% 回滞带（期限倒挂 0.02），避免读数在阈值附近来回抖动重复报警。

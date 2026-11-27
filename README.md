@@ -105,7 +105,7 @@ API 端点：`GET /health`、`GET /api/data`、`GET /api/history`、`GET /api/al
 - `api/`：VPS 上的 HTTP API 服务与部署脚本（`api_server.py`、`monitoring-api.service`、`deploy.sh`、`deploy-mac.sh`）
 - `tests/`：单元测试与 Python / JS 一致性测试
 - `docs/`：项目文档中心
-  - 规则与算法：[dashboard.md](docs/dashboard.md)（仪表盘定档、分位与告警说明）、[alerts.md](docs/alerts.md)（推送通道与密钥说明）、[composite-stress-score.md](docs/composite-stress-score.md)（综合情绪压力分算法）
+  - 规则与算法：[dashboard.md](docs/dashboard.md)（仪表盘定档、分位与告警说明）、[alerts.md](docs/alerts.md)（推送通道与密钥说明）、[composite-stress-score.md](docs/composite-stress-score.md)（综合情绪压力分算法）、[options-seller-windows.md](docs/options-seller-windows.md)（激进期权卖方窗口 Sell Put / Sell Call 提醒规则）
   - 运维手册与迁移记录（`docs/ops/`）：[runbook.md](docs/ops/runbook.md)（VPS 日常运维速查手册）、[monitoring-user.md](docs/ops/monitoring-user.md)、[api-data-migration.md](docs/ops/api-data-migration.md)
   - 方案评估与规划（`docs/plans/`）：[private-repo-migration.md](docs/plans/private-repo-migration.md)、[rsi-indicator-evaluation.md](docs/plans/rsi-indicator-evaluation.md)、[yahoo-429.md](docs/plans/yahoo-429.md)
 - `preview/`：仪表盘亮 / 暗双主题与移动端预览截图

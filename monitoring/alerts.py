@@ -19,6 +19,7 @@ from .config import (
     LEVEL_LABEL,
     LEVEL_SEVERITY,
     NODE_LABELS,
+    OPTIONS_SIGNAL_CONFIG,
     RESEND_AFTER,
     STATUS_BANDS,
     _STATUS_SEV,
@@ -61,6 +62,249 @@ def _change_text(d):
 
 def _fmt_bp(v):
     return "—" if v is None else "%+dbp" % round(v)
+
+
+def _fmt_fixed(v, digits=2):
+    """Round half away from zero to match JS Number(v).toFixed(digits)."""
+    scale = 10 ** digits
+    f = float(v)
+    r = math.floor(abs(f) * scale + 0.5) / scale
+    if f < 0 and r != 0:
+        r = -r
+    return "%.*f" % (digits, r)
+
+
+def _fmt_signed_fixed(v, digits=1):
+    s = _fmt_fixed(v, digits)
+    return ("+" + s) if float(v) > 0 and not s.startswith("+") else s
+
+
+def _hy_5d_change(hy):
+    hist = [h.get("value") for h in (hy.get("history") or [])
+            if isinstance(h, dict) and h.get("value") is not None]
+    if len(hist) >= 6:
+        return float(hist[-1]) - float(hist[-6])
+    st = hy.get("stats") or {}
+    return float(st["chg_5d"]) if st.get("chg_5d") is not None else None
+
+
+def evaluate_options_window(payload, cfg=None):
+    """Evaluate aggressive options-seller windows (Sell Put / Sell Call) from existing data."""
+    cfg = cfg or OPTIONS_SIGNAL_CONFIG
+    sp = cfg["sell_put"]
+    sc = cfg["sell_call"]
+    ind = payload.get("indicators") or {}
+    if not ind.get("vix") or not ind.get("move") or not ind.get("hy_oas"):
+        return None
+
+    vix = ind["vix"]
+    vix_val = float(vix["value"])
+    vix_pct = float(vix["change_pct"]) if vix.get("change_pct") is not None else None
+    vix_st = vix.get("stats") or {}
+    vix_pr = float(vix_st["pct_rank"]) if vix_st.get("pct_rank") is not None else None
+    vrp = float(vix_st["vrp"]) if vix_st.get("vrp") is not None else None
+
+    vvix = ind.get("vvix") or {}
+    vvix_pct = float(vvix["change_pct"]) if vvix.get("change_pct") is not None else None
+    skew = ind.get("skew") or {}
+    skew_val = float(skew["value"]) if skew.get("value") is not None else None
+
+    move_val = float(ind["move"]["value"])
+    hy = ind["hy_oas"]
+    hy_val = float(hy["value_bp"])
+    hy_d5 = _hy_5d_change(hy)
+
+    ts = payload.get("term_structure") or {}
+    term_ratio = (float(ts["vix"]) / float(ts["vix3m"])
+                  if ts.get("vix") and ts.get("vix3m") else None)
+
+    spx = payload.get("spx") or {}
+    spx_pct = float(spx["change_pct"]) if spx.get("change_pct") is not None else None
+    spx_st = spx.get("stats") or {}
+    rsi = float(spx_st["rsi_14"]) if spx_st.get("rsi_14") is not None else None
+    vs_ma200 = float(spx_st["vs_ma200_pct"]) if spx_st.get("vs_ma200_pct") is not None else None
+
+    # --- 1. Sell Put (aggressive panic seller with systemic-crisis hard veto) ---
+    veto_reasons = []
+    if hy_val >= sp["veto_hy_bp"]:
+        veto_reasons.append("HY OAS %dbp ≥ %dbp" % (round(hy_val), sp["veto_hy_bp"]))
+    if hy_d5 is not None and hy_d5 >= sp["veto_hy_5d_bp"]:
+        veto_reasons.append("HY 5日急扩 +%dbp" % round(hy_d5))
+    if move_val >= sp["veto_move"] and vix_val >= sp["veto_move_vix"]:
+        veto_reasons.append("股债极端共振（VIX %s / MOVE %s）"
+                            % (_fmt_fixed(vix_val, 1), _fmt_fixed(move_val, 1)))
+    if vrp is not None and vrp < sp["veto_vrp"]:
+        veto_reasons.append("VRP %s 远低于实波" % _fmt_signed_fixed(vrp, 1))
+
+    caution = "；".join(veto_reasons) if veto_reasons else None
+    put_level = "normal"
+    put_tag = ""
+    put_parts = []
+
+    if not veto_reasons:
+        strong_vix_ok = (
+            vix_val >= sp["strong_vix_min"]
+            or (vix_pr is not None and vix_pr >= sp["strong_vix_pct_rank_min"]
+                and vix_val >= sp["vix_min"])
+        )
+        strong_term_ok = term_ratio is not None and term_ratio >= sp["strong_term_ratio_min"]
+        strong_vrp_ok = (
+            vrp is None
+            or vrp >= sp["strong_vrp_min"]
+            or (vix_val >= sp["strong_panic_vix"] and vrp >= sp["strong_panic_vrp_min"])
+        )
+        strong_credit_bond_ok = (
+            hy_val < sp["strong_hy_max"] and move_val < sp["strong_move_max"]
+        )
+
+        p1_vol = (
+            vix_val >= sp["vix_min"]
+            or (vix_pr is not None and vix_pr >= sp["vix_pct_rank_min"]
+                and vix_val >= sp["oversold_vix_min"])
+        )
+        p1_vrp = vrp is None or vrp >= sp["vrp_min"]
+        p1_trig = (
+            (term_ratio is not None and term_ratio >= sp["term_ratio_min"])
+            or (rsi is not None and rsi <= sp["rsi_max"])
+            or (vix_pct is not None and vix_pct >= sp["vix_jump_pct"])
+        )
+        p2_oversold = (
+            rsi is not None and rsi <= sp["oversold_rsi_max"]
+            and vix_val >= sp["oversold_vix_min"]
+        )
+
+        if strong_vix_ok and strong_term_ok and strong_vrp_ok and strong_credit_bond_ok:
+            put_level = "critical"
+            put_tag = "高溢价黄金窗"
+        elif (p1_vol and p1_vrp and p1_trig) or p2_oversold:
+            put_level = "warning"
+            put_tag = "恐慌卖方窗"
+
+        if put_level != "normal":
+            put_parts.append("VIX %s" % _fmt_fixed(vix_val, 2))
+            if term_ratio is not None and term_ratio >= sp["term_ratio_min"]:
+                put_parts.append("VIX/VIX3M %s%s" % (
+                    _fmt_fixed(term_ratio, 2), " 倒挂" if term_ratio >= 1.0 else ""))
+            if vrp is not None:
+                put_parts.append("VRP %s" % _fmt_signed_fixed(vrp, 1))
+            if rsi is not None and rsi <= sp["rsi_max"]:
+                put_parts.append("SPX RSI %s" % _fmt_fixed(rsi, 1))
+            if hy_val < sp["strong_hy_max"] and move_val < sp["strong_move_max"]:
+                put_parts.append("债信暂稳")
+            if (vix_pct is not None and vix_pct < 0) or (vvix_pct is not None and vvix_pct <= -3.0):
+                put_parts.append("波动率现拐头，利于吃降波")
+            elif vix_pct is not None and vix_pct >= 15.0:
+                put_parts.append("仍在急升脉冲中，宜分批拉远行权价")
+
+    # --- 2. Sell Call (overbought euphoria OR high-vol bounce fat Call IV) ---
+    call_veto = (
+        (rsi is not None and rsi <= sc["veto_rsi_max"])
+        or (term_ratio is not None and term_ratio >= sc["veto_term_ratio_min"]
+            and (spx_pct is None or spx_pct < 0))
+    )
+    call_level = "normal"
+    call_tag = ""
+    call_parts = []
+
+    if not call_veto:
+        c1_strong = (
+            rsi is not None and rsi >= sc["strong_rsi_min"]
+            and vs_ma200 is not None and vs_ma200 >= sc["strong_ma200_min"]
+        )
+        c1_warn = (
+            rsi is not None and rsi >= sc["overbought_rsi_min"]
+            and (
+                (vs_ma200 is not None and vs_ma200 >= sc["overbought_ma200_min"])
+                or (skew_val is not None and skew_val >= sc["overbought_skew_min"])
+                or (spx_pct is not None and vix_pct is not None
+                    and spx_pct >= sc["spot_up_spx_pct"]
+                    and vix_pct >= sc["spot_up_vix_pct"])
+            )
+        )
+        c2_strong = (
+            vix_val >= sc["strong_bounce_vix_min"]
+            and rsi is not None and sc["strong_bounce_rsi_min"] <= rsi <= sc["bounce_rsi_max"]
+            and spx_pct is not None and spx_pct >= sc["strong_bounce_spx_pct_min"]
+        )
+        c2_warn = (
+            vix_val >= sc["bounce_vix_min"]
+            and rsi is not None and sc["bounce_rsi_min"] <= rsi <= sc["bounce_rsi_max"]
+            and (
+                (spx_pct is not None and spx_pct >= sc["bounce_spx_pct_min"])
+                or (vs_ma200 is not None and vs_ma200 < 0 and rsi >= sc["strong_bounce_rsi_min"])
+            )
+        )
+
+        if c1_strong:
+            call_level = "critical"
+            call_tag = "过热锁利窗"
+            call_parts.append("SPX RSI %s" % _fmt_fixed(rsi, 1))
+            call_parts.append("距MA200 %s%%" % _fmt_signed_fixed(vs_ma200, 1))
+        elif c2_strong:
+            call_level = "critical"
+            call_tag = "肥波反抽窗"
+            call_parts.append("VIX %s 权利金肥厚" % _fmt_fixed(vix_val, 2))
+            call_parts.append("SPX 单日 %s%% / RSI %s"
+                              % (_fmt_signed_fixed(spx_pct, 1), _fmt_fixed(rsi, 1)))
+        elif c1_warn:
+            call_level = "warning"
+            call_tag = "高位收租窗"
+            call_parts.append("SPX RSI %s" % _fmt_fixed(rsi, 1))
+            if vs_ma200 is not None and vs_ma200 >= sc["overbought_ma200_min"]:
+                call_parts.append("距MA200 %s%%" % _fmt_signed_fixed(vs_ma200, 1))
+            if skew_val is not None and skew_val >= sc["overbought_skew_min"]:
+                call_parts.append("SKEW %s 偏高" % _fmt_fixed(skew_val, 1))
+            if (spx_pct is not None and vix_pct is not None
+                    and spx_pct >= sc["spot_up_spx_pct"]
+                    and vix_pct >= sc["spot_up_vix_pct"]):
+                call_parts.append("股涨波升（逼空特征）")
+        elif c2_warn:
+            call_level = "warning"
+            call_tag = "高波反抽窗"
+            call_parts.append("VIX %s 仍偏高" % _fmt_fixed(vix_val, 2))
+            if spx_pct is not None and spx_pct >= sc["bounce_spx_pct_min"]:
+                call_parts.append("SPX 反抽 %s%%" % _fmt_signed_fixed(spx_pct, 1))
+            call_parts.append("RSI %s" % _fmt_fixed(rsi, 1))
+
+    put_reason = " · ".join(put_parts) if put_parts else (caution or "VIX 与波动率溢价未达恐慌卖方线")
+    call_reason = " · ".join(call_parts) if call_parts else ("恐慌砸盘防地板卖飞" if call_veto else "未达高位过热或高波反抽窗口")
+
+    if put_level != "normal" and call_level != "normal":
+        action = "both"
+        label = "双卖机会窗（Sell Put + Sell Call）"
+        tone = "b-blue"
+        summary = "Put 端：%s；Call 端：%s" % (put_reason, call_reason)
+    elif put_level != "normal":
+        action = "sell_put"
+        label = "Sell Put · %s" % put_tag
+        tone = "b-blue"
+        summary = put_reason
+    elif call_level != "normal":
+        action = "sell_call"
+        label = "Sell Call · %s" % call_tag
+        tone = "b-blue"
+        summary = call_reason
+    elif caution:
+        action = "caution"
+        label = "慎卖 Put · 系统性风险熔断"
+        tone = "b-red"
+        summary = "%s；暂不提示恐慌卖 Put，防范尾部穿仓" % caution
+    else:
+        action = "neutral"
+        label = "中性观望"
+        tone = "b-grey"
+        summary = "当前波动率与价格位置暂未进入激进卖方窗口（VIX %s）" % _fmt_fixed(vix_val, 2)
+
+    return {
+        "style": cfg.get("style", "aggressive"),
+        "action": action,
+        "label": label,
+        "tone": tone,
+        "caution": caution,
+        "summary": summary,
+        "sell_put": {"level": put_level, "tag": put_tag, "reason": put_reason},
+        "sell_call": {"level": call_level, "tag": call_tag, "reason": call_reason},
+    }
 
 
 def evaluate_alerts(payload, prev_levels=None):
@@ -177,6 +421,26 @@ def evaluate_alerts(payload, prev_levels=None):
         out["composite_jump"] = _ev(j_level, int(chg_5d) if chg_5d is not None else 0,
                                     comp_date, spec_j["warning"], j_change)
 
+    # Aggressive options-seller opportunity windows (Sell Put / Sell Call).
+    opt = payload.get("options_window") or evaluate_options_window(payload)
+    if opt:
+        sp_info = opt["sell_put"]
+        sp_spec = ALERT_THRESHOLDS["opt_sell_put"]
+        sp_thr = sp_spec["critical"] if sp_info["level"] == "critical" else sp_spec["warning"]
+        out["opt_sell_put"] = _ev(
+            sp_info["level"], ind["vix"]["value"], ind["vix"]["date"],
+            sp_thr, sp_info["reason"],
+        )
+        sc_info = opt["sell_call"]
+        sc_spec = ALERT_THRESHOLDS["opt_sell_call"]
+        sc_thr = sc_spec["critical"] if sc_info["level"] == "critical" else sc_spec["warning"]
+        spx_st = (payload.get("spx") or {}).get("stats") or {}
+        sc_val = spx_st["rsi_14"] if spx_st.get("rsi_14") is not None else ind["vix"]["value"]
+        out["opt_sell_call"] = _ev(
+            sc_info["level"], sc_val, (payload.get("spx") or {}).get("date") or ind["vix"]["date"],
+            sc_thr, sc_info["reason"],
+        )
+
     if payload.get("intraday"):
         for key, ev in out.items():
             if key not in ("hy_oas", "hy_widen"):
@@ -249,6 +513,18 @@ def format_alert_parts(key, ev):
     elif key == "composite_jump":
         body = ("情绪压力分 5 日急升：%+d 分（阈值 +%s 分）\n%s\n日期：%s"
                 % (int(ev["value"]), ev["threshold"], ev["change"], ev["date"]))
+    elif key == "opt_sell_put":
+        tier_cn = "高溢价黄金窗" if ev["level"] == "critical" else "恐慌机会窗"
+        title = "【期权提醒·%s】Sell Put 窗口" % tier_cn
+        body = ("触发依据：%s\n"
+                "提示：激进恐慌卖方模式，优先分批选择高 IV / 虚值行权价，下单前确认个股财报与事件日历\n"
+                "日期：%s" % (ev["change"], ev["date"]))
+    elif key == "opt_sell_call":
+        tier_cn = "强信号" if ev["level"] == "critical" else "机会窗"
+        title = "【期权提醒·%s】Sell Call 备兑窗口" % tier_cn
+        body = ("触发依据：%s\n"
+                "提示：适合对已有正股分批卖出虚值 Covered Call 收租锁利，避开财报/重大催化剂前夕\n"
+                "日期：%s" % (ev["change"], ev["date"]))
     else:
         body = ("当前值：%s%s（阈值 %s%s）\n"
                 "日期：%s\n"
@@ -529,7 +805,12 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
             continue
 
         title, body = format_alert_parts(key, ev)
-        template = {"warning": "orange", "critical": "red"}.get(new_level, "blue")
+        if spec.get("kind") == "opportunity":
+            template = "indigo" if new_level == "critical" else "blue"
+            bark_level = "warning"  # maps to Bark "active" (never loud DND siren)
+        else:
+            template = {"warning": "orange", "critical": "red"}.get(new_level, "blue")
+            bark_level = new_level
         sent_chs = []
         for ch in ("feishu", "bark"):
             ch_sent_at = _parse_utc(channels[ch].get("last_sent_at_utc"))
@@ -539,7 +820,7 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
                 print("  alert %s=%s (no %s configured, not sent)"
                       % (key, new_level, ch))
                 continue
-            if _send_channel(ch, title, body, template, new_level, feishu_sender, bark_sender):
+            if _send_channel(ch, title, body, template, bark_level, feishu_sender, bark_sender):
                 channels[ch] = {"last_sent_at_utc": now_s,
                                 "last_sent_value": ev["value"]}
                 sent_chs.append(ch)
@@ -736,6 +1017,9 @@ def build_status_message(payload, stale=False):
     attr = payload.get("attribution") or cross_market_attribution(payload)
     if attr and attr.get("regime"):
         lines.append("跨市场归因：%s（%s）" % (attr["regime"], attr["summary"].rstrip("。")))
+    opt = payload.get("options_window") or evaluate_options_window(payload)
+    if opt and opt.get("label"):
+        lines.append("期权卖方窗口：%s（%s）" % (opt["label"], opt["summary"]))
     comp = payload.get("composite") or {}
     if comp.get("score") is not None:
         comp_extra = []

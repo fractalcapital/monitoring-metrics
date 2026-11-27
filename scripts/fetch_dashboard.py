@@ -35,6 +35,7 @@ from monitoring.alerts import (  # noqa: E402, F401
     build_status_message,
     cross_market_attribution,
     evaluate_alerts,
+    evaluate_options_window,
     format_alert_parts,
     format_recovery_parts,
     load_alert_history,
@@ -79,6 +80,7 @@ from monitoring.config import (  # noqa: E402, F401
     LEVEL_LABEL,
     LEVEL_SEVERITY,
     NODE_LABELS,
+    OPTIONS_SIGNAL_CONFIG,
     RESEND_AFTER,
     STATS_MIN_WINDOW,
     STATS_WINDOW,
@@ -365,11 +367,13 @@ def main():
             "status_bands": STATUS_BANDS,
             "alert_thresholds": ALERT_THRESHOLDS,
             "fresh_allowed_lag": FRESH_ALLOWED_LAG,
+            "options_signal": OPTIONS_SIGNAL_CONFIG,
         },
     }
 
-    # 6. Cross-market attribution + freshness: data dates vs the latest NYSE session
+    # 6. Cross-market attribution, options-seller window + freshness
     payload["attribution"] = cross_market_attribution(payload)
+    payload["options_window"] = evaluate_options_window(payload)
     expected, fresh_issues = annotate_freshness(payload, now_utc, set(stale_indicators))
     if fresh_issues:
         group_errors["freshness"] = ("预期收盘日 %s：%s"
@@ -419,6 +423,9 @@ def main():
             "%s %sbp (%s)%s" % (k, v.get("value_bp"), v.get("date"),
                                " STALE" if v.get("stale") else "")
             for k, v in credit_tiers.items()))
+    opt_win = payload.get("options_window")
+    if opt_win:
+        print("  options window: %s (%s)" % (opt_win.get("label"), opt_win.get("summary")))
 
     new_state, sent = process_alerts(
         payload,

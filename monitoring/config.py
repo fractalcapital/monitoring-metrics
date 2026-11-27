@@ -77,6 +77,57 @@ ALERT_THRESHOLDS = {
                   "hyst_abs": 5},
     "composite_jump": {"label": "压力分 5 日急升", "unit": "分", "warning": 25,
                        "event": True},
+    # Aggressive options-seller windows (opportunity reminders, non-critical Bark).
+    "opt_sell_put": {"label": "Sell Put 恐慌卖方窗", "unit": "", "warning": 20,
+                     "critical": 26, "event": True, "kind": "opportunity"},
+    "opt_sell_call": {"label": "Sell Call 备兑收租窗", "unit": "", "warning": 65,
+                      "critical": 72, "event": True, "kind": "opportunity"},
+}
+
+# Aggressive options-seller signal parameters (恐慌做卖方，优先收高权利金，极端系统性风险熔断).
+OPTIONS_SIGNAL_CONFIG = {
+    "style": "aggressive",
+    "sell_put": {
+        "veto_hy_bp": 600,
+        "veto_hy_5d_bp": 75,
+        "veto_move": 155,
+        "veto_move_vix": 35,
+        "veto_vrp": -5.0,
+        "vix_min": 20.0,
+        "vix_pct_rank_min": 70,
+        "vrp_min": 0.0,
+        "term_ratio_min": 0.95,
+        "rsi_max": 45.0,
+        "vix_jump_pct": 12.0,
+        "oversold_rsi_max": 35.0,
+        "oversold_vix_min": 18.0,
+        "strong_vix_min": 26.0,
+        "strong_vix_pct_rank_min": 85,
+        "strong_term_ratio_min": 1.00,
+        "strong_vrp_min": 1.0,
+        "strong_panic_vix": 30.0,
+        "strong_panic_vrp_min": -3.0,
+        "strong_hy_max": 500,
+        "strong_move_max": 135,
+    },
+    "sell_call": {
+        "veto_rsi_max": 40.0,
+        "veto_term_ratio_min": 1.05,
+        "overbought_rsi_min": 65.0,
+        "overbought_ma200_min": 5.0,
+        "overbought_skew_min": 140.0,
+        "spot_up_spx_pct": 0.4,
+        "spot_up_vix_pct": 3.0,
+        "strong_rsi_min": 72.0,
+        "strong_ma200_min": 10.0,
+        "bounce_vix_min": 20.0,
+        "bounce_rsi_min": 48.0,
+        "bounce_rsi_max": 65.0,
+        "bounce_spx_pct_min": 0.5,
+        "strong_bounce_vix_min": 25.0,
+        "strong_bounce_rsi_min": 50.0,
+        "strong_bounce_spx_pct_min": 1.0,
+    },
 }
 # A triggered level holds until the value is this fraction (or the spec's
 # hyst_abs) below its threshold, so readings hovering around a line don't

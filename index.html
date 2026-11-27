@@ -641,10 +641,47 @@
   .pillar-chip.b-amber  { background: var(--amber-bg);  color: var(--amber-text);  border-color: var(--amber-border); }
   .pillar-chip.b-orange { background: var(--orange-bg); color: var(--orange-text); border-color: var(--orange-border); }
   .pillar-chip.b-red    { background: var(--red-bg);    color: var(--red-text);    border-color: var(--red-border); }
+  .pillar-chip.b-blue   { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+  .pillar-chip.b-grey   { background: var(--surface2); color: var(--text-muted); border-color: var(--border); }
+  .badge.b-blue         { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+  .badge.b-grey         { background: var(--surface2); color: var(--text-muted); border-color: var(--border); }
   .hero-attr-summary {
     font-size: 12.5px;
     line-height: 1.55;
     color: var(--hero-desc);
+  }
+  .hero-opt {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    margin-top: 2px;
+    border-top: 1px dashed var(--hero-panel-border);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .hero-opt-k {
+    font-weight: 700;
+    color: var(--hero-meta-label);
+    white-space: nowrap;
+  }
+  .hero-opt-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1.5px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .hero-opt-tag.b-blue  { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+  .hero-opt-tag.b-red   { background: var(--red-bg); color: var(--red-text); border-color: var(--red-border); }
+  .hero-opt-tag.b-grey  { background: var(--surface2); color: var(--text-muted); border-color: var(--border); }
+  .hero-opt-desc {
+    color: var(--hero-desc);
+    flex: 1 1 240px;
   }
 
   /* 5 指标紧凑快照胶囊条 */
@@ -2157,6 +2194,8 @@
   }
   .alert-box.lvl-warning  { border-color: var(--amber-border); background: var(--amber-bg); }
   .alert-box.lvl-critical { border-color: var(--red-border);   background: var(--red-bg); }
+  .alert-box.is-opt.lvl-warning  { border-color: var(--accent-border); background: var(--accent-soft); }
+  .alert-box.is-opt.lvl-critical { border-color: var(--accent); background: var(--accent-soft); }
   .alert-box-top {
     display: flex;
     justify-content: space-between;
@@ -2777,7 +2816,7 @@
       </details>
 
       <div class="alerts-subnote">
-        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；带回滞防抖、24 小时同级去重与恢复解除通知。详见 <a href="docs/dashboard.md">docs/dashboard.md</a>。
+        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。风险触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；另含激进期权卖方提醒：Sell Put 恐慌卖方窗（VIX ≥20 且 VRP ≥0 叠加倒挂/回撤/急升，VIX ≥26 + 倒挂 + 债信稳健为高溢价黄金窗；HY ≥600bp / VRP &lt;-5 熔断）与 Sell Call 备兑收租窗（SPX RSI ≥65 高位过热，或 VIX ≥20 高波反抽），使用非打扰蓝卡/常规推送并带 24 小时去重。详见 <a href="docs/dashboard.md">docs/dashboard.md</a>。
       </div>
     </div>
   </section>
@@ -4111,6 +4150,7 @@ function render(data, isSnapshot, fallbackSource){
   const cards = document.getElementById('cards');
   if(data.config && data.config.status_bands) ACTIVE_STATUS_BANDS = data.config.status_bands;
   if(data.config && data.config.alert_thresholds) ACTIVE_ALERT_THRESHOLDS = data.config.alert_thresholds;
+  if(data.config && data.config.options_signal) ACTIVE_OPTIONS_SIGNAL = data.config.options_signal;
 
   const fallbackTag = fallbackSource === 'localCache'
     ? ` · 本地缓存`
@@ -4209,6 +4249,14 @@ function render(data, isSnapshot, fallbackSource){
     ? `<span class="composite-tag" title="由 VIX / MOVE / HY OAS / VVIX 近一年分位加权合成（0-100，不含 SKEW）">压力分 ${comp.score}/100</span>`
     : '';
   const attr = data.attribution || computeAttribution(data);
+  const optWin = data.options_window || computeOptionsWindow(data);
+  const optStripHTML = optWin ? `
+      <div class="hero-opt" title="激进期权卖方窗口参考（基于 VIX/期限结构/VRP/债信/SPX RSI 合成，非投资建议）">
+        <span class="hero-opt-k">期权卖方窗</span>
+        <span class="hero-opt-tag ${optWin.tone}">${escapeHtml(optWin.label)}</span>
+        <span class="hero-opt-desc">${escapeHtml(optWin.summary)}</span>
+      </div>
+  ` : '';
   const attrHTML = attr ? `
     <div class="hero-attr">
       <div class="hero-attr-top">
@@ -4223,6 +4271,7 @@ function render(data, isSnapshot, fallbackSource){
         </div>
       </div>
       <div class="hero-attr-summary">${escapeHtml(attr.summary)}</div>
+      ${optStripHTML}
     </div>
   ` : '';
   document.getElementById('verdict').innerHTML = `
@@ -4926,10 +4975,31 @@ const DEFAULT_ALERT_THRESHOLDS = {
   vix_jump:       { label: "VIX 单日急升",     unit: "%",  warning: 25,  critical: 50, event: true },
   hy_widen:       { label: "HY OAS 急速走阔",  unit: "bp", warning: 25,  warning_5d: 50, event: true },
   composite:      { label: "综合情绪压力分",   unit: "分", warning: 85,  hyst_abs: 5 },
-  composite_jump: { label: "压力分 5 日急升",  unit: "分", warning: 25,  event: true }
+  composite_jump: { label: "压力分 5 日急升",  unit: "分", warning: 25,  event: true },
+  opt_sell_put:   { label: "Sell Put 恐慌卖方窗", unit: "", warning: 20, critical: 26, event: true, kind: "opportunity" },
+  opt_sell_call:  { label: "Sell Call 备兑收租窗", unit: "", warning: 65, critical: 72, event: true, kind: "opportunity" }
 };
 let ACTIVE_ALERT_THRESHOLDS = DEFAULT_ALERT_THRESHOLDS;
-const ALERT_ORDER = ['vix', 'vvix', 'skew', 'move', 'hy_oas', 'term', 'vix_jump', 'hy_widen', 'composite', 'composite_jump', 'cross'];
+const DEFAULT_OPTIONS_SIGNAL = {
+  style: "aggressive",
+  sell_put: {
+    veto_hy_bp: 600, veto_hy_5d_bp: 75, veto_move: 155, veto_move_vix: 35, veto_vrp: -5.0,
+    vix_min: 20.0, vix_pct_rank_min: 70, vrp_min: 0.0, term_ratio_min: 0.95,
+    rsi_max: 45.0, vix_jump_pct: 12.0, oversold_rsi_max: 35.0, oversold_vix_min: 18.0,
+    strong_vix_min: 26.0, strong_vix_pct_rank_min: 85, strong_term_ratio_min: 1.00,
+    strong_vrp_min: 1.0, strong_panic_vix: 30.0, strong_panic_vrp_min: -3.0,
+    strong_hy_max: 500, strong_move_max: 135
+  },
+  sell_call: {
+    veto_rsi_max: 40.0, veto_term_ratio_min: 1.05,
+    overbought_rsi_min: 65.0, overbought_ma200_min: 5.0, overbought_skew_min: 140.0,
+    spot_up_spx_pct: 0.4, spot_up_vix_pct: 3.0, strong_rsi_min: 72.0, strong_ma200_min: 10.0,
+    bounce_vix_min: 20.0, bounce_rsi_min: 48.0, bounce_rsi_max: 65.0, bounce_spx_pct_min: 0.5,
+    strong_bounce_vix_min: 25.0, strong_bounce_rsi_min: 50.0, strong_bounce_spx_pct_min: 1.0
+  }
+};
+let ACTIVE_OPTIONS_SIGNAL = DEFAULT_OPTIONS_SIGNAL;
+const ALERT_ORDER = ['opt_sell_put', 'opt_sell_call', 'vix', 'vvix', 'skew', 'move', 'hy_oas', 'term', 'vix_jump', 'hy_widen', 'composite', 'composite_jump', 'cross'];
 
 function alertSpec(key){
   return (ACTIVE_ALERT_THRESHOLDS && ACTIVE_ALERT_THRESHOLDS[key]) || DEFAULT_ALERT_THRESHOLDS[key];
@@ -4952,7 +5022,189 @@ function alertExpectedDate(key, data){
     }
     return ind.vix && ind.vix.date;
   }
+  if(key === 'opt_sell_call') return (data && data.spx && data.spx.date) || (ind.vix && ind.vix.date);
   return ind.vix && ind.vix.date;
+}
+
+function fmtOptFixed(v, digits){
+  const scale = Math.pow(10, digits);
+  const f = Number(v);
+  let r = Math.floor(Math.abs(f) * scale + 0.5) / scale;
+  if(f < 0 && r !== 0) r = -r;
+  return r.toFixed(digits);
+}
+function fmtOptSigned(v, digits){
+  const s = fmtOptFixed(v, digits);
+  return (Number(v) > 0 && !s.startsWith('+')) ? ('+' + s) : s;
+}
+
+function computeOptionsWindow(data, cfgOverride){
+  const cfg = cfgOverride || ACTIVE_OPTIONS_SIGNAL || DEFAULT_OPTIONS_SIGNAL;
+  const sp = cfg.sell_put, sc = cfg.sell_call;
+  const ind = data && data.indicators;
+  if(!ind || !ind.vix || !ind.move || !ind.hy_oas) return null;
+
+  const vix = ind.vix;
+  const vixVal = Number(vix.value);
+  const vixPct = (vix.change_pct !== null && vix.change_pct !== undefined) ? Number(vix.change_pct) : null;
+  const vixSt = vix.stats || {};
+  const vixPr = (vixSt.pct_rank !== null && vixSt.pct_rank !== undefined) ? Number(vixSt.pct_rank) : null;
+  const vrp = (vixSt.vrp !== null && vixSt.vrp !== undefined) ? Number(vixSt.vrp) : null;
+
+  const vvix = ind.vvix || {};
+  const vvixPct = (vvix.change_pct !== null && vvix.change_pct !== undefined) ? Number(vvix.change_pct) : null;
+  const skew = ind.skew || {};
+  const skewVal = (skew.value !== null && skew.value !== undefined) ? Number(skew.value) : null;
+
+  const moveVal = Number(ind.move.value);
+  const hy = ind.hy_oas;
+  const hyVal = Number(hy.value_bp);
+  const hyD5Raw = hy5dChange(hy);
+  const hyD5 = (hyD5Raw !== null && hyD5Raw !== undefined) ? Number(hyD5Raw) : null;
+
+  const ts = data.term_structure || {};
+  const termRatio = (ts.vix && ts.vix3m) ? (Number(ts.vix) / Number(ts.vix3m)) : null;
+
+  const spx = data.spx || {};
+  const spxPct = (spx.change_pct !== null && spx.change_pct !== undefined) ? Number(spx.change_pct) : null;
+  const spxSt = spx.stats || {};
+  const rsi = (spxSt.rsi_14 !== null && spxSt.rsi_14 !== undefined) ? Number(spxSt.rsi_14) : null;
+  const vsMa200 = (spxSt.vs_ma200_pct !== null && spxSt.vs_ma200_pct !== undefined) ? Number(spxSt.vs_ma200_pct) : null;
+
+  const vetoReasons = [];
+  if(hyVal >= sp.veto_hy_bp) vetoReasons.push(`HY OAS ${Math.round(hyVal)}bp ≥ ${sp.veto_hy_bp}bp`);
+  if(hyD5 !== null && hyD5 >= sp.veto_hy_5d_bp) vetoReasons.push(`HY 5日急扩 +${Math.round(hyD5)}bp`);
+  if(moveVal >= sp.veto_move && vixVal >= sp.veto_move_vix){
+    vetoReasons.push(`股债极端共振（VIX ${fmtOptFixed(vixVal, 1)} / MOVE ${fmtOptFixed(moveVal, 1)}）`);
+  }
+  if(vrp !== null && vrp < sp.veto_vrp) vetoReasons.push(`VRP ${fmtOptSigned(vrp, 1)} 远低于实波`);
+
+  const caution = vetoReasons.length ? vetoReasons.join('；') : null;
+  let putLevel = 'normal', putTag = '';
+  const putParts = [];
+
+  if(!vetoReasons.length){
+    const strongVixOk = (vixVal >= sp.strong_vix_min) || (vixPr !== null && vixPr >= sp.strong_vix_pct_rank_min && vixVal >= sp.vix_min);
+    const strongTermOk = termRatio !== null && termRatio >= sp.strong_term_ratio_min;
+    const strongVrpOk = (vrp === null) || (vrp >= sp.strong_vrp_min) || (vixVal >= sp.strong_panic_vix && vrp >= sp.strong_panic_vrp_min);
+    const strongCreditBondOk = hyVal < sp.strong_hy_max && moveVal < sp.strong_move_max;
+
+    const p1Vol = (vixVal >= sp.vix_min) || (vixPr !== null && vixPr >= sp.vix_pct_rank_min && vixVal >= sp.oversold_vix_min);
+    const p1Vrp = vrp === null || vrp >= sp.vrp_min;
+    const p1Trig = (termRatio !== null && termRatio >= sp.term_ratio_min)
+      || (rsi !== null && rsi <= sp.rsi_max)
+      || (vixPct !== null && vixPct >= sp.vix_jump_pct);
+    const p2Oversold = rsi !== null && rsi <= sp.oversold_rsi_max && vixVal >= sp.oversold_vix_min;
+
+    if(strongVixOk && strongTermOk && strongVrpOk && strongCreditBondOk){
+      putLevel = 'critical';
+      putTag = '高溢价黄金窗';
+    } else if((p1Vol && p1Vrp && p1Trig) || p2Oversold){
+      putLevel = 'warning';
+      putTag = '恐慌卖方窗';
+    }
+
+    if(putLevel !== 'normal'){
+      putParts.push(`VIX ${fmtOptFixed(vixVal, 2)}`);
+      if(termRatio !== null && termRatio >= sp.term_ratio_min){
+        putParts.push(`VIX/VIX3M ${fmtOptFixed(termRatio, 2)}${termRatio >= 1.0 ? ' 倒挂' : ''}`);
+      }
+      if(vrp !== null) putParts.push(`VRP ${fmtOptSigned(vrp, 1)}`);
+      if(rsi !== null && rsi <= sp.rsi_max) putParts.push(`SPX RSI ${fmtOptFixed(rsi, 1)}`);
+      if(hyVal < sp.strong_hy_max && moveVal < sp.strong_move_max) putParts.push('债信暂稳');
+      if((vixPct !== null && vixPct < 0) || (vvixPct !== null && vvixPct <= -3.0)){
+        putParts.push('波动率现拐头，利于吃降波');
+      } else if(vixPct !== null && vixPct >= 15.0){
+        putParts.push('仍在急升脉冲中，宜分批拉远行权价');
+      }
+    }
+  }
+
+  const callVeto = (rsi !== null && rsi <= sc.veto_rsi_max)
+    || (termRatio !== null && termRatio >= sc.veto_term_ratio_min && (spxPct === null || spxPct < 0));
+  let callLevel = 'normal', callTag = '';
+  const callParts = [];
+
+  if(!callVeto){
+    const c1Strong = rsi !== null && rsi >= sc.strong_rsi_min && vsMa200 !== null && vsMa200 >= sc.strong_ma200_min;
+    const c1Warn = rsi !== null && rsi >= sc.overbought_rsi_min && (
+      (vsMa200 !== null && vsMa200 >= sc.overbought_ma200_min)
+      || (skewVal !== null && skewVal >= sc.overbought_skew_min)
+      || (spxPct !== null && vixPct !== null && spxPct >= sc.spot_up_spx_pct && vixPct >= sc.spot_up_vix_pct)
+    );
+    const c2Strong = vixVal >= sc.strong_bounce_vix_min && rsi !== null
+      && rsi >= sc.strong_bounce_rsi_min && rsi <= sc.bounce_rsi_max
+      && spxPct !== null && spxPct >= sc.strong_bounce_spx_pct_min;
+    const c2Warn = vixVal >= sc.bounce_vix_min && rsi !== null
+      && rsi >= sc.bounce_rsi_min && rsi <= sc.bounce_rsi_max
+      && ((spxPct !== null && spxPct >= sc.bounce_spx_pct_min)
+          || (vsMa200 !== null && vsMa200 < 0 && rsi >= sc.strong_bounce_rsi_min));
+
+    if(c1Strong){
+      callLevel = 'critical';
+      callTag = '过热锁利窗';
+      callParts.push(`SPX RSI ${fmtOptFixed(rsi, 1)}`);
+      callParts.push(`距MA200 ${fmtOptSigned(vsMa200, 1)}%`);
+    } else if(c2Strong){
+      callLevel = 'critical';
+      callTag = '肥波反抽窗';
+      callParts.push(`VIX ${fmtOptFixed(vixVal, 2)} 权利金肥厚`);
+      callParts.push(`SPX 单日 ${fmtOptSigned(spxPct, 1)}% / RSI ${fmtOptFixed(rsi, 1)}`);
+    } else if(c1Warn){
+      callLevel = 'warning';
+      callTag = '高位收租窗';
+      callParts.push(`SPX RSI ${fmtOptFixed(rsi, 1)}`);
+      if(vsMa200 !== null && vsMa200 >= sc.overbought_ma200_min) callParts.push(`距MA200 ${fmtOptSigned(vsMa200, 1)}%`);
+      if(skewVal !== null && skewVal >= sc.overbought_skew_min) callParts.push(`SKEW ${fmtOptFixed(skewVal, 1)} 偏高`);
+      if(spxPct !== null && vixPct !== null && spxPct >= sc.spot_up_spx_pct && vixPct >= sc.spot_up_vix_pct){
+        callParts.push('股涨波升（逼空特征）');
+      }
+    } else if(c2Warn){
+      callLevel = 'warning';
+      callTag = '高波反抽窗';
+      callParts.push(`VIX ${fmtOptFixed(vixVal, 2)} 仍偏高`);
+      if(spxPct !== null && spxPct >= sc.bounce_spx_pct_min) callParts.push(`SPX 反抽 ${fmtOptSigned(spxPct, 1)}%`);
+      callParts.push(`RSI ${fmtOptFixed(rsi, 1)}`);
+    }
+  }
+
+  const putReason = putParts.length ? putParts.join(' · ') : (caution || 'VIX 与波动率溢价未达恐慌卖方线');
+  const callReason = callParts.length ? callParts.join(' · ') : (callVeto ? '恐慌砸盘防地板卖飞' : '未达高位过热或高波反抽窗口');
+
+  let action, label, tone, summary;
+  if(putLevel !== 'normal' && callLevel !== 'normal'){
+    action = 'both';
+    label = '双卖机会窗（Sell Put + Sell Call）';
+    tone = 'b-blue';
+    summary = `Put 端：${putReason}；Call 端：${callReason}`;
+  } else if(putLevel !== 'normal'){
+    action = 'sell_put';
+    label = `Sell Put · ${putTag}`;
+    tone = 'b-blue';
+    summary = putReason;
+  } else if(callLevel !== 'normal'){
+    action = 'sell_call';
+    label = `Sell Call · ${callTag}`;
+    tone = 'b-blue';
+    summary = callReason;
+  } else if(caution){
+    action = 'caution';
+    label = '慎卖 Put · 系统性风险熔断';
+    tone = 'b-red';
+    summary = `${caution}；暂不提示恐慌卖 Put，防范尾部穿仓`;
+  } else {
+    action = 'neutral';
+    label = '中性观望';
+    tone = 'b-grey';
+    summary = `当前波动率与价格位置暂未进入激进卖方窗口（VIX ${fmtOptFixed(vixVal, 2)}）`;
+  }
+
+  return {
+    style: cfg.style || 'aggressive',
+    action, label, tone, caution, summary,
+    sell_put: { level: putLevel, tag: putTag, reason: putReason },
+    sell_call: { level: callLevel, tag: callTag, reason: callReason }
+  };
 }
 
 function computeAttribution(data){
@@ -5044,6 +5296,8 @@ function alertThresholdText(key){
   if(key === 'hy_widen') return `单日 ≥+${s.warning}bp 或 5日 ≥+${s.warning_5d}bp`;
   if(key === 'composite') return `≥${s.warning}${u} 预警（回滞 ${s.hyst_abs || 5}${u}）`;
   if(key === 'composite_jump') return `5日 ≥+${s.warning}${u} 预警`;
+  if(key === 'opt_sell_put') return `VIX ≥${s.warning} 恐慌窗 / ≥${s.critical}+倒挂 黄金窗（HY≥600 熔断）`;
+  if(key === 'opt_sell_call') return `RSI ≥${s.warning} 过热 / VIX≥20 高波反抽`;
   return s.critical !== undefined
     ? `≥${s.warning}${u} 预警 / ≥${s.critical}${u} 严重`
     : `≥${s.warning}${u} 预警`;
@@ -5088,6 +5342,11 @@ function alertLevel(key, d){
     if(d5 === null || d5 === undefined) return 'normal';
     return d5 >= s.warning ? 'warning' : 'normal';
   }
+  if(key === 'opt_sell_put' || key === 'opt_sell_call'){
+    const opt = d.options_window || computeOptionsWindow(d);
+    if(!opt) return 'normal';
+    return key === 'opt_sell_put' ? opt.sell_put.level : opt.sell_call.level;
+  }
   const val = v(key);
   if(s.critical !== undefined && val >= s.critical) return 'critical';
   return val >= s.warning ? 'warning' : 'normal';
@@ -5124,6 +5383,21 @@ function alertProximity(key, d){
     const d5 = Math.max(0, Number((d.composite && d.composite.chg_5d) || 0));
     return Math.max(0, Math.min(100, Math.round((d5 / s.warning) * 100)));
   }
+  if(key === 'opt_sell_put'){
+    const opt = d.options_window || computeOptionsWindow(d);
+    if(opt && opt.caution) return 0;
+    if(opt && opt.sell_put.level === 'critical') return 100;
+    if(opt && opt.sell_put.level === 'warning') return 85;
+    return Math.max(0, Math.min(95, Math.round((ind.vix.value / s.warning) * 100)));
+  }
+  if(key === 'opt_sell_call'){
+    const opt = d.options_window || computeOptionsWindow(d);
+    if(opt && opt.sell_call.level === 'critical') return 100;
+    if(opt && opt.sell_call.level === 'warning') return 85;
+    const rsi = d.spx && d.spx.stats && d.spx.stats.rsi_14;
+    if(rsi === null || rsi === undefined) return 0;
+    return Math.max(0, Math.min(95, Math.round((Number(rsi) / s.warning) * 100)));
+  }
   const val = key === 'hy_oas' ? ind.hy_oas.value_bp : ind[key].value;
   return Math.max(0, Math.min(100, Math.round((val / s.warning) * 100)));
 }
@@ -5154,6 +5428,19 @@ function alertCurrentText(key, data){
   if(key === 'composite_jump'){
     const d5 = data.composite && data.composite.chg_5d;
     return (d5 !== null && d5 !== undefined) ? `${d5 > 0 ? '+' : ''}${d5} 分` : '—';
+  }
+  if(key === 'opt_sell_put'){
+    const opt = data.options_window || computeOptionsWindow(data);
+    if(opt && opt.caution) return '系统性熔断';
+    if(opt && opt.sell_put.tag) return `${opt.sell_put.tag} · VIX ${ind.vix.value}`;
+    return `VIX ${ind.vix.value}`;
+  }
+  if(key === 'opt_sell_call'){
+    const opt = data.options_window || computeOptionsWindow(data);
+    const rsi = data.spx && data.spx.stats && data.spx.stats.rsi_14;
+    const rsiTxt = (rsi !== null && rsi !== undefined) ? `RSI ${Number(rsi).toFixed(1)}` : `VIX ${ind.vix.value}`;
+    if(opt && opt.sell_call.tag) return `${opt.sell_call.tag} · ${rsiTxt}`;
+    return rsiTxt;
   }
   return ind[key].value;
 }
@@ -5216,16 +5503,22 @@ function renderAlerts(data, state){
     const expectedDate = alertExpectedDate(key, data);
     const lvl = (serverLvl && expectedDate && st[key].date === expectedDate)
       ? serverLvl : rawLvl;
-    const cls = lvl === 'critical' ? 'b-red' : lvl === 'warning' ? 'b-amber' : 'b-green';
-    const label = lvl === 'critical' ? '严重告警' : lvl === 'warning' ? '触线预警' : '运行正常';
+    const isOpt = spec.kind === 'opportunity';
+    const cls = isOpt
+      ? (lvl === 'normal' ? 'b-grey' : 'b-blue')
+      : (lvl === 'critical' ? 'b-red' : lvl === 'warning' ? 'b-amber' : 'b-green');
+    const label = isOpt
+      ? (lvl === 'critical' ? (key === 'opt_sell_put' ? '高溢价窗' : '强信号窗') : lvl === 'warning' ? '机会窗口' : '等待窗口')
+      : (lvl === 'critical' ? '严重告警' : lvl === 'warning' ? '触线预警' : '运行正常');
     const cur = alertCurrentText(key, data);
-    const last = st[key] ? fmtBJ(st[key].last_sent_at_utc) : '从未报警';
+    const last = st[key] ? fmtBJ(st[key].last_sent_at_utc) : (isOpt ? '从未提醒' : '从未报警');
     const prox = alertProximity(key, data);
-    const proxCol = lvl === 'critical' ? 'var(--red-solid)'
-      : (lvl === 'warning' || prox >= 88) ? 'var(--amber-solid)' : 'var(--green-solid)';
+    const proxCol = isOpt
+      ? (lvl !== 'normal' ? 'var(--accent)' : 'var(--text-dim)')
+      : (lvl === 'critical' ? 'var(--red-solid)' : (lvl === 'warning' || prox >= 88) ? 'var(--amber-solid)' : 'var(--green-solid)');
 
     return `
-      <div class="alert-box lvl-${lvl}">
+      <div class="alert-box${isOpt ? ' is-opt' : ''} lvl-${lvl}">
         <div class="alert-box-top">
           <span class="alert-name">${escapeHtml(spec.label)}</span>
           <span class="badge ${cls}">${label}</span>
@@ -5234,13 +5527,13 @@ function renderAlerts(data, state){
           <span class="alert-cur">${escapeHtml(cur)}</span>
           <span class="alert-thr">${escapeHtml(alertThresholdText(key))}</span>
         </div>
-        <div class="prox-wrap" title="当前值占预警触发线的比例：${prox}%">
+        <div class="prox-wrap" title="当前值占触发线的逼近度：${prox}%">
           <div class="prox-track">
             <div class="prox-fill" style="width:${prox}%;background:${proxCol};"></div>
           </div>
           <span class="prox-pct">${prox}%</span>
         </div>
-        <div class="alert-last">${ICON_CLOCK}<span>上次告警：${escapeHtml(last)}</span></div>
+        <div class="alert-last">${ICON_CLOCK}<span>${isOpt ? '上次提醒' : '上次告警'}：${escapeHtml(last)}</span></div>
       </div>
     `;
   }).join('');

@@ -75,6 +75,8 @@
 | HY OAS 急速走阔 | 单日 ≥ +25bp 或 5 日 ≥ +50bp | — | 事件型速度报警 |
 | 综合情绪压力分 | ≥ 85 分 | — | 回滞 5 分，回落脱离高压带发解除通知 |
 | 压力分 5 日急升 | 5 日 ≥ +25 分 | — | 事件型速度报警 |
+| Sell Put 恐慌卖方窗 | VIX ≥ 20 且 VRP ≥ 0（叠加倒挂/回撤/急升）或 RSI ≤ 35 | VIX ≥ 26 + 倒挂 + 债信稳健（高溢价黄金窗） | 激进期权机会提醒（蓝/靛蓝卡 + Bark `active`，HY ≥ 600bp / 5 日 ≥ +75bp / VRP < -5 / 股债极端共振熔断） |
+| Sell Call 备兑收租窗 | SPX RSI ≥ 65 高位过热，或 VIX ≥ 20 高波反抽（RSI 48–65） | RSI ≥ 72 + 距 MA200 ≥ +10%，或 VIX ≥ 25 强反抽 | 激进期权机会提醒（RSI ≤ 40 或倒挂砸盘日防地板卖飞熔断；完整规则见 [options-seller-windows.md](options-seller-windows.md)） |
 
 - 同级 24 小时去重，级别升级立刻推送；水平报警回落到回滞带下方后发送“解除”通知（Bark 使用静默 `passive` 级别）；每次触发、升级或解除均自动归档到 `alert_history.json`（保留近 100 条），可在页面风控区展开「历史告警轨迹」回看。
 - 数据源拉取失败或收盘日期落后（`freshness`）时均会报警；此外 `.github/workflows/freshness-watchdog.yml` 作为独立外部巡检，每天在 VPS 定时任务之后直接请求 `https://api.infidea.app/api/data` 核验接口可用性与数据新鲜度。

@@ -452,6 +452,69 @@ class StatsAndAlertsTests(unittest.TestCase):
         self.assertIn("RV20 18.5 / VRP +9.5", body)
         self.assertIn("RSI 34.2", body)
         self.assertIn("距MA200 +5.6%", body)
+        self.assertIn("期权卖方窗口：", body)
+
+    def test_aggressive_options_seller_windows_and_push_channel_styles(self):
+        # 1. Panic high-premium Sell Put (VIX 28.29 + inverted + calm credit/bond)
+        p_gold = _make_payload(vix=28.29, vix3m=26.29, move=97.5, hy=372, vix_pct=-4.0)
+        p_gold["indicators"]["vix"]["stats"] = {"pct_rank": 98, "vrp": 6.5}
+        p_gold["spx"]["stats"] = {"rsi_14": 37.0, "vs_ma200_pct": 2.0}
+        opt_gold = fd.evaluate_options_window(p_gold)
+        self.assertEqual(opt_gold["action"], "sell_put")
+        self.assertEqual(opt_gold["sell_put"]["level"], "critical")
+        self.assertEqual(opt_gold["sell_put"]["tag"], "高溢价黄金窗")
+        self.assertIn("利于吃降波", opt_gold["summary"])
+        self.assertEqual(opt_gold["sell_call"]["level"], "normal")
+
+        # 2. Systemic crisis hard veto blocks Sell Put
+        p_veto = _make_payload(vix=42.0, vix3m=34.0, move=160.0, hy=630)
+        p_veto["indicators"]["vix"]["stats"] = {"pct_rank": 100, "vrp": -6.5}
+        opt_veto = fd.evaluate_options_window(p_veto)
+        self.assertEqual(opt_veto["action"], "caution")
+        self.assertEqual(opt_veto["sell_put"]["level"], "normal")
+        self.assertIn("HY OAS 630bp", opt_veto["caution"])
+        self.assertIn("VRP -6.5", opt_veto["caution"])
+
+        # 3. Overbought bull Sell Call strong window
+        p_call = _make_payload(vix=14.0, vix3m=16.5, skew=145.0, move=88.0, hy=310)
+        p_call["spx"]["change_pct"] = 0.6
+        p_call["spx"]["stats"] = {"rsi_14": 73.0, "vs_ma200_pct": 11.2}
+        opt_call = fd.evaluate_options_window(p_call)
+        self.assertEqual(opt_call["action"], "sell_call")
+        self.assertEqual(opt_call["sell_call"]["level"], "critical")
+        self.assertEqual(opt_call["sell_call"]["tag"], "过热锁利窗")
+
+        # 4. High-vol bounce dual-sell window (both Put & Call active)
+        p_both = _make_payload(vix=26.0, vix3m=26.5, move=102.0, hy=380)
+        p_both["indicators"]["vix"]["stats"] = {"pct_rank": 90, "vrp": 4.0}
+        p_both["spx"]["change_pct"] = 1.4
+        p_both["spx"]["stats"] = {"rsi_14": 53.0, "vs_ma200_pct": 1.0}
+        opt_both = fd.evaluate_options_window(p_both)
+        self.assertEqual(opt_both["action"], "both")
+        self.assertEqual(opt_both["sell_put"]["level"], "warning")
+        self.assertEqual(opt_both["sell_call"]["level"], "critical")
+
+        # 5. End-to-end push: opportunity cards use blue/indigo & Bark active (never red/critical siren, no recovery notice)
+        with tempfile.TemporaryDirectory() as td:
+            state_path = Path(td) / "alert_state.json"
+            sent_feishu = []
+            sent_bark = []
+            with mock.patch.dict(os.environ, {"FEISHU_WEBHOOK_URL": "http://fake", "BARK_URL": "http://fake"}), \
+                 mock.patch.object(fd, "send_feishu_card", side_effect=lambda *a: (sent_feishu.append(a), True)[1]), \
+                 mock.patch.object(fd, "send_bark", side_effect=lambda *a: (sent_bark.append(a), True)[1]):
+                t0 = dt.datetime(2026, 11, 25, 22, 0, tzinfo=dt.timezone.utc)
+                _, s1 = fd.process_alerts(p_gold, state_path, t0)
+                self.assertIn("opt_sell_put", s1)
+                opt_feishu = [x for x in sent_feishu if "Sell Put" in x[0]]
+                opt_bark = [x for x in sent_bark if "Sell Put" in x[0]]
+                self.assertEqual(len(opt_feishu), 1)
+                self.assertEqual(opt_feishu[0][2], "indigo")
+                self.assertEqual(len(opt_bark), 1)
+                self.assertEqual(opt_bark[0][2], "warning")  # maps to Bark active, not critical
+                # Returning to calm sends no noisy recovery notice for opt_sell_put
+                p_calm = _make_payload(vix=14.0, vix3m=17.0, move=90.0, hy=330)
+                _, s2 = fd.process_alerts(p_calm, state_path, t0 + dt.timedelta(hours=2))
+                self.assertNotIn("opt_sell_put:resolved", s2)
 
 
 if __name__ == "__main__":
