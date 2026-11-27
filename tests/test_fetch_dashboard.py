@@ -83,6 +83,10 @@ class SanitizeHLTests(unittest.TestCase):
 
 
 class CalendarAndFreshnessTests(unittest.TestCase):
+    def test_known_special_closures_single_source_of_truth(self):
+        from monitoring import calendar, config
+        self.assertIs(calendar.KNOWN_SPECIAL_CLOSURES, config.KNOWN_SPECIAL_CLOSURES)
+
     def test_nyse_holidays_and_early_closes(self):
         hol2026 = fd._nyse_holidays(2026)
         self.assertIn(dt.date(2026, 11, 26), hol2026)  # Thanksgiving
@@ -268,8 +272,97 @@ class StatsAndAlertsTests(unittest.TestCase):
                 self.assertIn("vix:resolved", s4)
                 self.assertTrue(any("解除" in x[0] for x in sent_feishu))
                 self.assertTrue(any(x[2] == "recovery" for x in sent_bark))
-            # Atomic write leaves no .tmp files behind
-            self.assertEqual([p.name for p in Path(td).iterdir()], ["alert_state.json"])
+            # Atomic write leaves no .tmp files behind; alert_history.json recorded trigger + resolve
+            files = sorted(p.name for p in Path(td).iterdir())
+            self.assertEqual(files, ["alert_history.json", "alert_state.json"])
+            hist_doc = fd.load_alert_history(Path(td) / "alert_history.json")
+            events = hist_doc["events"]
+            self.assertEqual(len(events), 2)
+            self.assertEqual(events[0]["event"], "resolved")
+            self.assertEqual(events[0]["key"], "vix")
+            self.assertEqual(events[1]["event"], "triggered")
+            self.assertEqual(events[1]["key"], "vix")
+
+    def test_composite_alerts_attribution_and_history_payload(self):
+        # 1. Cross-market attribution across regimes
+        p_calm = _make_payload(vix=15.0, move=95.0, hy=350, skew=145.0, vix3m=18.0)
+        attr_calm = fd.cross_market_attribution(p_calm)
+        self.assertEqual(attr_calm["regime"], "全市场整体平静")
+        self.assertIn("SKEW", attr_calm["summary"])
+
+        p_eq = _make_payload(vix=28.0, move=95.0, hy=370, vix3m=26.0)
+        attr_eq = fd.cross_market_attribution(p_eq)
+        self.assertEqual(attr_eq["regime"], "权益单边波动 · 债信未确认")
+        self.assertIn("期限结构倒挂", attr_eq["summary"])
+
+        p_all = _make_payload(vix=38.0, move=145.0, hy=540, vvix=145.0, vix3m=34.0)
+        attr_all = fd.cross_market_attribution(p_all)
+        self.assertEqual(attr_all["regime"], "股债信用三端共振")
+        self.assertIn("VVIX", attr_all["summary"])
+
+        # 2. Composite score alert (level + hysteresis + 5d surge)
+        p_comp = _make_payload(vix=26.0, vix3m=28.0)
+        p_comp["composite"] = {
+            "score": 88,
+            "change": 6,
+            "chg_5d": 28,
+            "components": {"vix": 92, "move": 80, "hy_oas": 90, "vvix": 88},
+            "history": [{"date": "2026-11-25", "value": 88}],
+        }
+        ev = fd.evaluate_alerts(p_comp)
+        self.assertEqual(ev["composite"]["level"], "warning")
+        self.assertEqual(ev["composite_jump"]["level"], "warning")
+        # Hysteresis: 82 is within [85-5=80, 85) -> holds warning; 79 clears
+        p_comp["composite"]["score"] = 82
+        self.assertEqual(fd.evaluate_alerts(p_comp, {"composite": "warning"})["composite"]["level"], "warning")
+        p_comp["composite"]["score"] = 79
+        self.assertEqual(fd.evaluate_alerts(p_comp, {"composite": "warning"})["composite"]["level"], "normal")
+
+        # 3. Extended history payload (~1y)
+        pairs_map = {
+            k: [{"date": "2026-01-%02d" % ((i % 28) + 1), "value": float(i + 10)} for i in range(300)]
+            for k in ("vix", "vvix", "skew", "move", "hy_oas", "spx")
+        }
+        comp_hist = [{"date": "2026-01-%02d" % ((i % 28) + 1), "value": 50} for i in range(280)]
+        hp = fd.build_history_payload(
+            pairs_map, composite_history=comp_hist,
+            updated_at_utc="2026-11-26T00:00:00Z", keep=252)
+        self.assertEqual(hp["keep"], 252)
+        self.assertEqual(len(hp["series"]["vix"]), 252)
+        self.assertEqual(len(hp["series"]["composite"]), 252)
+
+        # 4. Manual status message includes cross-market attribution line
+        _, body, _ = fd.build_status_message(p_eq)
+        self.assertIn("跨市场归因：权益单边波动 · 债信未确认", body)
+
+    def test_parallel_providers_and_lazy_move_ref_date(self):
+        from monitoring import providers
+
+        sample = [
+            {"date": "2026-11-24", "value": 20.0},
+            {"date": "2026-11-25", "value": 21.0},
+        ]
+        with mock.patch.object(providers, "_futu_bin", return_value=None), \
+             mock.patch.object(providers, "fetch_cboe", side_effect=lambda k: list(sample)), \
+             mock.patch.object(providers, "fetch_yahoo", side_effect=lambda sym, fast_fail=True: (list(sample), "yahoo_cffi")):
+            pm, sm, stale, errs = providers.resolve_equities_and_term(None)
+            self.assertEqual(errs, [])
+            self.assertEqual(stale, set())
+            self.assertEqual(set(pm.keys()), {"vix", "vvix", "skew", "vix1d", "vix9d", "vix3m", "vix6m", "spx"})
+            self.assertEqual(sm["vix"], "cboe")
+            self.assertEqual(sm["spx"], "yahoo_cffi")
+
+        # Lazy reference_date callable is only evaluated when TradingView runs
+        called = []
+        with mock.patch.dict(os.environ, {"MOVE_SOURCE_ORDER": "tradingview"}), \
+             mock.patch.object(providers, "fetch_tradingview_move",
+                               side_effect=lambda prev_history=None, reference_date=None: (
+                                   called.append(reference_date), list(sample))[1]):
+            mp, src, is_stale, err = providers.resolve_move(None, reference_date=lambda: "2026-11-25")
+            self.assertEqual(src, "tradingview")
+            self.assertFalse(is_stale)
+            self.assertIsNone(err)
+            self.assertEqual(called, ["2026-11-25"])
 
 
 if __name__ == "__main__":

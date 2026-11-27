@@ -1,4 +1,5 @@
 """Unit tests for api/api_server.py and alert/notify.py (in-memory, no sockets)."""
+import gzip
 import io
 import json
 import os
@@ -51,6 +52,7 @@ class ApiServerTests(unittest.TestCase):
     def setUp(self):
         api_server._hits.clear()
         api_server._global_hits.clear()
+        api_server._file_cache.clear()
 
     def test_client_ip_prefers_cf_connecting_ip(self):
         # Spoofed X-Forwarded-For must be ignored when CF-Connecting-IP is present
@@ -126,6 +128,67 @@ class ApiServerTests(unittest.TestCase):
                 with mock.patch.object(api_server, "REPO_DIR", Path(td)):
                     status_bad, _, _ = _invoke_get("/api/data")
                     self.assertEqual(status_bad, 404)
+
+    def test_gzip_cache_history_and_alert_history_endpoints(self):
+        with tempfile.TemporaryDirectory() as td:
+            hist_path = Path(td) / "history.json"
+            big_payload = {
+                "updated_at_utc": "2026-11-26T00:00:00Z",
+                "keep": 252,
+                "series": {
+                    "vix": [{"date": "2026-01-%02d" % ((i % 28) + 1), "value": 20.0 + i * 0.1}
+                            for i in range(60)]
+                },
+            }
+            hist_path.write_text(json.dumps(big_payload), encoding="utf-8")
+
+            with mock.patch.dict(os.environ, {"MM_OUT_DIR": td}), \
+                 mock.patch.object(api_server, "REPO_DIR", Path(td)):
+                # Gzip response when client advertises Accept-Encoding: gzip
+                status_gz, hdr_gz, raw_gz = _invoke_get(
+                    "/api/history", {"Accept-Encoding": "gzip, deflate"})
+                self.assertEqual(status_gz, 200)
+                self.assertEqual(hdr_gz.get("Content-Encoding"), "gzip")
+                self.assertIn("Accept-Encoding", hdr_gz.get("Vary", ""))
+                decoded = json.loads(gzip.decompress(raw_gz).decode("utf-8"))
+                self.assertEqual(len(decoded["series"]["vix"]), 60)
+
+                # Cache hit: repeated read does not re-parse JSON when mtime/size unchanged
+                with mock.patch.object(api_server.json, "loads", side_effect=AssertionError("should hit cache")):
+                    st_cached, hdr_cached, _ = _invoke_get(
+                        "/api/history", {"Accept-Encoding": "gzip"})
+                    self.assertEqual(st_cached, 200)
+                    self.assertEqual(hdr_cached.get("ETag"), hdr_gz.get("ETag"))
+
+                # 304 Not Modified on matching gzip ETag
+                st304, _, raw304 = _invoke_get(
+                    "/api/history",
+                    {"Accept-Encoding": "gzip", "If-None-Match": hdr_gz["ETag"]})
+                self.assertEqual(st304, 304)
+                self.assertEqual(raw304, b"")
+
+                # HEAD with gzip returns compressed Content-Length and empty body
+                st_h, hdr_h, raw_h = _invoke_get(
+                    "/api/history", {"Accept-Encoding": "gzip"}, method="HEAD")
+                self.assertEqual(st_h, 200)
+                self.assertEqual(hdr_h.get("Content-Encoding"), "gzip")
+                self.assertEqual(int(hdr_h.get("Content-Length", "0")), len(raw_gz))
+                self.assertEqual(raw_h, b"")
+
+                # /api/alert-history returns empty default when file does not exist yet
+                st_ah0, _, raw_ah0 = _invoke_get("/api/alert-history")
+                self.assertEqual(st_ah0, 200)
+                self.assertEqual(json.loads(raw_ah0.decode("utf-8"))["events"], [])
+
+                # Once alert_history.json is written, /api/alert-history serves it
+                ah_path = Path(td) / "alert_history.json"
+                ah_path.write_text(json.dumps({
+                    "updated_at_utc": "2026-11-26T00:00:00Z",
+                    "events": [{"key": "vix", "event": "triggered"}],
+                }), encoding="utf-8")
+                st_ah1, _, raw_ah1 = _invoke_get("/api/alert-history")
+                self.assertEqual(st_ah1, 200)
+                self.assertEqual(len(json.loads(raw_ah1.decode("utf-8"))["events"]), 1)
 
 
 class _FakeResp:

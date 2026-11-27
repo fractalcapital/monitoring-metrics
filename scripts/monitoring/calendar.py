@@ -99,10 +99,7 @@ def _observed_nyse(d, allow_friday=True):
     return d
 
 
-# Ad-hoc full-day closures not covered by the standard rules.
-KNOWN_SPECIAL_CLOSURES = {
-    "2025-01-09",  # National Day of Mourning (President Carter)
-}
+# Ad-hoc full-day closures live in config.KNOWN_SPECIAL_CLOSURES (imported above).
 
 
 def _extra_closures(year):

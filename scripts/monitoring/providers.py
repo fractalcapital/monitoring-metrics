@@ -1,4 +1,5 @@
 """Market data providers (Futu CLI, CBOE CDN, FRED, Stooq, Yahoo curl_cffi, TradingView, CSV)."""
+import concurrent.futures
 import csv
 import datetime as dt
 import io
@@ -8,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -51,6 +53,7 @@ from .series import (
 _NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 _YAHOO_SESSION_CACHE = {"session": None, "crumb": None, "initialized": False}
+_YAHOO_SESSION_LOCK = threading.Lock()
 
 
 def fetch_url(url, timeout=15, headers=None, retries=2, data=None,
@@ -267,9 +270,9 @@ def fetch_futu(symbol, prev_history=None):
 
     errors = []
     # 1. Verified proud-pipes-7 command: `futu kline <symbol> --ktype 2 --num N --format json`
-    #    (N = ~1y for stats; retried with 30 if the long request fails).
+    #    (N = ~2y for 1y rolling stats; retried with 300 / 30 if the long request fails).
     nums = []
-    for n in ((os.environ.get("FUTU_KLINE_NUM", "").strip() or str(HISTORY_KEEP)), "30"):
+    for n in ((os.environ.get("FUTU_KLINE_NUM", "").strip() or str(HISTORY_KEEP)), "300", "30"):
         if n not in nums:
             nums.append(n)
     for num in nums:
@@ -397,7 +400,7 @@ def _fetch_fred_api(series_id, api_key, scale=1.0, round_digits=2):
         "api_key": api_key,
         "file_type": "json",
         "sort_order": "desc",
-        "limit": "350",
+        "limit": "600",
     })
     url = "%s?%s" % (FRED_API_BASE, params)
     # Never leak api_key in exception messages or logs.
@@ -474,42 +477,44 @@ def _get_yahoo_cffi_session():
     """Return a cached (curl_cffi Session, crumb) tuple with Chrome TLS fingerprint."""
     if cffi_requests is None:
         return None, None
-    if _YAHOO_SESSION_CACHE["initialized"]:
-        return _YAHOO_SESSION_CACHE["session"], _YAHOO_SESSION_CACHE["crumb"]
+    with _YAHOO_SESSION_LOCK:
+        if _YAHOO_SESSION_CACHE["initialized"]:
+            return _YAHOO_SESSION_CACHE["session"], _YAHOO_SESSION_CACHE["crumb"]
 
-    sess = cffi_requests.Session(impersonate="chrome")
-    proxy_url = os.environ.get("YAHOO_PROXY", "").strip()
-    if proxy_url:
-        sess.proxies = {"http": proxy_url, "https": proxy_url}
-    else:
-        # Match _NO_PROXY_OPENER: do not inherit OS proxy unless YAHOO_PROXY is explicit.
-        sess.trust_env = False
+        sess = cffi_requests.Session(impersonate="chrome")
+        proxy_url = os.environ.get("YAHOO_PROXY", "").strip()
+        if proxy_url:
+            sess.proxies = {"http": proxy_url, "https": proxy_url}
+        else:
+            # Match _NO_PROXY_OPENER: do not inherit OS proxy unless YAHOO_PROXY is explicit.
+            sess.trust_env = False
 
-    crumb = None
-    try:
-        sess.get("https://fc.yahoo.com", timeout=10)
-    except Exception:  # noqa: BLE001
-        pass
-
-    for host in ("query1.finance.yahoo.com", "query2.finance.yahoo.com"):
+        crumb = None
         try:
-            r = sess.get("https://%s/v1/test/getcrumb" % host, timeout=10)
-            if r.status_code == 200 and r.text and "<html" not in r.text.lower():
-                crumb = r.text.strip()
-                break
+            sess.get("https://fc.yahoo.com", timeout=10)
         except Exception:  # noqa: BLE001
-            continue
+            pass
 
-    _YAHOO_SESSION_CACHE["session"] = sess
-    _YAHOO_SESSION_CACHE["crumb"] = crumb
-    _YAHOO_SESSION_CACHE["initialized"] = True
-    return sess, crumb
+        for host in ("query1.finance.yahoo.com", "query2.finance.yahoo.com"):
+            try:
+                r = sess.get("https://%s/v1/test/getcrumb" % host, timeout=10)
+                if r.status_code == 200 and r.text and "<html" not in r.text.lower():
+                    crumb = r.text.strip()
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+
+        _YAHOO_SESSION_CACHE["session"] = sess
+        _YAHOO_SESSION_CACHE["crumb"] = crumb
+        _YAHOO_SESSION_CACHE["initialized"] = True
+        return sess, crumb
 
 
 def _reset_yahoo_cffi_session():
-    _YAHOO_SESSION_CACHE["session"] = None
-    _YAHOO_SESSION_CACHE["crumb"] = None
-    _YAHOO_SESSION_CACHE["initialized"] = False
+    with _YAHOO_SESSION_LOCK:
+        _YAHOO_SESSION_CACHE["session"] = None
+        _YAHOO_SESSION_CACHE["crumb"] = None
+        _YAHOO_SESSION_CACHE["initialized"] = False
 
 
 def _parse_yahoo_chart_json(raw_bytes, symbol):
@@ -691,7 +696,7 @@ def _try_providers(name, providers):
 
 
 def resolve_equities_and_term(prev_payload):
-    """Fetch VIX, VVIX, SKEW, SPX, and VIX term structure with per-key fallback.
+    """Fetch VIX, VVIX, SKEW, SPX, and VIX term structure concurrently with per-key fallback.
 
     Returns (pairs_map, sources_map, stale_keys, errors_list).
     """
@@ -702,6 +707,9 @@ def resolve_equities_and_term(prev_payload):
     stale_keys = set()
     errors = []
 
+    ordered_keys = ("vix", "vvix", "skew", "vix1d", "vix9d", "vix3m", "vix6m", "spx")
+    tasks = {}
+
     # 1. Core CBOE volatility indices: Futu CLI -> CBOE official CSV -> Yahoo
     for key in ("vix", "vvix", "skew"):
         prev_hist = _prev_pairs_for(prev_payload, key)
@@ -711,16 +719,7 @@ def resolve_equities_and_term(prev_payload):
             chain.append(("futu", lambda s=sym, h=prev_hist: fetch_futu(s, h)))
         chain.append(("cboe", lambda k=key: fetch_cboe(k)))
         chain.append(("yahoo", lambda k=key: fetch_yahoo(YAHOO_SYMBOLS[k], fast_fail=True)))
-        try:
-            pairs_map[key], sources_map[key] = _try_providers(key, chain)
-        except Exception as exc:  # noqa: BLE001
-            errors.append("%s: %s" % (key, exc))
-            if prev_hist and len(prev_hist) >= 2:
-                pairs_map[key] = prev_hist
-                sources_map[key] = "cached"
-                stale_keys.add(key)
-            else:
-                raise RuntimeError("No data or cache for %s: %s" % (key, exc)) from exc
+        tasks[key] = (chain, prev_hist, 2)
 
     # 2. VIX term structure (1D / 9D / 3M / 6M): CBOE official CSV -> Yahoo
     for key in ("vix1d", "vix9d", "vix3m", "vix6m"):
@@ -729,16 +728,7 @@ def resolve_equities_and_term(prev_payload):
             ("cboe", lambda k=key: fetch_cboe(k)),
             ("yahoo", lambda k=key: fetch_yahoo(YAHOO_SYMBOLS[k], fast_fail=True)),
         ]
-        try:
-            pairs_map[key], sources_map[key] = _try_providers(key, chain)
-        except Exception as exc:  # noqa: BLE001
-            errors.append("%s: %s" % (key, exc))
-            if prev_hist:
-                pairs_map[key] = prev_hist
-                sources_map[key] = "cached"
-                stale_keys.add(key)
-            else:
-                raise RuntimeError("No data or cache for %s: %s" % (key, exc)) from exc
+        tasks[key] = (chain, prev_hist, 1)
 
     # 3. S&P 500: Futu CLI -> Yahoo (same-day + H/L) -> Stooq -> FRED SP500 (1d lag fallback)
     prev_spx = _prev_pairs_for(prev_payload, "spx")
@@ -749,16 +739,25 @@ def resolve_equities_and_term(prev_payload):
     spx_chain.append(("yahoo", lambda: fetch_yahoo(YAHOO_SYMBOLS["spx"], fast_fail=True)))
     spx_chain.append(("stooq", fetch_stooq_spx))
     spx_chain.append(("fred", lambda: fetch_fred_series("SP500", scale=1.0, round_digits=2)))
-    try:
-        pairs_map["spx"], sources_map["spx"] = _try_providers("spx", spx_chain)
-    except Exception as exc:  # noqa: BLE001
-        errors.append("spx: %s" % exc)
-        if prev_spx and len(prev_spx) >= 2:
-            pairs_map["spx"] = prev_spx
-            sources_map["spx"] = "cached"
-            stale_keys.add("spx")
-        else:
-            raise RuntimeError("No data or cache for spx: %s" % exc) from exc
+    tasks["spx"] = (spx_chain, prev_spx, 2)
+
+    def _run_one(k, chain):
+        return _try_providers(k, chain)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        futs = {k: pool.submit(_run_one, k, tasks[k][0]) for k in ordered_keys}
+        for key in ordered_keys:
+            _, prev_hist, min_cached = tasks[key]
+            try:
+                pairs_map[key], sources_map[key] = futs[key].result()
+            except Exception as exc:  # noqa: BLE001
+                errors.append("%s: %s" % (key, exc))
+                if prev_hist and len(prev_hist) >= min_cached:
+                    pairs_map[key] = prev_hist
+                    sources_map[key] = "cached"
+                    stale_keys.add(key)
+                else:
+                    raise RuntimeError("No data or cache for %s: %s" % (key, exc)) from exc
 
     return pairs_map, sources_map, stale_keys, errors
 
@@ -768,6 +767,8 @@ def resolve_move(prev_payload, reference_date=None):
 
     Default order: yahoo (curl_cffi + crumb) -> tradingview -> thetrading_tools.
     Override with MOVE_SOURCE_ORDER env var (e.g. "tradingview,yahoo,thetrading_tools").
+    `reference_date` may be an ISO date string, None, or a zero-arg callable
+    evaluated lazily only if TradingView fallback runs.
     Returns (pairs, source_label, is_stale, error_str_or_None).
     """
     prev_hist = _prev_pairs_for(prev_payload, "move")
@@ -777,10 +778,13 @@ def resolve_move(prev_payload, reference_date=None):
     if not order:
         order = ["yahoo", "tradingview", "thetrading_tools"]
 
+    def _tv_call():
+        ref = reference_date() if callable(reference_date) else reference_date
+        return fetch_tradingview_move(prev_history=prev_hist, reference_date=ref)
+
     registry = {
         "yahoo": lambda: fetch_yahoo(YAHOO_SYMBOLS["move"], fast_fail=True),
-        "tradingview": lambda: fetch_tradingview_move(
-            prev_history=prev_hist, reference_date=reference_date),
+        "tradingview": _tv_call,
         "thetrading_tools": fetch_trading_tools_move,
     }
     chain = [(name, registry[name]) for name in order if name in registry]
@@ -815,32 +819,41 @@ def resolve_hy_oas(prev_payload):
 
 
 def resolve_credit_tiers(prev_payload):
-    """IG / CCC OAS context (FRED). Optional: never fatal, never alerts."""
+    """IG / CCC OAS context (FRED, fetched concurrently). Optional: never fatal, never alerts."""
     prev = {}
     if isinstance(prev_payload, dict) and isinstance(prev_payload.get("credit_tiers"), dict):
         prev = prev_payload["credit_tiers"]
+
+    def _fetch_one(key, series_id, label):
+        rows, src = fetch_fred_series(series_id, scale=100.0, round_digits=0)
+        last, before = rows[-1], rows[-2]
+        item = {
+            "label": label, "series": series_id,
+            "value_bp": last["value"], "date": last["date"],
+            "prev_value_bp": before["value"], "prev_date": before["date"],
+            "change_bp": round(last["value"] - before["value"]),
+            "source": src,
+        }
+        st = compute_stats(rows, (prev.get(key) or {}).get("stats"), is_bp=True)
+        if st:
+            item["stats"] = st
+        return item
+
     out = {}
-    for key, series_id, label in CREDIT_TIER_SERIES:
-        try:
-            rows, src = fetch_fred_series(series_id, scale=100.0, round_digits=0)
-            last, before = rows[-1], rows[-2]
-            item = {
-                "label": label, "series": series_id,
-                "value_bp": last["value"], "date": last["date"],
-                "prev_value_bp": before["value"], "prev_date": before["date"],
-                "change_bp": round(last["value"] - before["value"]),
-                "source": src,
-            }
-            st = compute_stats(rows, (prev.get(key) or {}).get("stats"), is_bp=True)
-            if st:
-                item["stats"] = st
-            out[key] = item
-        except Exception as exc:  # noqa: BLE001
-            print("  [credit_tiers] %s failed: %s" % (series_id, exc), file=sys.stderr)
-            if isinstance(prev.get(key), dict):
-                item = dict(prev[key])
-                item["stale"] = True
-                out[key] = item
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(CREDIT_TIER_SERIES) or 1) as pool:
+        futs = {
+            key: (series_id, pool.submit(_fetch_one, key, series_id, label))
+            for key, series_id, label in CREDIT_TIER_SERIES
+        }
+        for key, series_id, _ in CREDIT_TIER_SERIES:
+            try:
+                out[key] = futs[key][1].result()
+            except Exception as exc:  # noqa: BLE001
+                print("  [credit_tiers] %s failed: %s" % (series_id, exc), file=sys.stderr)
+                if isinstance(prev.get(key), dict):
+                    item = dict(prev[key])
+                    item["stale"] = True
+                    out[key] = item
     return out
 
 

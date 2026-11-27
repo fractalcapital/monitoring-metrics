@@ -5,10 +5,12 @@ The dashboard page is static (GitHub Pages) and holds no secrets, so it
 cannot fetch market data or send a push by itself. This tiny service is
 the single backend for both reading live data and triggering manual actions:
 
-  GET  /health          -> {"ok": true} (tunnel / monitoring check)
-  GET  /api/data        -> latest dashboard data.json (public read-only,
-                           ETag + Cache-Control; no git commit needed)
-  GET  /api/alert-state -> latest alert_state.json (public read-only)
+  GET  /health            -> {"ok": true} (tunnel / monitoring check)
+  GET  /api/data          -> latest dashboard data.json (public read-only,
+                             ETag + Cache-Control + gzip + mtime cache)
+  GET  /api/history       -> extended (~1y) history.json for 90D/1Y charts
+  GET  /api/alert-state   -> latest alert_state.json (public read-only)
+  GET  /api/alert-history -> recent alert trigger/upgrade/resolve log
   POST /api/refresh     -> start a background fetch job and return
                            {"status": "started"} at once (the fetch can take
                            up to a few minutes if fallback retries trigger;
@@ -46,6 +48,7 @@ Stdlib only. Binds 127.0.0.1:8080 by default; Cloudflare Tunnel maps
 https://api.infidea.app to it (no open ports, no cert to manage).
 """
 import datetime as dt
+import gzip
 import hashlib
 import hmac
 import json
@@ -78,6 +81,9 @@ FETCH_TIMEOUT = 300  # seconds; fallback retries can take a couple of minutes
 _lock = threading.Lock()          # serialise rate-limit state and job slot
 _hits = {}                        # (endpoint, ip, scope) -> [timestamps]
 _global_hits = {}                 # endpoint -> [timestamps]
+_file_cache_lock = threading.Lock()
+_file_cache = {}                  # str(path) -> {"mtime_ns", "size", "raw", "gz", "etag", "etag_gz"}
+GZIP_MIN_BYTES = 512
 
 
 def _client_ip(headers, peer_ip):
@@ -167,21 +173,86 @@ def _data_dir():
     return Path(env_dir) if env_dir else DATA_DIR
 
 
-def _read_json_bytes(filename):
-    """Read raw UTF-8 bytes of a JSON file from DATA_DIR (fallback: repo dashboard/)."""
+def _build_cache_entry(raw, mtime_ns=None, size=None):
+    digest = hashlib.sha256(raw).hexdigest()[:16]
+    gz = gzip.compress(raw, compresslevel=6) if len(raw) >= GZIP_MIN_BYTES else None
+    return {
+        "mtime_ns": mtime_ns,
+        "size": size,
+        "raw": raw,
+        "gz": gz,
+        "etag": '"%s"' % digest,
+        "etag_gz": ('"%s-gz"' % digest) if gz is not None else None,
+    }
+
+
+def _read_cached_json(filename):
+    """Read and cache a validated JSON file by (mtime_ns, size) to avoid repeat I/O and parsing."""
     candidates = [_data_dir() / filename]
     fallback = REPO_DIR / "dashboard" / filename
     if fallback != candidates[0]:
         candidates.append(fallback)
     for path in candidates:
+        key = str(path)
+        try:
+            st = path.stat()
+        except OSError:
+            with _file_cache_lock:
+                _file_cache.pop(key, None)
+            continue
+        with _file_cache_lock:
+            cached = _file_cache.get(key)
+            if (cached is not None
+                    and cached["mtime_ns"] == st.st_mtime_ns
+                    and cached["size"] == st.st_size):
+                return cached
         try:
             raw = path.read_bytes()
             # Ensure valid JSON so a corrupted file never gets served as 200.
             json.loads(raw.decode("utf-8"))
-            return raw
         except (OSError, ValueError, UnicodeDecodeError):
+            with _file_cache_lock:
+                _file_cache.pop(key, None)
             continue
+        entry = _build_cache_entry(raw, mtime_ns=st.st_mtime_ns, size=st.st_size)
+        with _file_cache_lock:
+            _file_cache[key] = entry
+        return entry
     return None
+
+
+def _read_json_bytes(filename):
+    """Read raw UTF-8 bytes of a JSON file from DATA_DIR (fallback: repo dashboard/)."""
+    entry = _read_cached_json(filename)
+    return entry["raw"] if entry is not None else None
+
+
+def _accepts_gzip(headers):
+    ae = (headers.get("Accept-Encoding") or "").lower()
+    if "gzip" not in ae:
+        return False
+    for part in ae.split(","):
+        segs = [s.strip() for s in part.split(";")]
+        if segs and segs[0] == "gzip":
+            for param in segs[1:]:
+                if param.startswith("q="):
+                    try:
+                        if float(param[2:]) <= 0:
+                            return False
+                    except ValueError:
+                        pass
+            return True
+    return False
+
+
+def _etag_matches(inm, etag):
+    if not inm or not etag:
+        return False
+    for part in inm.split(","):
+        tag = part.strip()
+        if tag == "*" or tag == etag or tag == "W/" + etag:
+            return True
+    return False
 
 
 def _do_refresh():
@@ -192,6 +263,7 @@ def _do_refresh():
     )
     data = None
     alert_state = None
+    alert_history = None
     try:
         data = json.loads((_data_dir() / "data.json")
                           .read_text(encoding="utf-8"))
@@ -202,12 +274,19 @@ def _do_refresh():
                                  .read_text(encoding="utf-8"))
     except (OSError, ValueError):
         pass
+    try:
+        alert_history = json.loads((_data_dir() / "alert_history.json")
+                                   .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
     if code != 0 or data is None:
         return {"ok": False,
                 "error": "fetch failed: %s" % (err.strip()[-300:] or out.strip()[-300:])}
     resp = {"ok": True, "data": data}
     if alert_state is not None:
         resp["alert_state"] = alert_state
+    if alert_history is not None:
+        resp["alert_history"] = alert_history
     return resp
 
 
@@ -289,45 +368,61 @@ class Handler(BaseHTTPRequestHandler):
                             cache_control=cache_control, head_only=head_only)
 
     def _send_raw_json(self, status, body, public_cors=False,
-                       cache_control=None, etag=None, head_only=False):
+                       cache_control=None, etag=None, head_only=False,
+                       content_encoding=None, vary_encoding=False):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         if cache_control:
             self.send_header("Cache-Control", cache_control)
         if etag:
             self.send_header("ETag", etag)
+        if content_encoding:
+            self.send_header("Content-Encoding", content_encoding)
+        vary_parts = []
+        if vary_encoding:
+            vary_parts.append("Accept-Encoding")
         if public_cors:
             self.send_header("Access-Control-Allow-Origin", "*")
         else:
             origin = self.headers.get("Origin", "")
             if origin == ALLOWED_ORIGIN:
                 self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Vary", "Origin")
+                vary_parts.append("Origin")
+        if vary_parts:
+            self.send_header("Vary", ", ".join(vary_parts))
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if body and not head_only:
             self.wfile.write(body)
 
-    def _serve_data_file(self, filename, head_only=False):
-        raw = _read_json_bytes(filename)
-        if raw is None:
-            self._send_json(404, {"ok": False, "error": "%s not found" % filename},
-                            public_cors=True, cache_control="no-store",
-                            head_only=head_only)
-            return
-        etag = '"%s"' % hashlib.sha256(raw).hexdigest()[:16]
+    def _serve_data_file(self, filename, head_only=False, empty_default=None):
+        entry = _read_cached_json(filename)
+        if entry is None:
+            if empty_default is not None:
+                entry = _build_cache_entry(empty_default)
+            else:
+                self._send_json(404, {"ok": False, "error": "%s not found" % filename},
+                                public_cors=True, cache_control="no-store",
+                                head_only=head_only)
+                return
+        use_gz = _accepts_gzip(self.headers) and entry["gz"] is not None
+        body = entry["gz"] if use_gz else entry["raw"]
+        etag = entry["etag_gz"] if use_gz else entry["etag"]
         inm = (self.headers.get("If-None-Match") or "").strip()
-        if inm == etag or inm == "W/" + etag:
+        if _etag_matches(inm, etag):
             self.send_response(304)
             self.send_header("ETag", etag)
             self.send_header("Cache-Control", DATA_CACHE_CONTROL)
+            self.send_header("Vary", "Accept-Encoding")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
-        self._send_raw_json(200, raw, public_cors=True,
+        self._send_raw_json(200, body, public_cors=True,
                             cache_control=DATA_CACHE_CONTROL, etag=etag,
-                            head_only=head_only)
+                            head_only=head_only,
+                            content_encoding="gzip" if use_gz else None,
+                            vary_encoding=True)
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin", "")
@@ -355,8 +450,16 @@ class Handler(BaseHTTPRequestHandler):
                 head_only=head_only)
         elif path == "/api/data":
             self._serve_data_file("data.json", head_only=head_only)
+        elif path == "/api/history":
+            self._serve_data_file("history.json", head_only=head_only)
         elif path == "/api/alert-state":
             self._serve_data_file("alert_state.json", head_only=head_only)
+        elif path == "/api/alert-history":
+            self._serve_data_file(
+                "alert_history.json",
+                head_only=head_only,
+                empty_default=b'{"updated_at_utc":null,"events":[]}\n',
+            )
         elif path == "/api/job":
             # Copy snapshot under lock so slow socket writes never block _lock.
             with _lock:

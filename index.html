@@ -587,8 +587,64 @@
     color: var(--hero-desc);
     font-size: 14.5px;
     line-height: 1.6;
-    margin: 0 0 16px;
+    margin: 0 0 12px;
     max-width: 78ch;
+  }
+
+  /* 跨市场归因摘要卡 */
+  .hero-attr {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 11px 14px;
+    margin: 0 0 15px;
+    border-radius: 13px;
+    background: var(--hero-panel-bg);
+    border: 1px solid var(--hero-panel-border);
+    border-left: 3px solid var(--hero-accent);
+  }
+  .hero-attr-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .hero-attr-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--hero-text);
+  }
+  .hero-attr-pillars {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .pillar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .pillar-chip.b-green  { background: var(--green-bg);  color: var(--green-text);  border-color: var(--green-border); }
+  .pillar-chip.b-amber  { background: var(--amber-bg);  color: var(--amber-text);  border-color: var(--amber-border); }
+  .pillar-chip.b-orange { background: var(--orange-bg); color: var(--orange-text); border-color: var(--orange-border); }
+  .pillar-chip.b-red    { background: var(--red-bg);    color: var(--red-text);    border-color: var(--red-border); }
+  .hero-attr-summary {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--hero-desc);
   }
 
   /* 5 指标紧凑快照胶囊条 */
@@ -771,8 +827,20 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
     font-size: 11.5px;
     color: var(--text-muted);
+  }
+  .range-ctrl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .range-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    white-space: nowrap;
   }
 
   /* ---- 五项核心指标网格 (宽屏 5 列平铺) ---- */
@@ -2130,6 +2198,92 @@
   }
   .alerts-subnote a { color: var(--accent); font-weight: 600; }
 
+  /* 历史告警轨迹折叠面板 */
+  .alert-history-panel {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+  .alert-history-panel summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    padding: 4px 2px;
+    user-select: none;
+  }
+  .alert-history-panel summary::-webkit-details-marker { display: none; }
+  .alert-history-summary-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .alert-history-chev {
+    transition: transform .18s ease;
+    color: var(--text-dim);
+  }
+  .alert-history-panel[open] .alert-history-chev {
+    transform: rotate(180deg);
+  }
+  .alert-history-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .ah-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 8px 11px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border-subtle);
+    font-size: 12px;
+  }
+  .ah-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .ah-rule {
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .ah-detail {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ah-empty {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px dashed var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  @media (max-width: 720px) {
+    .ah-row {
+      grid-template-columns: auto 1fr;
+    }
+    .ah-detail {
+      grid-column: 1 / -1;
+      white-space: normal;
+    }
+  }
+
   /* ---- 页脚 ---- */
   .footer {
     margin-top: 52px;
@@ -2409,6 +2563,15 @@
         <div class="section-sub">必看 3 项（VIX / MOVE / HY OAS）交叉确认股债与信用压力，进阶 2 项（VVIX / SKEW）观测波动率弹性与尾部定价</div>
       </div>
       <div class="section-legend">
+        <div class="range-ctrl" title="切换所有指标卡、标普 500 与情绪压力分的走势窗口（90D / 1Y 按需懒加载近一年历史）">
+          <span class="range-lbl">走势窗口</span>
+          <div class="term-seg" role="group" aria-label="走势时间窗口切换">
+            <button type="button" class="term-seg-btn active" data-chart-range="30" aria-pressed="true">30D</button>
+            <button type="button" class="term-seg-btn" data-chart-range="90" aria-pressed="false">90D</button>
+            <button type="button" class="term-seg-btn" data-chart-range="252" aria-pressed="false">1Y</button>
+          </div>
+        </div>
+        <span style="opacity:.35">|</span>
         <span class="role-tag role-core">必看</span> 决定综合判断主档位
         <span style="opacity:.4">·</span>
         <span class="role-tag role-adv">进阶</span> 辅助结构确认
@@ -2538,8 +2701,28 @@
         <div class="meta-group" id="channelLine">推送通道：加载中…</div>
         <div class="meta-group" id="fetchLine">数据拉取：加载中…</div>
       </div>
+
+      <details class="alert-history-panel" id="alertHistoryPanel">
+        <summary>
+          <span class="alert-history-summary-left">
+            <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>历史告警轨迹</span>
+            <span class="mini-chip" id="alertHistoryCount">0 条</span>
+          </span>
+          <svg class="alert-history-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </summary>
+        <div class="alert-history-list" id="alertHistoryList">
+          <div class="ah-empty">正在读取历史告警记录…</div>
+        </div>
+      </details>
+
       <div class="alerts-subnote">
-        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；带回滞防抖、24 小时同级去重与恢复解除通知。详见 <a href="dashboard/README.md">dashboard/README.md</a>。
+        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；带回滞防抖、24 小时同级去重与恢复解除通知。详见 <a href="dashboard/README.md">dashboard/README.md</a>。
       </div>
     </div>
   </section>
@@ -3729,9 +3912,33 @@ function renderTermStructure(t, staleSet){
   `;
 }
 
+/* ---- 图表时间窗口状态（30D 默认零额外请求；90D / 1Y 懒加载 /api/history） ---- */
+let ACTIVE_RANGE = 30;
+let EXTENDED_HISTORY = null;
+let LAST_RENDER_ARGS = null;
+
+function seriesForRange(key, fallbackHist){
+  const base = Array.isArray(fallbackHist) ? fallbackHist : [];
+  if(ACTIVE_RANGE <= 30) return base;
+  const ext = EXTENDED_HISTORY && EXTENDED_HISTORY.series && EXTENDED_HISTORY.series[key];
+  if(!Array.isArray(ext) || ext.length < 2) return base;
+  let merged = ext.slice();
+  if(base.length){
+    const lastExtDate = merged[merged.length - 1] && merged[merged.length - 1].date;
+    const lastBase = base[base.length - 1];
+    if(lastBase && lastBase.date && lastExtDate && lastBase.date > lastExtDate){
+      merged.push(lastBase);
+    } else if(lastBase && lastBase.date && lastBase.date === lastExtDate){
+      merged[merged.length - 1] = lastBase;
+    }
+  }
+  return merged.slice(-ACTIVE_RANGE);
+}
+
 /* ---- 核心数据渲染主函数 ---- */
 let hasAnimated = false;
 function render(data, isSnapshot, fallbackSource){
+  LAST_RENDER_ARGS = { data, isSnapshot, fallbackSource };
   const ind = data.indicators;
   const cards = document.getElementById('cards');
   if(data.config && data.config.status_bands) ACTIVE_STATUS_BANDS = data.config.status_bands;
@@ -3833,6 +4040,23 @@ function render(data, isSnapshot, fallbackSource){
   const compTag = (comp && comp.score !== null && comp.score !== undefined)
     ? `<span class="composite-tag" title="由 VIX / MOVE / HY OAS / VVIX 近一年分位加权合成（0-100，不含 SKEW）">压力分 ${comp.score}/100</span>`
     : '';
+  const attr = data.attribution || computeAttribution(data);
+  const attrHTML = attr ? `
+    <div class="hero-attr">
+      <div class="hero-attr-top">
+        <div class="hero-attr-title">
+          <span>跨市场归因</span>
+          <span class="verdict-tag ${attr.tone}" style="font-size:11.5px;padding:2px 9px;">${escapeHtml(attr.regime)}</span>
+        </div>
+        <div class="hero-attr-pillars">
+          <span class="pillar-chip ${attr.pillars.equity.cls}">权益 · ${escapeHtml(shortLabel('vix', attr.pillars.equity.label))}</span>
+          <span class="pillar-chip ${attr.pillars.bond.cls}">债市 · ${escapeHtml(shortLabel('move', attr.pillars.bond.label))}</span>
+          <span class="pillar-chip ${attr.pillars.credit.cls}">信用 · ${escapeHtml(shortLabel('hy_oas', attr.pillars.credit.label))}</span>
+        </div>
+      </div>
+      <div class="hero-attr-summary">${escapeHtml(attr.summary)}</div>
+    </div>
+  ` : '';
   document.getElementById('verdict').innerHTML = `
     <h1>
       <span>综合判断：${vInfo[0]}</span>
@@ -3840,6 +4064,7 @@ function render(data, isSnapshot, fallbackSource){
       ${compTag}
     </h1>
     <p class="hero-desc">${vInfo[1]} 当前核心读数：VIX ${ind.vix.value}（${stVix.label}）· MOVE ${ind.move.value}（${stMove.label}）· HY OAS ${ind.hy_oas.value_bp}bp（${stHy.label}）· VVIX ${ind.vvix.value}（${stVvix.label}）。</p>
+    ${attrHTML}
   `;
 
   // 紧凑型 5 指标快速跳转条
@@ -3910,7 +4135,7 @@ function render(data, isSnapshot, fallbackSource){
               <div class="reading-body">${read}</div>
             </div>
 
-            ${buildSparkline(h.history, k, st.cls, h.prev_value_bp, false)}
+            ${buildSparkline(seriesForRange('hy_oas', h.history), k, st.cls, h.prev_value_bp, false)}
             ${renderStatsBar(h.stats, true)}
             ${renderCreditTiersBar(data.credit_tiers)}
             ${renderScaleHTML(k, h.value_bp)}
@@ -3965,7 +4190,7 @@ function render(data, isSnapshot, fallbackSource){
             <div class="reading-body">${read}</div>
           </div>
 
-          ${buildSparkline(d.history, k, st.cls, d.prev_close, false)}
+          ${buildSparkline(seriesForRange(k, d.history), k, st.cls, d.prev_close, false)}
           ${renderStatsBar(d.stats, false)}
           ${renderScaleHTML(k, d.value)}
         </div>
@@ -3985,9 +4210,10 @@ function render(data, isSnapshot, fallbackSource){
 
   /* 标普 500 市场背景卡片 */
   const s = data.spx;
+  const spxHist = seriesForRange('spx', s.history);
   const spxAbs = (s.prev_close !== null && s.prev_close !== undefined) ? (s.value - s.prev_close) : null;
   const spxTone = (s.change_pct === null || s.change_pct === undefined) ? 'b-grey' : (s.change_pct >= 0 ? 'b-green' : 'b-red');
-  const spxVals = (s.history || []).map(x => x.value);
+  const spxVals = (spxHist || []).map(x => x.value);
   const spxHigh = spxVals.length ? Math.max(...spxVals) : s.value;
   const spxLow = spxVals.length ? Math.min(...spxVals) : s.value;
   const spxFromHigh = spxHigh ? (((s.value - spxHigh) / spxHigh) * 100).toFixed(2) : '0.00';
@@ -4023,7 +4249,7 @@ function render(data, isSnapshot, fallbackSource){
         ${renderIntradayRange(s, 'spx')}
       </div>
 
-      ${buildSparkline(s.history, 'spx', spxTone, s.prev_close, true)}
+      ${buildSparkline(spxHist, 'spx', spxTone, s.prev_close, true)}
       ${renderStatsBar(s.stats, false)}
 
       <div class="spx-stats-grid">
@@ -4114,7 +4340,8 @@ function renderCompositeCard(comp){
     `;
   }).join('');
 
-  const hist = Array.isArray(comp.history) ? comp.history.filter(p => p && p.date && p.value !== null && p.value !== undefined) : [];
+  const rawHist = seriesForRange('composite', comp.history);
+  const hist = Array.isArray(rawHist) ? rawHist.filter(p => p && p.date && p.value !== null && p.value !== undefined) : [];
   let chartHTML = '';
   if(hist.length >= 2){
     const w = 640, h = 118, padX = 24, padTop = 10, padBot = 10;
@@ -4143,7 +4370,14 @@ function renderCompositeCard(comp){
       <div class="comp-chart-wrap" style="--spark-color:${t.color};--spark-glow:${t.glow};">
         <div class="comp-chart-head">
           <span>近 ${hist.length} 个交易日情绪压力分走势（0–100 固定坐标 · 无前视偏差）</span>
-          <span style="font-family:var(--font-mono);">80 高压线 · 40 平静线</span>
+          <div style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-family:var(--font-mono);">80 高压线 · 40 平静线</span>
+            <div class="term-seg" role="group" aria-label="压力分走势窗口切换">
+              <button type="button" class="term-seg-btn${ACTIVE_RANGE===30?' active':''}" data-chart-range="30" aria-pressed="${ACTIVE_RANGE===30?'true':'false'}">30D</button>
+              <button type="button" class="term-seg-btn${ACTIVE_RANGE===90?' active':''}" data-chart-range="90" aria-pressed="${ACTIVE_RANGE===90?'true':'false'}">90D</button>
+              <button type="button" class="term-seg-btn${ACTIVE_RANGE===252?' active':''}" data-chart-range="252" aria-pressed="${ACTIVE_RANGE===252?'true':'false'}">1Y</button>
+            </div>
+          </div>
         </div>
         <div class="comp-stage" id="compStage" data-history="${payload}">
           <span class="comp-axis-lbl" style="top:${(yOf(80) / h * 100 - 4).toFixed(1)}%;">80</span>
@@ -4457,21 +4691,123 @@ setInterval(updateMarketStatus, 30000);
 
 /* ---- 报警状态面板与触发逼近度渲染（优先读取 data.config.alert_thresholds） ---- */
 const DEFAULT_ALERT_THRESHOLDS = {
-  vix:      { label: "VIX 恐慌指数",     unit: "",   warning: 35,  critical: 40 },
-  vvix:     { label: "VVIX 波动率",      unit: "",   warning: 140 },
-  skew:     { label: "SKEW 黑天鹅",      unit: "",   warning: 150 },
-  move:     { label: "MOVE 债市波动",    unit: "",   warning: 140 },
-  hy_oas:   { label: "HY OAS 信用利差",  unit: "bp", warning: 500, critical: 1000 },
-  cross:    { label: "股债综合预警",     unit: "",   vix: 30, vvix: 140, move: 140 },
-  term:     { label: "VIX 期限结构倒挂", unit: "",   warning: 1.0, critical: 1.1 },
-  vix_jump: { label: "VIX 单日急升",     unit: "%",  warning: 25,  critical: 50, event: true },
-  hy_widen: { label: "HY OAS 急速走阔",  unit: "bp", warning: 25,  warning_5d: 50, event: true }
+  vix:            { label: "VIX 恐慌指数",     unit: "",   warning: 35,  critical: 40 },
+  vvix:           { label: "VVIX 波动率",      unit: "",   warning: 140 },
+  skew:           { label: "SKEW 黑天鹅",      unit: "",   warning: 150 },
+  move:           { label: "MOVE 债市波动",    unit: "",   warning: 140 },
+  hy_oas:         { label: "HY OAS 信用利差",  unit: "bp", warning: 500, critical: 1000 },
+  cross:          { label: "股债综合预警",     unit: "",   vix: 30, vvix: 140, move: 140 },
+  term:           { label: "VIX 期限结构倒挂", unit: "",   warning: 1.0, critical: 1.1, hyst_abs: 0.02 },
+  vix_jump:       { label: "VIX 单日急升",     unit: "%",  warning: 25,  critical: 50, event: true },
+  hy_widen:       { label: "HY OAS 急速走阔",  unit: "bp", warning: 25,  warning_5d: 50, event: true },
+  composite:      { label: "综合情绪压力分",   unit: "分", warning: 85,  hyst_abs: 5 },
+  composite_jump: { label: "压力分 5 日急升",  unit: "分", warning: 25,  event: true }
 };
 let ACTIVE_ALERT_THRESHOLDS = DEFAULT_ALERT_THRESHOLDS;
-const ALERT_ORDER = ['vix', 'vvix', 'skew', 'move', 'hy_oas', 'term', 'vix_jump', 'hy_widen', 'cross'];
+const ALERT_ORDER = ['vix', 'vvix', 'skew', 'move', 'hy_oas', 'term', 'vix_jump', 'hy_widen', 'composite', 'composite_jump', 'cross'];
 
 function alertSpec(key){
   return (ACTIVE_ALERT_THRESHOLDS && ACTIVE_ALERT_THRESHOLDS[key]) || DEFAULT_ALERT_THRESHOLDS[key];
+}
+
+function alertExpectedDate(key, data){
+  const ind = (data && data.indicators) || {};
+  if(key === 'hy_oas' || key === 'hy_widen') return ind.hy_oas && ind.hy_oas.date;
+  if(key === 'move') return ind.move && ind.move.date;
+  if(key === 'vvix') return ind.vvix && ind.vvix.date;
+  if(key === 'skew') return ind.skew && ind.skew.date;
+  if(key === 'term'){
+    const t = data && data.term_structure;
+    return (t && t.date) || (ind.vix && ind.vix.date);
+  }
+  if(key === 'composite' || key === 'composite_jump'){
+    const ch = data && data.composite && data.composite.history;
+    if(Array.isArray(ch) && ch.length && ch[ch.length - 1] && ch[ch.length - 1].date){
+      return ch[ch.length - 1].date;
+    }
+    return ind.vix && ind.vix.date;
+  }
+  return ind.vix && ind.vix.date;
+}
+
+function computeAttribution(data){
+  const ind = data && data.indicators;
+  if(!ind || !ind.vix || !ind.move || !ind.hy_oas) return null;
+  const hy = ind.hy_oas;
+  const hyPct = (hy.change_bp !== null && hy.change_bp !== undefined && hy.prev_value_bp)
+    ? (hy.change_bp / hy.prev_value_bp * 100) : null;
+  const stVix  = statusFor('vix', ind.vix.value, ind.vix.change_pct);
+  const stMove = statusFor('move', ind.move.value, ind.move.change_pct);
+  const stHy   = statusFor('hy_oas', hy.value_bp, hyPct, hy.change_bp);
+  const sev = { 'b-green': 0, 'b-amber': 1, 'b-orange': 2, 'b-red': 3 };
+  const eqHot = sev[stVix.cls] >= 1;
+  const bondHot = sev[stMove.cls] >= 1;
+  const creditHot = sev[stHy.cls] >= 1;
+  const worst = (...clsList) => clsList.reduce((a, b) => (sev[b] > sev[a] ? b : a));
+
+  let regime, tone, summary;
+  if(eqHot && bondHot && creditHot){
+    regime = '股债信用三端共振';
+    tone = worst(stVix.cls, stMove.cls, stHy.cls);
+    summary = '权益波动、美债波动与高收益信用利差同步抬升，系统性风险特征显著';
+  } else if(eqHot && bondHot){
+    regime = '股债双升 · 信用暂稳';
+    tone = worst(stVix.cls, stMove.cls);
+    summary = '股市与美债波动同步走高，但高收益信用利差仍在常态，偏利率冲击主导';
+  } else if(eqHot && creditHot){
+    regime = '股信联动 · 债市平稳';
+    tone = worst(stVix.cls, stHy.cls);
+    summary = '权益波动与高收益信用利差同向升温，企业违约担忧抬头，美债波动暂稳';
+  } else if(eqHot){
+    regime = '权益单边波动 · 债信未确认';
+    tone = stVix.cls;
+    summary = '压力主要集中在股市端，美债波动与信用利差仍处常态，暂未演化为系统性危机';
+  } else if(bondHot && creditHot){
+    regime = '债信同步升温 · 股市平静';
+    tone = worst(stMove.cls, stHy.cls);
+    summary = '美债波动与信用利差率先走高，股市尚未充分定价，需警惕风险滞后传导';
+  } else if(bondHot){
+    regime = '债市单边波动 · 股信平稳';
+    tone = stMove.cls;
+    summary = '美债收益率波动率先抬升，股市与企业信用暂稳，留意利率压力向权益传导';
+  } else if(creditHot){
+    regime = '信用率先走阔 · 股债平静';
+    tone = stHy.cls;
+    summary = '高收益信用利差走阔或异动，股债波动率仍处常态，需警惕信用面隐蔽压力';
+  } else {
+    regime = '全市场整体平静';
+    tone = 'b-green';
+    summary = '股、债、信用三端均处常态区间，跨市场暂无系统性风险信号';
+  }
+
+  const notes = [];
+  const ts = data.term_structure || {};
+  if(ts.vix && ts.vix3m){
+    const ratio = Number(ts.vix) / Number(ts.vix3m);
+    if(ratio >= 1.0){
+      notes.push(`VIX 期限结构倒挂（VIX/VIX3M ${ratio.toFixed(2)}），近端恐慌集中`);
+    }
+  }
+  const vvixVal = ind.vvix && ind.vvix.value;
+  if(vvixVal !== null && vvixVal !== undefined && Number(vvixVal) >= 140){
+    notes.push(`VVIX 达 ${Number(vvixVal).toFixed(2)}，波动率本身剧烈摆动`);
+  }
+  const skewVal = ind.skew && ind.skew.value;
+  if(!(eqHot || bondHot || creditHot) && skewVal !== null && skewVal !== undefined && Number(skewVal) >= 140){
+    notes.push(`SKEW ${Number(skewVal).toFixed(1)} 偏高属平静期机构逢低买尾部保险，非当下恐慌`);
+  }
+  summary = notes.length ? `${summary}；${notes.join('；')}。` : `${summary}。`;
+
+  return {
+    regime,
+    tone,
+    summary,
+    pillars: {
+      equity: { label: stVix.label, cls: stVix.cls, hot: eqHot },
+      bond:   { label: stMove.label, cls: stMove.cls, hot: bondHot },
+      credit: { label: stHy.label, cls: stHy.cls, hot: creditHot }
+    }
+  };
 }
 
 function alertThresholdText(key){
@@ -4481,6 +4817,8 @@ function alertThresholdText(key){
   if(key === 'term') return `VIX/VIX3M ≥${s.warning} 预警 / ≥${s.critical} 严重`;
   if(key === 'vix_jump') return `单日 ≥+${s.warning}% 预警 / ≥+${s.critical}% 严重`;
   if(key === 'hy_widen') return `单日 ≥+${s.warning}bp 或 5日 ≥+${s.warning_5d}bp`;
+  if(key === 'composite') return `≥${s.warning}${u} 预警（回滞 ${s.hyst_abs || 5}${u}）`;
+  if(key === 'composite_jump') return `5日 ≥+${s.warning}${u} 预警`;
   return s.critical !== undefined
     ? `≥${s.warning}${u} 预警 / ≥${s.critical}${u} 严重`
     : `≥${s.warning}${u} 预警`;
@@ -4515,6 +4853,16 @@ function alertLevel(key, d){
     const d5 = hy5dChange(ind.hy_oas);
     return ((d1 !== null && d1 !== undefined && d1 >= s.warning) || (d5 !== null && d5 >= s.warning_5d)) ? 'warning' : 'normal';
   }
+  if(key === 'composite'){
+    const sc = d.composite && d.composite.score;
+    if(sc === null || sc === undefined) return 'normal';
+    return sc >= s.warning ? 'warning' : 'normal';
+  }
+  if(key === 'composite_jump'){
+    const d5 = d.composite && d.composite.chg_5d;
+    if(d5 === null || d5 === undefined) return 'normal';
+    return d5 >= s.warning ? 'warning' : 'normal';
+  }
   const val = v(key);
   if(s.critical !== undefined && val >= s.critical) return 'critical';
   return val >= s.warning ? 'warning' : 'normal';
@@ -4543,6 +4891,14 @@ function alertProximity(key, d){
     const d5 = Math.max(0, Number(hy5dChange(ind.hy_oas) || 0));
     return Math.max(0, Math.min(100, Math.round(Math.max(d1 / s.warning, d5 / s.warning_5d) * 100)));
   }
+  if(key === 'composite'){
+    const sc = Number((d.composite && d.composite.score) || 0);
+    return Math.max(0, Math.min(100, Math.round((sc / s.warning) * 100)));
+  }
+  if(key === 'composite_jump'){
+    const d5 = Math.max(0, Number((d.composite && d.composite.chg_5d) || 0));
+    return Math.max(0, Math.min(100, Math.round((d5 / s.warning) * 100)));
+  }
   const val = key === 'hy_oas' ? ind.hy_oas.value_bp : ind[key].value;
   return Math.max(0, Math.min(100, Math.round((val / s.warning) * 100)));
 }
@@ -4565,6 +4921,14 @@ function alertCurrentText(key, data){
     const s1 = (d1 !== null && d1 !== undefined) ? `${d1 > 0 ? '+' : ''}${Math.round(d1)}bp` : '—';
     const s5 = (d5 !== null && d5 !== undefined) ? ` / 5日 ${d5 > 0 ? '+' : ''}${Math.round(d5)}bp` : '';
     return s1 + s5;
+  }
+  if(key === 'composite'){
+    const sc = data.composite && data.composite.score;
+    return (sc !== null && sc !== undefined) ? `${sc} / 100` : '—';
+  }
+  if(key === 'composite_jump'){
+    const d5 = data.composite && data.composite.chg_5d;
+    return (d5 !== null && d5 !== undefined) ? `${d5 > 0 ? '+' : ''}${d5} 分` : '—';
   }
   return ind[key].value;
 }
@@ -4620,11 +4984,12 @@ function renderAlerts(data, state){
 
   el.innerHTML = ALERT_ORDER.map(key => {
     const spec = alertSpec(key);
-    // 优先采用服务端带回滞判定的状态（如存在且与当前数据同日），否则实时判定
+    // 优先采用服务端带回滞判定的状态（按各自指标收盘日精确对齐），否则实时判定
     const serverLvl = (st[key] && st[key].level && ['normal','warning','critical'].includes(st[key].level))
       ? st[key].level : null;
     const rawLvl = alertLevel(key, data);
-    const lvl = (serverLvl && st[key].date === (key === 'hy_oas' || key === 'hy_widen' ? data.indicators.hy_oas.date : data.indicators.vix.date))
+    const expectedDate = alertExpectedDate(key, data);
+    const lvl = (serverLvl && expectedDate && st[key].date === expectedDate)
       ? serverLvl : rawLvl;
     const cls = lvl === 'critical' ? 'b-red' : lvl === 'warning' ? 'b-amber' : 'b-green';
     const label = lvl === 'critical' ? '严重告警' : lvl === 'warning' ? '触线预警' : '运行正常';
@@ -4705,6 +5070,8 @@ const API_BASE = 'https://api.infidea.app';
 const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
 const LAST_DATA_CACHE_KEY = 'mm-last-data-v1';
 const LAST_STATE_CACHE_KEY = 'mm-last-alert-state-v1';
+const LAST_HISTORY_CACHE_KEY = 'mm-last-history-v1';
+const LAST_ALERT_HISTORY_CACHE_KEY = 'mm-last-alert-history-v1';
 
 async function fetchJsonWithTimeout(url, timeoutMs = 8000){
   const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -4737,6 +5104,130 @@ async function loadAlertState(){
     return String(cached.updated_at_utc || '') >= String(staticState.updated_at_utc || '') ? cached : staticState;
   }
   return cached || staticState || null;
+}
+
+async function loadAlertHistory(){
+  try {
+    const h = await fetchJsonWithTimeout(API_BASE + '/api/alert-history', 8000);
+    if(h && Array.isArray(h.events)){
+      try { localStorage.setItem(LAST_ALERT_HISTORY_CACHE_KEY, JSON.stringify(h)); } catch(_){}
+      return h;
+    }
+  } catch(_){}
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(LAST_ALERT_HISTORY_CACHE_KEY) || 'null'); } catch(_){}
+  if(cached && Array.isArray(cached.events)) return cached;
+  try {
+    const rs = await fetch('./dashboard/alert_history.json', { cache: 'no-store' });
+    if(rs.ok){
+      const sh = await rs.json();
+      if(sh && Array.isArray(sh.events)) return sh;
+    }
+  } catch(_){}
+  return { updated_at_utc: null, events: [] };
+}
+
+function renderAlertHistory(doc){
+  const listEl = document.getElementById('alertHistoryList');
+  const countEl = document.getElementById('alertHistoryCount');
+  const events = (doc && Array.isArray(doc.events)) ? doc.events : [];
+  if(countEl) countEl.textContent = `${events.length} 条`;
+  if(!listEl) return;
+  if(!events.length){
+    listEl.innerHTML = `<div class="ah-empty">暂无历史告警触发记录（触发、升级或解除后将自动归档，最多保留 100 条）</div>`;
+    return;
+  }
+  const evBadge = ev => {
+    if(ev.event === 'resolved') return '<span class="badge b-green">解除</span>';
+    if(ev.event === 'upgraded' || ev.to_level === 'critical') return `<span class="badge b-red">${ev.event === 'upgraded' ? '升级严重' : '严重触发'}</span>`;
+    return '<span class="badge b-amber">触线预警</span>';
+  };
+  const fmtEventTime = ts => {
+    if(!ts) return '—';
+    try {
+      return new Date(ts).toLocaleString('zh-CN', {
+        timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      });
+    } catch(_){ return ts; }
+  };
+  listEl.innerHTML = events.slice(0, 15).map(ev => {
+    const valStr = (ev.value !== null && ev.value !== undefined)
+      ? `${ev.value}${ev.unit || ''}` : '—';
+    const detail = [
+      ev.date ? `收盘 ${shortDate(ev.date)}` : '',
+      `读数 ${valStr}`,
+      ev.change && ev.change !== '-' ? ev.change : ''
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="ah-row">
+        <span class="ah-time">${escapeHtml(fmtEventTime(ev.ts_utc))}</span>
+        <span class="ah-rule">${escapeHtml(ev.label || ev.key || '—')}</span>
+        <span class="ah-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</span>
+        ${evBadge(ev)}
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadExtendedHistory(force){
+  if(!force && EXTENDED_HISTORY && EXTENDED_HISTORY.series) return EXTENDED_HISTORY;
+  try {
+    const h = await fetchJsonWithTimeout(API_BASE + '/api/history', 10000);
+    if(h && h.series && typeof h.series === 'object'){
+      EXTENDED_HISTORY = h;
+      try { localStorage.setItem(LAST_HISTORY_CACHE_KEY, JSON.stringify(h)); } catch(_){}
+      return h;
+    }
+  } catch(_){}
+  if(!force){
+    try {
+      const c = JSON.parse(localStorage.getItem(LAST_HISTORY_CACHE_KEY) || 'null');
+      if(c && c.series){
+        EXTENDED_HISTORY = c;
+        return c;
+      }
+    } catch(_){}
+  }
+  try {
+    const rs = await fetch('./dashboard/history.json', { cache: 'no-store' });
+    if(rs.ok){
+      const sh = await rs.json();
+      if(sh && sh.series){
+        EXTENDED_HISTORY = sh;
+        return sh;
+      }
+    }
+  } catch(_){}
+  return null;
+}
+
+function syncRangeButtons(){
+  document.querySelectorAll('[data-chart-range]').forEach(btn => {
+    const on = Number(btn.getAttribute('data-chart-range')) === ACTIVE_RANGE;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+async function setChartRange(days){
+  const target = Number(days) || 30;
+  if(target === ACTIVE_RANGE) return;
+  if(target > 30 && !EXTENDED_HISTORY){
+    showToast('正在加载近 1 年历史走势…');
+    const loaded = await loadExtendedHistory(false);
+    if(!loaded){
+      showToast('近 1 年历史数据将在下次服务端拉取后生成，当前展示 30 日', true);
+      syncRangeButtons();
+      return;
+    }
+  }
+  ACTIVE_RANGE = target;
+  syncRangeButtons();
+  if(LAST_RENDER_ARGS){
+    render(LAST_RENDER_ARGS.data, LAST_RENDER_ARGS.isSnapshot, LAST_RENDER_ARGS.fallbackSource);
+    syncRangeButtons();
+  }
 }
 
 async function load(){
@@ -4784,9 +5275,14 @@ async function load(){
     }
   }
 
-  const state = await loadAlertState();
+  const [state, alertHistory] = await Promise.all([loadAlertState(), loadAlertHistory()]);
+  if(ACTIVE_RANGE > 30){
+    await loadExtendedHistory(true);
+  }
   render(data, isSnapshot, fallbackSource);
   renderAlerts(data, state);
+  renderAlertHistory(alertHistory);
+  syncRangeButtons();
   scheduleNext();
   return !isSnapshot;
 }
@@ -4803,8 +5299,8 @@ async function apiPost(path, body){
   return r.json();
 }
 async function waitForJob(){
-  for(let i = 0; i < 20; i++){
-    await new Promise(r => setTimeout(r, 15000));
+  for(let i = 0; i < 60; i++){
+    await new Promise(r => setTimeout(r, 3000));
     try {
       const r = await fetch(API_BASE + '/api/job');
       if(!r.ok) continue;
@@ -4816,13 +5312,25 @@ async function waitForJob(){
 }
 
 async function applyRefreshPayload(payload){
+  EXTENDED_HISTORY = null;
+  if(ACTIVE_RANGE > 30){
+    await loadExtendedHistory(true);
+  }
   render(payload.data, false);
   try { localStorage.setItem(LAST_DATA_CACHE_KEY, JSON.stringify(payload.data)); } catch(_){}
-  const state = payload.alert_state || await loadAlertState();
+  const [state, alertHistory] = await Promise.all([
+    payload.alert_state ? Promise.resolve(payload.alert_state) : loadAlertState(),
+    payload.alert_history ? Promise.resolve(payload.alert_history) : loadAlertHistory()
+  ]);
   if(state){
     try { localStorage.setItem(LAST_STATE_CACHE_KEY, JSON.stringify(state)); } catch(_){}
   }
+  if(alertHistory){
+    try { localStorage.setItem(LAST_ALERT_HISTORY_CACHE_KEY, JSON.stringify(alertHistory)); } catch(_){}
+  }
   renderAlerts(payload.data, state);
+  renderAlertHistory(alertHistory);
+  syncRangeButtons();
 }
 
 async function manualRefresh(){
@@ -4836,7 +5344,7 @@ async function manualRefresh(){
   try {
     const res = await apiPost('/api/refresh');
     if(res.status === 'started'){
-      showToast('正在后台拉取最新收盘数据，预计 1–2 分钟后自动更新…');
+      showToast('正在后台并行拉取最新收盘数据，通常 10 秒内自动更新…');
       const result = await waitForJob();
       if(result && result.ok && result.data){
         await applyRefreshPayload(result);
@@ -4911,6 +5419,13 @@ async function manualPush(channel){
   if(fb) fb.addEventListener('click', () => manualPush('feishu'));
   const bb = document.getElementById('barkPushBtn');
   if(bb) bb.addEventListener('click', () => manualPush('bark'));
+  // 委托绑定所有 30D / 90D / 1Y 走势窗口切换按钮（含动态渲染的压力分卡片内按钮）
+  document.addEventListener('click', e => {
+    const target = e.target && e.target.closest ? e.target.closest('[data-chart-range]') : null;
+    if(target){
+      setChartRange(Number(target.getAttribute('data-chart-range')));
+    }
+  });
 })();
 
 setInterval(() => {

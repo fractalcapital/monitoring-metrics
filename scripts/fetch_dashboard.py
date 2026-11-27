@@ -11,10 +11,12 @@ All domain logic lives in `scripts/monitoring/`:
 This module stays as the stable CLI and public import facade so cron,
 `push_data.sh`, `api_server.py`, `freshness-watchdog.yml` and tests keep working.
 """
+import concurrent.futures
 import datetime as dt
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 # Ensure repo root (for `alert`) and scripts/ (for `monitoring`) are importable
@@ -32,9 +34,11 @@ from monitoring.alerts import (  # noqa: E402, F401
     _level_for,
     _level_with_hysteresis,
     build_status_message,
+    cross_market_attribution,
     evaluate_alerts,
     format_alert_parts,
     format_recovery_parts,
+    load_alert_history,
     load_alert_state,
     record_fetch_failure_in_state,
     record_fetch_success,
@@ -58,6 +62,7 @@ from monitoring.calendar import (  # noqa: E402, F401
     annotate_freshness,
 )
 from monitoring.config import (  # noqa: E402, F401
+    ALERT_HISTORY_MAX,
     ALERT_THRESHOLDS,
     COMPOSITE_WEIGHTS,
     CREDIT_TIER_SERIES,
@@ -67,6 +72,7 @@ from monitoring.config import (  # noqa: E402, F401
     FETCH_SOURCES,
     FRESH_ALERT_LAG,
     FRESH_ALLOWED_LAG,
+    HISTORY_FILE_KEEP,
     HISTORY_KEEP,
     HL_HIGH_CAP,
     HL_LOW_FLOOR,
@@ -102,6 +108,7 @@ from monitoring.providers import (  # noqa: E402, F401
     resolve_move,
 )
 from monitoring.series import (  # noqa: E402, F401
+    _align_composite_history,
     _atomic_write_json,
     _describe_sources,
     _finalize_pairs,
@@ -111,6 +118,7 @@ from monitoring.series import (  # noqa: E402, F401
     _upsert_history,
     _valid_hl,
     build_composite,
+    build_history_payload,
     composite_score,
     compute_composite_history,
     compute_stats,
@@ -119,7 +127,7 @@ from monitoring.series import (  # noqa: E402, F401
 
 
 def process_alerts(payload, state_path, now_utc, group_errors=None,
-                   group_providers=None):
+                   group_providers=None, history_path=None):
     """Evaluate, dedup and send alerts (forwards this module's senders for tests)."""
     return _alerts.process_alerts(
         payload,
@@ -129,6 +137,7 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
         group_providers=group_providers,
         feishu_sender=send_feishu_card,
         bark_sender=send_bark,
+        history_path=history_path,
     )
 
 
@@ -146,7 +155,9 @@ def send_manual_push(mode, payload=None, stale=False, channels=("feishu", "bark"
 def main():
     out_dir = Path(os.environ.get("MM_OUT_DIR") or (_REPO_ROOT / "dashboard"))
     out_path = out_dir / "data.json"
+    history_path = out_dir / "history.json"
     state_path = out_dir / "alert_state.json"
+    alert_history_path = out_dir / "alert_history.json"
 
     mode = os.environ.get("MANUAL_PUSH", "").strip().lower()
     channels = tuple(
@@ -177,12 +188,48 @@ def main():
     group_errors = {}
     group_providers = {}
 
-    # 1. VIX / VVIX / SKEW / VIX term structure / SPX
-    try:
-        pairs, sources_map, stale_eq, eq_errors = resolve_equities_and_term(prev_payload)
-    except Exception as exc:
-        print("FATAL equities fetch failed with no fallback: %s" % exc, file=sys.stderr)
-        sys.exit(1)
+    # 1-3. Run independent market data groups concurrently:
+    #      equities/term structure, MOVE, HY OAS, and optional credit tiers.
+    ref_date_ready = threading.Event()
+    ref_date_box = [None]
+    want_tiers = os.environ.get("CREDIT_TIERS", "1").strip().lower() not in (
+        "0", "false", "no", "off")
+
+    def _run_equities():
+        try:
+            res = resolve_equities_and_term(prev_payload)
+            p_map = res[0]
+            if "vix" in p_map and p_map["vix"]:
+                ref_date_box[0] = p_map["vix"][-1]["date"]
+            return res
+        finally:
+            ref_date_ready.set()
+
+    def _lazy_ref_date():
+        # Only waits if MOVE actually falls back to TradingView.
+        ref_date_ready.wait(timeout=45)
+        return ref_date_box[0]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        f_eq = pool.submit(_run_equities)
+        f_move = pool.submit(resolve_move, prev_payload, reference_date=_lazy_ref_date)
+        f_hy = pool.submit(resolve_hy_oas, prev_payload)
+        f_tiers = pool.submit(resolve_credit_tiers, prev_payload) if want_tiers else None
+
+        try:
+            pairs, sources_map, stale_eq, eq_errors = f_eq.result()
+        except Exception as exc:
+            print("FATAL equities fetch failed with no fallback: %s" % exc, file=sys.stderr)
+            sys.exit(1)
+
+        try:
+            move_pairs, move_src, move_stale, move_err = f_move.result()
+        except Exception as exc:
+            print("FATAL MOVE fetch failed with no fallback: %s" % exc, file=sys.stderr)
+            sys.exit(1)
+
+        fred_rows, hy_src, hy_stale, hy_err = f_hy.result()
+        credit_tiers = f_tiers.result() if f_tiers is not None else {}
 
     if eq_errors:
         group_errors["equities"] = "; ".join(eq_errors)[:300]
@@ -194,16 +241,6 @@ def main():
         })
         group_providers["equities"] = "+".join(eq_used)
 
-    ref_date = pairs["vix"][-1]["date"] if "vix" in pairs else None
-
-    # 2. MOVE Index
-    try:
-        move_pairs, move_src, move_stale, move_err = resolve_move(
-            prev_payload, reference_date=ref_date)
-    except Exception as exc:
-        print("FATAL MOVE fetch failed with no fallback: %s" % exc, file=sys.stderr)
-        sys.exit(1)
-
     pairs["move"] = move_pairs
     sources_map["move"] = move_src
     if move_stale and move_err:
@@ -211,8 +248,6 @@ def main():
     else:
         group_providers["move"] = move_src
 
-    # 3. HY OAS (FRED)
-    fred_rows, hy_src, hy_stale, hy_err = resolve_hy_oas(prev_payload)
     pairs["hy_oas"] = fred_rows
     sources_map["hy_oas"] = hy_src
     if hy_stale and hy_err:
@@ -267,12 +302,14 @@ def main():
     stats["hy_oas"] = compute_stats(fred_rows, _prev_stats("hy_oas"), is_bp=True)
 
     prev_comp = prev_payload.get("composite") if isinstance(prev_payload, dict) else None
-    comp = build_composite(stats, pairs, prev_composite=prev_comp)
-
-    # 5. Credit tiers context (IG / CCC OAS), optional
-    credit_tiers = {}
-    if os.environ.get("CREDIT_TIERS", "1").strip().lower() not in ("0", "false", "no", "off"):
-        credit_tiers = resolve_credit_tiers(prev_payload)
+    comp_hist_full = compute_composite_history(
+        pairs, prev_composite=prev_comp, keep=HISTORY_FILE_KEEP)
+    comp = build_composite(
+        stats, pairs, prev_composite=prev_comp,
+        keep=DISPLAY_KEEP, precomputed_history=comp_hist_full)
+    if comp is not None and pairs.get("vix"):
+        comp_hist_full = _align_composite_history(
+            comp_hist_full, comp["score"], pairs["vix"][-1]["date"], HISTORY_FILE_KEEP)
 
     hy_node = {
         "value_bp": hy_last["value"],
@@ -318,7 +355,8 @@ def main():
         },
     }
 
-    # 6. Freshness: data dates vs the latest NYSE session
+    # 6. Cross-market attribution + freshness: data dates vs the latest NYSE session
+    payload["attribution"] = cross_market_attribution(payload)
     expected, fresh_issues = annotate_freshness(payload, now_utc, set(stale_indicators))
     if fresh_issues:
         group_errors["freshness"] = ("预期收盘日 %s：%s"
@@ -328,6 +366,14 @@ def main():
 
     _atomic_write_json(out_path, payload)
     print("Wrote %s" % (out_path,))
+    history_payload = build_history_payload(
+        pairs,
+        composite_history=comp_hist_full,
+        updated_at_utc=payload["updated_at_utc"],
+        keep=HISTORY_FILE_KEEP,
+    )
+    _atomic_write_json(history_path, history_payload)
+    print("Wrote %s (%d series)" % (history_path, len(history_payload["series"])))
     for k in ("vix", "vvix", "skew", "move"):
         ind = payload["indicators"][k]
         hl = ""
@@ -363,6 +409,7 @@ def main():
         now_utc,
         group_errors=group_errors,
         group_providers=group_providers,
+        history_path=alert_history_path,
     )
     print("Wrote %s" % (state_path,))
     print("  channels configured: feishu=%s bark=%s"

@@ -1,12 +1,14 @@
 """Alert evaluation (hysteresis, term structure, velocity, recovery) and manual pushes."""
 import datetime as dt
 import json
+import math
 import os
 from pathlib import Path
 
 from alert.notify import send_bark, send_feishu_card
 
 from .config import (
+    ALERT_HISTORY_MAX,
     ALERT_THRESHOLDS,
     DASHBOARD_URL,
     DEFAULT_FETCH_NOTE,
@@ -141,11 +143,68 @@ def evaluate_alerts(payload, prev_levels=None):
                           "单日 %s，5 日 %s（阈值：单日 +%dbp / 5 日 +%dbp）"
                           % (_fmt_bp(d1), _fmt_bp(d5), spec["warning"], spec["warning_5d"]))
 
+    # Composite stress score (0-100): high-stress band (with hysteresis) + 5d surge.
+    comp = payload.get("composite") or {}
+    if comp.get("score") is not None:
+        comp_score = int(comp["score"])
+        comp_hist = comp.get("history") or []
+        comp_date = (comp_hist[-1].get("date")
+                     if comp_hist and isinstance(comp_hist[-1], dict) and comp_hist[-1].get("date")
+                     else ind["vix"]["date"])
+        spec = ALERT_THRESHOLDS["composite"]
+        level = _level_with_hysteresis(
+            comp_score, spec, prev_levels.get("composite", "normal"))
+        c_parts = []
+        if comp.get("change") is not None:
+            c_parts.append("较前日 %+d" % int(comp["change"]))
+        if comp.get("chg_5d") is not None:
+            c_parts.append("5 日 %+d" % int(comp["chg_5d"]))
+        comps = comp.get("components") or {}
+        if comps:
+            comp_names = (("vix", "VIX"), ("move", "MOVE"),
+                          ("hy_oas", "HY"), ("vvix", "VVIX"))
+            c_parts.append("分项 " + " / ".join(
+                "%s %s%%" % (lbl, comps[k]) for k, lbl in comp_names if k in comps))
+        out["composite"] = _ev(level, comp_score, comp_date, spec["warning"],
+                               "；".join(c_parts) if c_parts else "-")
+
+        spec_j = ALERT_THRESHOLDS["composite_jump"]
+        chg_5d = comp.get("chg_5d")
+        j_level = _level_for(chg_5d, spec_j) if chg_5d is not None else "normal"
+        prev_5d = (comp_score - int(chg_5d)) if chg_5d is not None else None
+        j_change = ("5 日 %+d 分（%s → %d）" % (int(chg_5d), prev_5d, comp_score)
+                    if chg_5d is not None else "-")
+        out["composite_jump"] = _ev(j_level, int(chg_5d) if chg_5d is not None else 0,
+                                    comp_date, spec_j["warning"], j_change)
+
     if payload.get("intraday"):
         for key, ev in out.items():
             if key not in ("hy_oas", "hy_widen"):
                 ev["intraday"] = True
     return out
+
+
+def load_alert_history(path):
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("events"), list):
+            return data
+    except (OSError, ValueError):
+        pass
+    return {"updated_at_utc": None, "events": []}
+
+
+def _append_alert_history(history_path, new_events, now_s):
+    """Prepend new alert transition events to alert_history.json (capped at ALERT_HISTORY_MAX)."""
+    if not new_events or not history_path:
+        return
+    doc = load_alert_history(history_path)
+    existing = list(doc.get("events") or [])
+    merged = list(reversed(new_events)) + existing
+    _atomic_write_json(history_path, {
+        "updated_at_utc": now_s,
+        "events": merged[:ALERT_HISTORY_MAX],
+    })
 
 
 def load_alert_state(path):
@@ -184,6 +243,12 @@ def format_alert_parts(key, ev):
                 % (ev["value"], ev["threshold"], ev["change"], ev["date"]))
     elif key == "hy_widen":
         body = "HY OAS 走阔：%s\n日期：%s" % (ev["change"], ev["date"])
+    elif key == "composite":
+        body = ("当前情绪压力分：%s / 100（预警线 ≥%s，近一年分位加权）\n"
+                "详情：%s\n日期：%s" % (ev["value"], ev["threshold"], ev["change"], ev["date"]))
+    elif key == "composite_jump":
+        body = ("情绪压力分 5 日急升：%+d 分（阈值 +%s 分）\n%s\n日期：%s"
+                % (int(ev["value"]), ev["threshold"], ev["change"], ev["date"]))
     else:
         body = ("当前值：%s%s（阈值 %s%s）\n"
                 "日期：%s\n"
@@ -205,6 +270,9 @@ def format_recovery_parts(key, ev):
     elif key == "term":
         body = ("VIX / VIX3M 回到 %.3f，期限结构恢复升水\n%s\n日期：%s"
                 % (ev["value"], ev["change"], ev["date"]))
+    elif key == "composite":
+        body = ("综合情绪压力分回落至 %s / 100（已脱离 %s 高压带）\n日期：%s"
+                % (ev["value"], spec["warning"], ev["date"]))
     else:
         body = ("当前值：%s%s，已回落到预警线 %s%s 下方\n日期：%s"
                 % (ev["value"], unit, spec["warning"], unit, ev["date"]))
@@ -364,13 +432,24 @@ def record_fetch_success(source_key, state, now_utc, detail=None, feishu_sender=
 
 
 def process_alerts(payload, state_path, now_utc, group_errors=None,
-                   group_providers=None, feishu_sender=None, bark_sender=None):
+                   group_providers=None, feishu_sender=None, bark_sender=None,
+                   history_path=None):
     """Evaluate, dedup and (maybe) send alerts on Feishu (card) + Bark."""
     group_errors = group_errors or {}
     group_providers = group_providers or {}
     state = load_alert_state(state_path)
     now_s = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     channels_configured = _channels_configured()
+    resolved_history_path = (Path(history_path) if history_path is not None
+                             else Path(state_path).with_name("alert_history.json"))
+    prior_history_events = (load_alert_history(resolved_history_path).get("events") or [])
+    new_history_events = []
+
+    def _latest_history_for(k):
+        for item in prior_history_events:
+            if isinstance(item, dict) and item.get("key") == k:
+                return item
+        return None
 
     fetch_status = dict(state.get("fetch_status", {}) or {})
     fetch_status.pop("yahoo", None)
@@ -418,9 +497,9 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
 
         if new_level == "normal":
             # "解除" notice: only for level alerts that were actually pushed.
+            got = []
             if old_level != "normal" and old.get("episode_sent") and not spec.get("event"):
                 title, body = format_recovery_parts(key, ev)
-                got = []
                 for ch in ("feishu", "bark"):
                     if not channels_configured[ch]:
                         continue
@@ -431,12 +510,27 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
                 if got:
                     entry["last_sent_at_utc"] = now_s
                     sent.append(key + ":resolved")
+            if old_level != "normal" and not spec.get("event"):
+                new_history_events.append({
+                    "ts_utc": now_s,
+                    "key": key,
+                    "label": spec["label"],
+                    "event": "resolved",
+                    "from_level": old_level,
+                    "to_level": "normal",
+                    "value": ev["value"],
+                    "unit": spec.get("unit", ""),
+                    "threshold": ev["threshold"],
+                    "date": ev["date"],
+                    "change": ev["change"],
+                    "channels": got,
+                })
             alerts[key] = entry
             continue
 
         title, body = format_alert_parts(key, ev)
         template = {"warning": "orange", "critical": "red"}.get(new_level, "blue")
-        any_sent = False
+        sent_chs = []
         for ch in ("feishu", "bark"):
             ch_sent_at = _parse_utc(channels[ch].get("last_sent_at_utc"))
             if not _channel_should_send(old_level, new_level, ch_sent_at, now_utc):
@@ -448,13 +542,38 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
             if _send_channel(ch, title, body, template, new_level, feishu_sender, bark_sender):
                 channels[ch] = {"last_sent_at_utc": now_s,
                                 "last_sent_value": ev["value"]}
-                any_sent = True
-        if any_sent:
+                sent_chs.append(ch)
+        if sent_chs:
             entry["last_sent_at_utc"] = max(c["last_sent_at_utc"] for c in channels.values()
                                             if c.get("last_sent_at_utc"))
             entry["last_sent_value"] = ev["value"]
             entry["episode_sent"] = True
             sent.append(key)
+
+        ev_kind = None
+        if old_level == "normal":
+            ev_kind = "triggered"
+        elif LEVEL_SEVERITY[new_level] > LEVEL_SEVERITY[old_level]:
+            ev_kind = "upgraded"
+        elif spec.get("event"):
+            prev_h = _latest_history_for(key)
+            if not prev_h or prev_h.get("date") != ev["date"] or prev_h.get("to_level") != new_level:
+                ev_kind = "triggered"
+        if ev_kind:
+            new_history_events.append({
+                "ts_utc": now_s,
+                "key": key,
+                "label": spec["label"],
+                "event": ev_kind,
+                "from_level": old_level,
+                "to_level": new_level,
+                "value": ev["value"],
+                "unit": spec.get("unit", ""),
+                "threshold": ev["threshold"],
+                "date": ev["date"],
+                "change": ev["change"],
+                "channels": sent_chs,
+            })
         alerts[key] = entry
 
     new_state = {
@@ -464,6 +583,7 @@ def process_alerts(payload, state_path, now_utc, group_errors=None,
         "alerts": alerts,
     }
     _write_state(state_path, new_state)
+    _append_alert_history(resolved_history_path, new_history_events, now_s)
     return new_state, sent
 
 
@@ -489,6 +609,87 @@ def status_label(key, value, change_pct=None, change_abs=None):
                 and abs(change_abs) >= jump["abs"]):
             return {"label": "异动", "cls": "b-amber"}
     return {"label": label, "cls": cls}
+
+
+def cross_market_attribution(payload):
+    """Derive a structured cross-market attribution summary (equity vs bond vs credit)."""
+    ind = payload["indicators"]
+    hy = ind["hy_oas"]
+    hy_pct = (hy["change_bp"] / hy["prev_value_bp"] * 100
+              if hy.get("prev_value_bp") else None)
+    st_vix = status_label("vix", ind["vix"]["value"], ind["vix"].get("change_pct"))
+    st_move = status_label("move", ind["move"]["value"], ind["move"].get("change_pct"))
+    st_hy = status_label("hy_oas", hy["value_bp"], hy_pct, hy.get("change_bp"))
+
+    eq_hot = _STATUS_SEV[st_vix["cls"]] >= 1
+    bond_hot = _STATUS_SEV[st_move["cls"]] >= 1
+    credit_hot = _STATUS_SEV[st_hy["cls"]] >= 1
+
+    def _worst(*classes):
+        return max(classes, key=lambda c: _STATUS_SEV[c])
+
+    if eq_hot and bond_hot and credit_hot:
+        regime = "股债信用三端共振"
+        tone = _worst(st_vix["cls"], st_move["cls"], st_hy["cls"])
+        summary = "权益波动、美债波动与高收益信用利差同步抬升，系统性风险特征显著"
+    elif eq_hot and bond_hot:
+        regime = "股债双升 · 信用暂稳"
+        tone = _worst(st_vix["cls"], st_move["cls"])
+        summary = "股市与美债波动同步走高，但高收益信用利差仍在常态，偏利率冲击主导"
+    elif eq_hot and credit_hot:
+        regime = "股信联动 · 债市平稳"
+        tone = _worst(st_vix["cls"], st_hy["cls"])
+        summary = "权益波动与高收益信用利差同向升温，企业违约担忧抬头，美债波动暂稳"
+    elif eq_hot:
+        regime = "权益单边波动 · 债信未确认"
+        tone = st_vix["cls"]
+        summary = "压力主要集中在股市端，美债波动与信用利差仍处常态，暂未演化为系统性危机"
+    elif bond_hot and credit_hot:
+        regime = "债信同步升温 · 股市平静"
+        tone = _worst(st_move["cls"], st_hy["cls"])
+        summary = "美债波动与信用利差率先走高，股市尚未充分定价，需警惕风险滞后传导"
+    elif bond_hot:
+        regime = "债市单边波动 · 股信平稳"
+        tone = st_move["cls"]
+        summary = "美债收益率波动率先抬升，股市与企业信用暂稳，留意利率压力向权益传导"
+    elif credit_hot:
+        regime = "信用率先走阔 · 股债平静"
+        tone = st_hy["cls"]
+        summary = "高收益信用利差走阔或异动，股债波动率仍处常态，需警惕信用面隐蔽压力"
+    else:
+        regime = "全市场整体平静"
+        tone = "b-green"
+        summary = "股、债、信用三端均处常态区间，跨市场暂无系统性风险信号"
+
+    notes = []
+    ts = payload.get("term_structure") or {}
+    if ts.get("vix") and ts.get("vix3m"):
+        ratio = float(ts["vix"]) / float(ts["vix3m"])
+        if ratio >= 1.0:
+            ratio_disp = math.floor(ratio * 100.0 + 0.5) / 100.0
+            notes.append("VIX 期限结构倒挂（VIX/VIX3M %.2f），近端恐慌集中" % ratio_disp)
+    vvix_val = (ind.get("vvix") or {}).get("value")
+    if vvix_val is not None and float(vvix_val) >= 140:
+        notes.append("VVIX 达 %.2f，波动率本身剧烈摆动" % float(vvix_val))
+    skew_val = (ind.get("skew") or {}).get("value")
+    if not (eq_hot or bond_hot or credit_hot) and skew_val is not None and float(skew_val) >= 140:
+        notes.append("SKEW %.1f 偏高属平静期机构逢低买尾部保险，非当下恐慌" % float(skew_val))
+
+    if notes:
+        summary = "%s；%s。" % (summary, "；".join(notes))
+    else:
+        summary += "。"
+
+    return {
+        "regime": regime,
+        "tone": tone,
+        "summary": summary,
+        "pillars": {
+            "equity": {"label": st_vix["label"], "cls": st_vix["cls"], "hot": eq_hot},
+            "bond": {"label": st_move["label"], "cls": st_move["cls"], "hot": bond_hot},
+            "credit": {"label": st_hy["label"], "cls": st_hy["cls"], "hot": credit_hot},
+        },
+    }
 
 
 def _signed(value, decimals=2):
@@ -532,6 +733,9 @@ def build_status_message(payload, stale=False):
     has_stale = stale or bool(stale_keys)
 
     lines = ["综合判断：%s" % _VERDICT_TITLES[worst_cls]]
+    attr = payload.get("attribution") or cross_market_attribution(payload)
+    if attr and attr.get("regime"):
+        lines.append("跨市场归因：%s（%s）" % (attr["regime"], attr["summary"].rstrip("。")))
     comp = payload.get("composite") or {}
     if comp.get("score") is not None:
         comp_extra = []

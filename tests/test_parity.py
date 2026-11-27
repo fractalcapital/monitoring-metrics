@@ -66,27 +66,72 @@ class PythonJsParityTests(unittest.TestCase):
             ("2026-11-25", "2026-11-27"),
             ("2026-11-20", "2026-11-25"),
         ]
+        attr_cases = [
+            {
+                "indicators": {
+                    "vix": {"value": 15.0, "change_pct": 1.0, "date": "2026-11-25"},
+                    "vvix": {"value": 95.0, "change_pct": 0.5, "date": "2026-11-25"},
+                    "skew": {"value": 144.0, "change_pct": 1.0, "date": "2026-11-25"},
+                    "move": {"value": 95.0, "change_pct": 0.2, "date": "2026-11-24"},
+                    "hy_oas": {"value_bp": 350, "prev_value_bp": 350, "change_bp": 0, "date": "2026-11-23"},
+                },
+                "term_structure": {"vix": 15.0, "vix3m": 18.0, "date": "2026-11-25"},
+            },
+            {
+                "indicators": {
+                    "vix": {"value": 28.29, "change_pct": 7.32, "date": "2026-11-25"},
+                    "vvix": {"value": 115.38, "change_pct": 2.0, "date": "2026-11-25"},
+                    "skew": {"value": 140.0, "change_pct": 0.5, "date": "2026-11-25"},
+                    "move": {"value": 97.54, "change_pct": -1.32, "date": "2026-11-24"},
+                    "hy_oas": {"value_bp": 372, "prev_value_bp": 363, "change_bp": 9, "date": "2026-11-23"},
+                },
+                "term_structure": {"vix": 28.29, "vix3m": 26.29, "date": "2026-11-25"},
+            },
+            {
+                "indicators": {
+                    "vix": {"value": 36.0, "change_pct": 15.0, "date": "2026-11-25"},
+                    "vvix": {"value": 145.0, "change_pct": 12.0, "date": "2026-11-25"},
+                    "skew": {"value": 135.0, "change_pct": -2.0, "date": "2026-11-25"},
+                    "move": {"value": 142.0, "change_pct": 5.0, "date": "2026-11-25"},
+                    "hy_oas": {"value_bp": 540, "prev_value_bp": 510, "change_bp": 30, "date": "2026-11-24"},
+                },
+                "term_structure": {"vix": 36.0, "vix3m": 32.0, "date": "2026-11-25"},
+            },
+        ]
         node_script = (
             snippet
             + "\nconst input = JSON.parse(require('fs').readFileSync(0,'utf8'));\n"
             + "const out = {\n"
             + "  status_bands: DEFAULT_STATUS_BANDS,\n"
+            + "  alert_thresholds: DEFAULT_ALERT_THRESHOLDS,\n"
             + "  statuses: input.status_cases.map(([k,v,p,a]) => statusFor(k,v,p,a)),\n"
             + "  holidays: Object.fromEntries(input.years.map(y => [y, [...nyseHolidays(y)].sort()])),\n"
             + "  early: Object.fromEntries(input.years.map(y => [y, [...nyseEarlyCloses(y)].sort()])),\n"
             + "  lags: input.lag_cases.map(([a,b]) => nyseTradingLag(a,b)),\n"
+            + "  attributions: input.attr_cases.map(d => computeAttribution(d)),\n"
+            + "  expected_dates: Object.fromEntries(['vix','move','hy_oas','hy_widen','term'].map(k => [k, alertExpectedDate(k, input.attr_cases[0])])),\n"
             + "};\n"
             + "console.log(JSON.stringify(out));\n"
         )
         proc = subprocess.run(
             ["node", "-e", node_script],
-            input=json.dumps({"status_cases": status_cases, "years": years, "lag_cases": lag_cases}),
+            input=json.dumps({
+                "status_cases": status_cases,
+                "years": years,
+                "lag_cases": lag_cases,
+                "attr_cases": attr_cases,
+            }),
             capture_output=True, text=True, check=True,
         )
         js_out = json.loads(proc.stdout)
 
-        # 1. Exact STATUS_BANDS config match
+        # 1. Exact STATUS_BANDS config match + ALERT_THRESHOLDS key/threshold parity
         self.assertEqual(js_out["status_bands"], fd.STATUS_BANDS)
+        self.assertEqual(set(js_out["alert_thresholds"].keys()), set(fd.ALERT_THRESHOLDS.keys()))
+        for k, py_spec in fd.ALERT_THRESHOLDS.items():
+            js_spec = js_out["alert_thresholds"][k]
+            for field in ("warning", "critical", "warning_5d", "vix", "vvix", "move", "hyst_abs", "event"):
+                self.assertEqual(js_spec.get(field), py_spec.get(field), "alert spec %s.%s mismatch" % (k, field))
 
         # 2. Exact statusFor parity on every test case
         for case, js_res in zip(status_cases, js_out["statuses"]):
@@ -103,6 +148,19 @@ class PythonJsParityTests(unittest.TestCase):
         # 4. Exact trading lag parity
         for (a, b), js_lag in zip(lag_cases, js_out["lags"]):
             self.assertEqual(js_lag, fd._trading_lag(a, b))
+
+        # 5. Cross-market attribution parity
+        for case, js_attr in zip(attr_cases, js_out["attributions"]):
+            self.assertEqual(js_attr, fd.cross_market_attribution(case))
+
+        # 6. Per-indicator alert date alignment (regression for MOVE date mismatch bug)
+        self.assertEqual(js_out["expected_dates"], {
+            "vix": "2026-11-25",
+            "move": "2026-11-24",
+            "hy_oas": "2026-11-23",
+            "hy_widen": "2026-11-23",
+            "term": "2026-11-25",
+        })
 
 
 class HtmlLinkChecks(unittest.TestCase):

@@ -10,6 +10,7 @@ from .calendar import _is_nyse_holiday
 from .config import (
     COMPOSITE_WEIGHTS,
     DISPLAY_KEEP,
+    HISTORY_FILE_KEEP,
     HISTORY_KEEP,
     HL_HIGH_CAP,
     HL_LOW_FLOOR,
@@ -389,21 +390,31 @@ def compute_composite_history(pairs_map, prev_composite=None, keep=DISPLAY_KEEP)
     return out[-keep:]
 
 
-def build_composite(stats_map, pairs_map, prev_composite=None, keep=DISPLAY_KEEP):
+def _align_composite_history(hist, score, latest_date, keep):
+    """Ensure the latest composite history point matches the headline score."""
+    out = list(hist or [])
+    if latest_date:
+        if out and out[-1].get("date") == latest_date:
+            out[-1] = {"date": latest_date, "value": score}
+        elif not out or latest_date > out[-1].get("date", ""):
+            out.append({"date": latest_date, "value": score})
+    return out[-keep:] if keep else out
+
+
+def build_composite(stats_map, pairs_map, prev_composite=None,
+                    keep=DISPLAY_KEEP, precomputed_history=None):
     """Return composite stress dict with current score, deltas and 30d history."""
     comp = composite_score(stats_map)
     if comp is None:
         return None
-    hist = compute_composite_history(pairs_map, prev_composite=prev_composite, keep=keep)
-    # Keep the latest history point aligned with the headline score.
+    if precomputed_history is not None:
+        hist = list(precomputed_history)
+    else:
+        hist = compute_composite_history(
+            pairs_map, prev_composite=prev_composite, keep=keep)
     vix_pairs = (pairs_map or {}).get("vix") or []
     latest_date = vix_pairs[-1]["date"] if vix_pairs else None
-    if latest_date:
-        if hist and hist[-1]["date"] == latest_date:
-            hist[-1] = {"date": latest_date, "value": comp["score"]}
-        elif not hist or latest_date > hist[-1]["date"]:
-            hist.append({"date": latest_date, "value": comp["score"]})
-            hist = hist[-keep:]
+    hist = _align_composite_history(hist, comp["score"], latest_date, keep)
     if hist:
         comp["history"] = hist
         if len(hist) >= 2:
@@ -413,3 +424,20 @@ def build_composite(stats_map, pairs_map, prev_composite=None, keep=DISPLAY_KEEP
         if len(hist) >= 6:
             comp["chg_5d"] = comp["score"] - hist[-6]["value"]
     return comp
+
+
+def build_history_payload(pairs_map, composite_history=None,
+                          updated_at_utc=None, keep=HISTORY_FILE_KEEP):
+    """Build extended (~1y) history.json payload for on-demand 90D / 1Y views."""
+    series = {}
+    for key in ("vix", "vvix", "skew", "move", "hy_oas", "spx"):
+        rows = (pairs_map or {}).get(key) or []
+        if rows:
+            series[key] = rows[-keep:]
+    if composite_history:
+        series["composite"] = list(composite_history)[-keep:]
+    return {
+        "updated_at_utc": updated_at_utc,
+        "keep": keep,
+        "series": series,
+    }

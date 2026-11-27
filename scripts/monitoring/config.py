@@ -72,6 +72,11 @@ ALERT_THRESHOLDS = {
                  "critical": 50, "event": True},
     "hy_widen": {"label": "HY OAS 急速走阔", "unit": "bp", "warning": 25,
                  "warning_5d": 50, "event": True},
+    # Composite stress score (0-100): high-stress band (with hysteresis) + 5d surge.
+    "composite": {"label": "综合情绪压力分", "unit": "分", "warning": 85,
+                  "hyst_abs": 5},
+    "composite_jump": {"label": "压力分 5 日急升", "unit": "分", "warning": 25,
+                       "event": True},
 }
 # A triggered level holds until the value is this fraction (or the spec's
 # hyst_abs) below its threshold, so readings hovering around a line don't
@@ -90,10 +95,12 @@ FETCH_SOURCES = {
 }
 FETCH_GROUPS = ("equities", "move", "fred", "freshness")
 
-HISTORY_KEEP = 300   # ~1.2 trading years kept in memory for rolling 1y percentile & 30d composite curve
-DISPLAY_KEEP = 30    # points written to data.json history (sparklines + cache)
+HISTORY_KEEP = 520   # ~2 trading years kept in memory for rolling 1y percentile & 1y composite curve
+DISPLAY_KEEP = 30    # points written to data.json history (lightweight default sparklines)
+HISTORY_FILE_KEEP = 252  # ~1 trading year written to history.json (lazy-loaded 90D / 1Y views)
 STATS_WINDOW = 252   # trading days used for the 1y percentile rank
 STATS_MIN_WINDOW = 120
+ALERT_HISTORY_MAX = 100  # max trigger/upgrade/recovery events retained in alert_history.json
 # Intraday high/low sanity bounds, relative to min / max(close, prev close).
 # Generous on the upside (VIX can triple intraday, e.g. 2024-08-05), strict
 # on the downside (a VIX low 40% under both closes is a bad tick).
