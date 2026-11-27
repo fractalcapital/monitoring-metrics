@@ -748,19 +748,32 @@ def build_status_message(payload, stale=False):
     if has_stale:
         lines.append("注意：部分数据源本次拉取失败，相应项保留上次成功数据")
     for k in ("vix", "vvix", "skew", "move"):
-        lines.append("%s %s（%s，%s%%）· %s" % (
+        extra = ""
+        if k == "vix":
+            vst = ind["vix"].get("stats") or {}
+            if vst.get("rv20") is not None and vst.get("vrp") is not None:
+                extra = " · RV20 %.1f / VRP %+.1f" % (float(vst["rv20"]), float(vst["vrp"]))
+        lines.append("%s %s（%s，%s%%）· %s%s" % (
             ALERT_THRESHOLDS[k]["label"],
             ind[k]["value"],
             _signed(ind[k]["value"] - ind[k]["prev_close"]),
-            _signed(ind[k]["change_pct"]), st[k]["label"]))
+            _signed(ind[k]["change_pct"]), st[k]["label"], extra))
     lines.append("%s %sbp（%sbp，%s%%）· %s" % (
         ALERT_THRESHOLDS["hy_oas"]["label"],
         hy["value_bp"], _signed(hy["change_bp"], 0),
         _signed(hy_pct) if hy_pct is not None else "—", st["hy_oas"]["label"]))
-    lines.append("标普 500 %s（%s，%s%%）" % (
+    spx_st = spx.get("stats") or {}
+    spx_extra_parts = []
+    if spx_st.get("rsi_14") is not None:
+        spx_extra_parts.append("RSI %.1f" % float(spx_st["rsi_14"]))
+    if spx_st.get("vs_ma200_pct") is not None:
+        spx_extra_parts.append("距MA200 %+.1f%%" % float(spx_st["vs_ma200_pct"]))
+    spx_extra = (" · " + " · ".join(spx_extra_parts)) if spx_extra_parts else ""
+    lines.append("标普 500 %s（%s，%s%%）%s" % (
         format(spx["value"], ","),
         _signed(spx_abs) if spx_abs is not None else "—",
-        _signed(spx["change_pct"])))
+        _signed(spx["change_pct"]),
+        spx_extra))
     ts_vals = [ts.get(k) for k in ("vix1d", "vix9d", "vix3m", "vix6m")]
     if all(v is not None for v in ts_vals):
         ts_line = "期限结构：1D %.2f / 9D %.2f / 3M %.2f / 6M %.2f" % tuple(ts_vals)

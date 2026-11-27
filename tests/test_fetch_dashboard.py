@@ -364,6 +364,95 @@ class StatsAndAlertsTests(unittest.TestCase):
             self.assertIsNone(err)
             self.assertEqual(called, ["2026-11-25"])
 
+    def test_derived_metrics_rv20_vrp_rsi_ma200_and_term_compare(self):
+        # 1. Wilder RSI boundary & convergence tests
+        rising = [{"date": "2026-01-%02d" % ((i % 28) + 1), "value": 100.0 + i} for i in range(40)]
+        falling = [{"date": "2026-01-%02d" % ((i % 28) + 1), "value": 200.0 - i} for i in range(40)]
+        flat = [{"date": "2026-01-%02d" % ((i % 28) + 1), "value": 100.0} for i in range(40)]
+        self.assertEqual(fd.compute_rsi(rising), 100.0)
+        self.assertEqual(fd.compute_rsi(falling), 0.0)
+        self.assertEqual(fd.compute_rsi(flat), 50.0)
+        self.assertIsNone(fd.compute_rsi(rising[:20]))  # short series guard (<30)
+
+        # Alternating +2 / -1 series converges cleanly to 66.7
+        alt = []
+        val = 100.0
+        for i in range(120):
+            if i > 0:
+                val += 2.0 if i % 2 == 1 else -1.0
+            alt.append({"date": "2026-01-%02d" % ((i % 28) + 1), "value": val})
+        rsi_alt = fd.compute_rsi(alt)
+        self.assertIsNotNone(rsi_alt)
+        self.assertTrue(60.0 < rsi_alt < 75.0)
+
+        # 2. RV20 (annualized log-return vol) & MA200
+        self.assertEqual(fd.compute_rv20(flat), 0.0)
+        self.assertIsNone(fd.compute_rv20(flat[:20]))
+        spx_220 = [{"date": "2026-01-%02d" % ((i % 28) + 1),
+                    "value": round(5000.0 + i * 5.0 + (20.0 if i % 2 else -20.0), 2)}
+                   for i in range(220)]
+        rv20 = fd.compute_rv20(spx_220)
+        self.assertIsNotNone(rv20)
+        self.assertGreater(rv20, 0.0)
+        ma200, dev = fd.compute_ma(spx_220, window=200)
+        self.assertIsNotNone(ma200)
+        self.assertGreater(dev, 0.0)
+        self.assertEqual(fd.compute_ma(spx_220[:100], window=200), (None, None))
+
+        # 3. enrich_derived_stats populates SPX & VIX stats + preserves prior on fallback
+        vix_220 = [{"date": p["date"], "value": 25.0} for p in spx_220]
+        stats_map = {
+            "spx": fd.compute_stats(spx_220),
+            "vix": fd.compute_stats(vix_220),
+        }
+        fd.enrich_derived_stats(stats_map, {"spx": spx_220, "vix": vix_220})
+        self.assertEqual(stats_map["spx"]["rv20"], rv20)
+        self.assertEqual(stats_map["spx"]["ma200"], ma200)
+        self.assertEqual(stats_map["spx"]["vs_ma200_pct"], dev)
+        self.assertIsNotNone(stats_map["spx"]["rsi_14"])
+        self.assertEqual(stats_map["vix"]["rv20"], rv20)
+        self.assertAlmostEqual(stats_map["vix"]["vrp"], round(25.0 - rv20, 2), places=2)
+
+        # Short fallback preserves previous values
+        prev_p = {"spx": {"stats": dict(stats_map["spx"])},
+                  "indicators": {"vix": {"stats": dict(stats_map["vix"])}}}
+        short_stats = {"spx": {}, "vix": {}}
+        fd.enrich_derived_stats(
+            short_stats,
+            {"spx": spx_220[-5:], "vix": vix_220[-5:]},
+            prev_payload=prev_p,
+        )
+        self.assertEqual(short_stats["spx"]["rsi_14"], stats_map["spx"]["rsi_14"])
+        self.assertEqual(short_stats["vix"]["rv20"], rv20)
+
+        # 4. Term structure historical comparison snapshots (5d & 20d ago)
+        base_d = dt.date(2026, 9, 1)
+        tdates = []
+        d = base_d
+        while len(tdates) < 40:
+            if d.weekday() < 5:
+                tdates.append(d.isoformat())
+            d += dt.timedelta(days=1)
+        term_pairs = {
+            k: [{"date": ds, "value": round(15.0 + i * 0.2 + idx, 2)} for i, ds in enumerate(tdates)]
+            for idx, k in enumerate(("vix1d", "vix9d", "vix", "vix3m", "vix6m"))
+        }
+        cmp = fd.build_term_history_snapshots(term_pairs, offsets=(5, 20))
+        self.assertEqual(set(cmp.keys()), {"d5", "d20"})
+        self.assertEqual(cmp["d5"]["date"], tdates[-6])
+        self.assertEqual(cmp["d20"]["date"], tdates[-21])
+        self.assertEqual(cmp["d5"]["vix"], term_pairs["vix"][-6]["value"])
+        self.assertEqual(cmp["d20"]["vix3m"], term_pairs["vix3m"][-21]["value"])
+
+        # 5. Status push includes RV20/VRP and RSI/MA200 context
+        p_msg = _make_payload(vix=28.0)
+        p_msg["indicators"]["vix"]["stats"] = {"rv20": 18.5, "vrp": 9.5}
+        p_msg["spx"]["stats"] = {"rsi_14": 34.2, "ma200": 6800.0, "vs_ma200_pct": 5.59, "rv20": 18.5}
+        _, body, _ = fd.build_status_message(p_msg)
+        self.assertIn("RV20 18.5 / VRP +9.5", body)
+        self.assertIn("RSI 34.2", body)
+        self.assertIn("距MA200 +5.6%", body)
+
 
 if __name__ == "__main__":
     unittest.main()

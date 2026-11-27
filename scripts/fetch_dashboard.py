@@ -119,9 +119,14 @@ from monitoring.series import (  # noqa: E402, F401
     _valid_hl,
     build_composite,
     build_history_payload,
+    build_term_history_snapshots,
     composite_score,
     compute_composite_history,
+    compute_ma,
+    compute_rsi,
+    compute_rv20,
     compute_stats,
+    enrich_derived_stats,
     indicator,
 )
 
@@ -272,6 +277,12 @@ def main():
     term_stale_tenors = sorted(
         k for k in ("vix1d", "vix9d", "vix", "vix3m", "vix6m") if k in stale_eq
     )
+    prev_term_compare = (
+        (prev_payload.get("term_structure") or {}).get("compare")
+        if isinstance(prev_payload, dict) else None
+    )
+    term_compare = build_term_history_snapshots(
+        pairs, offsets=(5, 20), prev_compare=prev_term_compare)
     term_structure_payload = {
         "vix1d": pairs["vix1d"][-1]["value"],
         "vix9d": pairs["vix9d"][-1]["value"],
@@ -282,6 +293,8 @@ def main():
         "dates": term_dates,
         "date_mismatch": len(set(term_dates.values())) > 1,
     }
+    if term_compare:
+        term_structure_payload["compare"] = term_compare
     if term_stale_tenors:
         term_structure_payload["stale"] = True
         term_structure_payload["stale_tenors"] = term_stale_tenors
@@ -300,6 +313,7 @@ def main():
     stats = {k: compute_stats(pairs[k], _prev_stats(k))
              for k in ("vix", "vvix", "skew", "move", "spx")}
     stats["hy_oas"] = compute_stats(fred_rows, _prev_stats("hy_oas"), is_bp=True)
+    enrich_derived_stats(stats, pairs, prev_payload=prev_payload)
 
     prev_comp = prev_payload.get("composite") if isinstance(prev_payload, dict) else None
     comp_hist_full = compute_composite_history(
@@ -388,8 +402,12 @@ def main():
     print("  hy_oas: %sbp on %s (prev %sbp %s) [%s%s]"
           % (hy["value_bp"], hy["date"], hy["prev_value_bp"], hy["prev_date"],
              hy_src, ", STALE" if hy_stale else ""))
-    print("  spx: %s on %s [%s]"
-          % (payload["spx"]["value"], payload["spx"]["date"], sources_map.get("spx")))
+    spx_st = payload["spx"].get("stats") or {}
+    vix_st = payload["indicators"]["vix"].get("stats") or {}
+    print("  spx: %s on %s [%s] (RSI14=%s, MA200=%s/%s%%, RV20=%s, VRP=%s)"
+          % (payload["spx"]["value"], payload["spx"]["date"], sources_map.get("spx"),
+             spx_st.get("rsi_14"), spx_st.get("ma200"), spx_st.get("vs_ma200_pct"),
+             spx_st.get("rv20"), vix_st.get("vrp")))
     print("  term: %s [%s]" % (payload["term_structure"], sources_map.get("vix1d")))
     print("  expected close: %s; freshness issues: %s"
           % (expected, fresh_issues or "none"))

@@ -426,6 +426,172 @@ def build_composite(stats_map, pairs_map, prev_composite=None,
     return comp
 
 
+def compute_rv20(pairs, window=20):
+    """Annualized realized volatility (%, ddof=1 log returns over `window` trading days)."""
+    vals = [float(p["value"]) for p in (pairs or [])
+            if p.get("value") is not None and float(p["value"]) > 0]
+    if len(vals) < window + 1:
+        return None
+    tail = vals[-(window + 1):]
+    rets = [math.log(tail[i] / tail[i - 1]) for i in range(1, len(tail))]
+    mean_r = sum(rets) / len(rets)
+    var = sum((r - mean_r) ** 2 for r in rets) / (len(rets) - 1)
+    return round(math.sqrt(var * 252.0) * 100.0, 2)
+
+
+def compute_rsi(pairs, period=14, min_points=30):
+    """Wilder-smoothed RSI(period) on daily closes; None if series too short to converge."""
+    vals = [float(p["value"]) for p in (pairs or []) if p.get("value") is not None]
+    if len(vals) < max(period + 1, min_points):
+        return None
+    deltas = [vals[i] - vals[i - 1] for i in range(1, len(vals))]
+    gains = [d if d > 0 else 0.0 for d in deltas]
+    losses = [-d if d < 0 else 0.0 for d in deltas]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for g, l in zip(gains[period:], losses[period:]):
+        avg_gain = (avg_gain * (period - 1) + g) / period
+        avg_loss = (avg_loss * (period - 1) + l) / period
+    if avg_loss == 0.0 and avg_gain == 0.0:
+        return 50.0
+    if avg_loss == 0.0:
+        return 100.0
+    if avg_gain == 0.0:
+        return 0.0
+    rs = avg_gain / avg_loss
+    return round(100.0 - 100.0 / (1.0 + rs), 1)
+
+
+def compute_ma(pairs, window=200):
+    """Simple moving average and current close deviation (%) over `window` trading days."""
+    vals = [float(p["value"]) for p in (pairs or []) if p.get("value") is not None]
+    if len(vals) < window:
+        return None, None
+    ma = sum(vals[-window:]) / window
+    if not ma:
+        return None, None
+    last = vals[-1]
+    dev_pct = round((last - ma) / ma * 100.0, 2)
+    return round(ma, 2), dev_pct
+
+
+def enrich_derived_stats(stats_map, pairs_map, prev_payload=None):
+    """Attach zero-new-source derived metrics in place:
+      - spx.stats: rsi_14, ma200, vs_ma200_pct, rv20
+      - vix.stats: rv20, vrp (VIX close - SPX RV20)
+    Preserves prior valid values on short-history fallback paths.
+    """
+    prev_spx_st = {}
+    prev_vix_st = {}
+    if isinstance(prev_payload, dict):
+        prev_spx_st = ((prev_payload.get("spx") or {}).get("stats") or {})
+        prev_vix_st = (((prev_payload.get("indicators") or {}).get("vix") or {}).get("stats") or {})
+
+    spx_pairs = (pairs_map or {}).get("spx") or []
+    vix_pairs = (pairs_map or {}).get("vix") or []
+
+    rv20 = compute_rv20(spx_pairs)
+    if rv20 is None and prev_spx_st.get("rv20") is not None:
+        rv20 = prev_spx_st["rv20"]
+
+    rsi_14 = compute_rsi(spx_pairs)
+    if rsi_14 is None and prev_spx_st.get("rsi_14") is not None:
+        rsi_14 = prev_spx_st["rsi_14"]
+
+    ma200, vs_ma200_pct = compute_ma(spx_pairs, window=200)
+    if ma200 is None and prev_spx_st.get("ma200") is not None:
+        ma200 = prev_spx_st["ma200"]
+        if spx_pairs and ma200:
+            vs_ma200_pct = round((float(spx_pairs[-1]["value"]) - float(ma200)) / float(ma200) * 100.0, 2)
+        else:
+            vs_ma200_pct = prev_spx_st.get("vs_ma200_pct")
+
+    spx_st = stats_map.get("spx")
+    if spx_st is None and any(x is not None for x in (rv20, rsi_14, ma200)):
+        spx_st = {}
+        stats_map["spx"] = spx_st
+    if spx_st is not None:
+        if rsi_14 is not None:
+            spx_st["rsi_14"] = rsi_14
+        if ma200 is not None:
+            spx_st["ma200"] = ma200
+            if vs_ma200_pct is not None:
+                spx_st["vs_ma200_pct"] = vs_ma200_pct
+        if rv20 is not None:
+            spx_st["rv20"] = rv20
+
+    vix_st = stats_map.get("vix")
+    if rv20 is not None and vix_pairs:
+        vix_val = float(vix_pairs[-1]["value"])
+        vrp = round(vix_val - float(rv20), 2)
+        if vix_st is None:
+            vix_st = {}
+            stats_map["vix"] = vix_st
+        vix_st["rv20"] = rv20
+        vix_st["vrp"] = vrp
+    elif vix_st is not None and prev_vix_st.get("rv20") is not None:
+        vix_st.setdefault("rv20", prev_vix_st["rv20"])
+        if prev_vix_st.get("vrp") is not None:
+            vix_st.setdefault("vrp", prev_vix_st["vrp"])
+    return stats_map
+
+
+def build_term_history_snapshots(pairs_map, offsets=(5, 20), prev_compare=None):
+    """Build historical VIX term-structure snapshots at `offsets` trading days ago.
+
+    Anchored on VIX dates; each tenor takes its latest close on or before the
+    anchor date (requiring all 5 tenors to exist and stay within 7 calendar days
+    of the anchor date so stale curves are never plotted).
+    """
+    tenors = ("vix1d", "vix9d", "vix", "vix3m", "vix6m")
+    vix_pairs = (pairs_map or {}).get("vix") or []
+    indexed = {}
+    for k in tenors:
+        rows = [
+            (p["date"], float(p["value"]))
+            for p in ((pairs_map or {}).get(k) or [])
+            if p.get("date") and p.get("value") is not None
+        ]
+        if rows:
+            indexed[k] = ([r[0] for r in rows], [r[1] for r in rows])
+
+    out = {}
+    for off in offsets:
+        key = "d%d" % off
+        snap = None
+        if len(vix_pairs) > off and all(k in indexed for k in tenors):
+            anchor = vix_pairs[-1 - off]["date"]
+            try:
+                anchor_dt = dt.date.fromisoformat(anchor)
+            except ValueError:
+                anchor_dt = None
+            if anchor_dt is not None:
+                vals = {}
+                ok = True
+                for k in tenors:
+                    dates, series_vals = indexed[k]
+                    pos = bisect.bisect_right(dates, anchor) - 1
+                    if pos < 0:
+                        ok = False
+                        break
+                    try:
+                        d_dt = dt.date.fromisoformat(dates[pos])
+                    except ValueError:
+                        ok = False
+                        break
+                    if (anchor_dt - d_dt).days > 7:
+                        ok = False
+                        break
+                    vals[k] = round(series_vals[pos], 2)
+                if ok:
+                    snap = {"date": anchor, **vals}
+        if snap is not None:
+            out[key] = snap
+        elif isinstance(prev_compare, dict) and isinstance(prev_compare.get(key), dict):
+            out[key] = prev_compare[key]
+    return out
+
+
 def build_history_payload(pairs_map, composite_history=None,
                           updated_at_utc=None, keep=HISTORY_FILE_KEEP):
     """Build extended (~1y) history.json payload for on-demand 90D / 1Y views."""
