@@ -104,7 +104,7 @@ API 端点：`GET /health`、`GET /api/data`、`GET /api/alert-state`、`POST /a
 - `alert/`：飞书 + Bark 发送模块（`notify.py`）
 - `api/`：VPS 上的 API 服务与部署脚本
 - `tests/`：单元测试与 Python / JS 一致性测试
-- `docs/`：综合情绪压力分算法说明（[composite-stress-score.md](docs/composite-stress-score.md)）与 VPS 运维日志（[ops-monitoring-user.md](docs/ops-monitoring-user.md)、[ops-api-data-migration.md](docs/ops-api-data-migration.md)）
+- `docs/`：综合情绪压力分算法说明（[composite-stress-score.md](docs/composite-stress-score.md)）、VPS 日常运维速查手册（[ops-runbook.md](docs/ops-runbook.md)）与历史迁移日志（[ops-monitoring-user.md](docs/ops-monitoring-user.md)、[ops-api-data-migration.md](docs/ops-api-data-migration.md)）
 
 ## 数据口径与免责
 
