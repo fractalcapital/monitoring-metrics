@@ -32,6 +32,7 @@ from monitoring.alerts import (  # noqa: E402, F401
     _channel_should_send,
     _level_for,
     _level_with_hysteresis,
+    build_status_feishu_card,
     build_status_message,
     cross_market_attribution,
     evaluate_alerts,

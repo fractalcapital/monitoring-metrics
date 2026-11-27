@@ -977,17 +977,41 @@ def _signed(value, decimals=2):
     return "%s%.*f" % ("+" if value > 0 else "", decimals, value)
 
 
-def build_status_message(payload, stale=False):
-    """(title, body, template) for a manual status push. No state is touched."""
+_CLS_TO_TEMPLATE = {
+    "b-green": "green",
+    "b-amber": "yellow",
+    "b-orange": "orange",
+    "b-red": "red",
+}
+_CLS_TO_TAG_COLOR = {
+    "b-green": "green",
+    "b-amber": "yellow",
+    "b-orange": "orange",
+    "b-red": "red",
+    "b-blue": "blue",
+    "b-grey": "neutral",
+}
+_CLS_TO_BG_STYLE = {
+    "b-green": "green-50",
+    "b-amber": "yellow-50",
+    "b-orange": "orange-50",
+    "b-red": "red-50",
+    "b-blue": "blue-50",
+    "b-grey": "grey",
+}
+
+
+def _collect_status_context(payload, stale=False):
+    """Gather all derived metrics, labels and warnings shared by status pushes."""
     ind = payload["indicators"]
     hy = ind["hy_oas"]
     hy_pct = (hy["change_bp"] / hy["prev_value_bp"] * 100
               if hy.get("prev_value_bp") else None)
     st = {
-        "vix": status_label("vix", ind["vix"]["value"], ind["vix"]["change_pct"]),
-        "vvix": status_label("vvix", ind["vvix"]["value"], ind["vvix"]["change_pct"]),
-        "skew": status_label("skew", ind["skew"]["value"], ind["skew"]["change_pct"]),
-        "move": status_label("move", ind["move"]["value"], ind["move"]["change_pct"]),
+        "vix": status_label("vix", ind["vix"]["value"], ind["vix"].get("change_pct")),
+        "vvix": status_label("vvix", ind["vvix"]["value"], ind["vvix"].get("change_pct")),
+        "skew": status_label("skew", ind["skew"]["value"], ind["skew"].get("change_pct")),
+        "move": status_label("move", ind["move"]["value"], ind["move"].get("change_pct")),
         "hy_oas": status_label("hy_oas", hy["value_bp"], hy_pct, hy.get("change_bp")),
     }
     worst_cls = max((st[k]["cls"] for k in ("vix", "move", "hy_oas")),
@@ -1012,15 +1036,516 @@ def build_status_message(payload, stale=False):
     for tk in (ts.get("stale_tenors") or []):
         stale_keys.add(tk)
     has_stale = stale or bool(stale_keys)
-
-    lines = ["综合判断：%s" % _VERDICT_TITLES[worst_cls]]
+    stale_notes = [stale_labels[k] for k in (
+        "vix", "vvix", "skew", "move", "hy_oas", "spx",
+        "vix1d", "vix9d", "vix3m", "vix6m",
+    ) if k in stale_keys]
+    lagging = [NODE_LABELS[k] for k in ("vix", "vvix", "skew", "move", "spx", "hy_oas")
+               if (ind.get(k) or payload.get(k) or {}).get("lagging")]
     attr = payload.get("attribution") or cross_market_attribution(payload)
+    opt = payload.get("options_window") or evaluate_options_window(payload)
+    comp = payload.get("composite") or {}
+    template = _CLS_TO_TEMPLATE[worst_cls]
+    return {
+        "ind": ind,
+        "hy": hy,
+        "hy_pct": hy_pct,
+        "st": st,
+        "worst_cls": worst_cls,
+        "verdict": _VERDICT_TITLES[worst_cls],
+        "spx": spx,
+        "spx_abs": spx_abs,
+        "ts": ts,
+        "has_stale": has_stale,
+        "stale_notes": stale_notes,
+        "lagging": lagging,
+        "attr": attr,
+        "opt": opt,
+        "comp": comp,
+        "template": template,
+    }
+
+
+def _cn_change_color(val):
+    """Chinese market convention: positive red, negative green, flat grey."""
+    if val is None or val == 0:
+        return "grey"
+    return "red" if val > 0 else "green"
+
+
+def _fmt_colored_pct(pct):
+    if pct is None:
+        return "<font color=\"grey\">—</font>"
+    return "<font color=\"%s\">%s%%</font>" % (_cn_change_color(pct), _signed(pct))
+
+
+def _fmt_colored_change(abs_val, pct_val, decimals=2, unit=""):
+    if abs_val is None and pct_val is None:
+        return "<font color=\"grey\">—</font>"
+    ref = abs_val if abs_val is not None else pct_val
+    color = _cn_change_color(ref)
+    abs_s = ("%s%s" % (_signed(abs_val, decimals), unit)) if abs_val is not None else "—"
+    if pct_val is not None:
+        return "<font color=\"%s\">%s (%s%%)</font>" % (color, abs_s, _signed(pct_val))
+    return "<font color=\"%s\">%s</font>" % (color, abs_s)
+
+
+def _score_colors(score):
+    """(tag_color, font_color) for the 0-100 composite stress score."""
+    if score >= 85:
+        return "red", "red"
+    if score >= 70:
+        return "orange", "orange"
+    if score >= 50:
+        return "yellow", "orange"
+    return "green", "green"
+
+
+def _kpi_column(label, value_md, sub_md):
+    return {
+        "tag": "column",
+        "width": "weighted",
+        "weight": 1,
+        "background_style": "grey",
+        "vertical_align": "top",
+        "vertical_spacing": "2px",
+        "padding": "8px 10px 8px 10px",
+        "elements": [
+            {"tag": "markdown", "content": "<font color=\"grey\">%s</font>" % label,
+             "text_size": "notation", "text_align": "left"},
+            {"tag": "markdown", "content": value_md,
+             "text_size": "heading-1", "text_align": "left"},
+            {"tag": "markdown", "content": sub_md,
+             "text_size": "notation", "text_align": "left"},
+        ],
+    }
+
+
+def _callout_box(bg_style, md_elements):
+    return {
+        "tag": "column_set",
+        "flex_mode": "none",
+        "background_style": bg_style,
+        "columns": [
+            {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 1,
+                "background_style": bg_style,
+                "vertical_align": "top",
+                "vertical_spacing": "4px",
+                "padding": "8px 10px 8px 10px",
+                "elements": md_elements,
+            }
+        ],
+    }
+
+
+def build_status_feishu_card(payload, stale=False):
+    """Build a Feishu Card JSON 2.0 dict for the manual market status push.
+
+    Layout:
+      1. Coloured header with verdict & stress-score tags + attribution subtitle
+      2. 3-column KPI strip (Stress Score or HY OAS | VIX | S&P 500)
+      3. Tinted cross-market attribution & options-window callout(s)
+      4. Native 5-column indicator table with red/green deltas & option pills
+      5. Native VChart VIX term-structure line chart (when tenors present)
+      6. Footnote (data dates, stale/lagging/intraday notes) + dashboard button
+    """
+    ctx = _collect_status_context(payload, stale=stale)
+    ind = ctx["ind"]
+    hy = ctx["hy"]
+    hy_pct = ctx["hy_pct"]
+    st = ctx["st"]
+    spx = ctx["spx"]
+    spx_abs = ctx["spx_abs"]
+    ts = ctx["ts"]
+    attr = ctx["attr"]
+    opt = ctx["opt"]
+    comp = ctx["comp"]
+
+    # --- 1. Header ---
+    subtitle_parts = []
+    if attr and attr.get("regime"):
+        subtitle_parts.append("跨市场归因：%s" % attr["regime"])
+    else:
+        subtitle_parts.append("综合判断：%s" % ctx["verdict"])
+    if payload.get("intraday"):
+        subtitle_parts.append("盘中实时")
+    text_tags = [
+        {
+            "tag": "text_tag",
+            "text": {"tag": "plain_text", "content": ctx["verdict"]},
+            "color": _CLS_TO_TAG_COLOR.get(ctx["worst_cls"], "blue"),
+        }
+    ]
+    if comp.get("score") is not None:
+        score_tag_c, _ = _score_colors(int(comp["score"]))
+        text_tags.append({
+            "tag": "text_tag",
+            "text": {"tag": "plain_text", "content": "压力分 %d/100" % int(comp["score"])},
+            "color": score_tag_c,
+        })
+    if payload.get("intraday"):
+        text_tags.append({
+            "tag": "text_tag",
+            "text": {"tag": "plain_text", "content": "盘中"},
+            "color": "blue",
+        })
+    elif ctx["has_stale"]:
+        text_tags.append({
+            "tag": "text_tag",
+            "text": {"tag": "plain_text", "content": "部分缓存"},
+            "color": "orange",
+        })
+
+    header = {
+        "title": {"tag": "plain_text", "content": "【手动推送】市场监控状态"},
+        "subtitle": {"tag": "plain_text", "content": " · ".join(subtitle_parts)},
+        "text_tag_list": text_tags[:3],
+        "template": ctx["template"],
+        "padding": "12px 12px 12px 12px",
+    }
+
+    elements = []
+
+    # --- 2. 3-Column KPI Strip ---
+    if comp.get("score") is not None:
+        score_int = int(comp["score"])
+        _, score_font_c = _score_colors(score_int)
+        comp_sub_parts = []
+        if comp.get("change") is not None:
+            comp_sub_parts.append("较前日 %s" % _signed(comp["change"], 0))
+        if comp.get("chg_5d") is not None:
+            comp_sub_parts.append("5日 %s" % _signed(comp["chg_5d"], 0))
+        comp_sub = " · ".join(comp_sub_parts) if comp_sub_parts else "近一年分位加权"
+        kpi_col_1 = _kpi_column(
+            "情绪压力分",
+            "<font color=\"%s\">**%d**</font> <font color=\"grey\">/ 100</font>"
+            % (score_font_c, score_int),
+            "<font color=\"grey\">%s</font>" % comp_sub,
+        )
+    else:
+        kpi_col_1 = _kpi_column(
+            "HY OAS 信用利差",
+            "**%sbp**" % hy["value_bp"],
+            "%s · <font color=\"grey\">%s</font>"
+            % (_fmt_colored_pct(hy_pct), st["hy_oas"]["label"]),
+        )
+
+    vix_st = ind["vix"].get("stats") or {}
+    vix_sub_parts = [_fmt_colored_pct(ind["vix"].get("change_pct"))]
+    if vix_st.get("vrp") is not None:
+        vix_sub_parts.append("<font color=\"grey\">VRP %+.1f</font>" % float(vix_st["vrp"]))
+    else:
+        vix_sub_parts.append("<font color=\"grey\">%s</font>" % st["vix"]["label"])
+    kpi_col_2 = _kpi_column(
+        "VIX 恐慌指数",
+        "**%s**" % ind["vix"]["value"],
+        " · ".join(vix_sub_parts),
+    )
+
+    spx_st = spx.get("stats") or {}
+    spx_sub_parts = [_fmt_colored_pct(spx.get("change_pct"))]
+    if spx_st.get("rsi_14") is not None:
+        spx_sub_parts.append("<font color=\"grey\">RSI %.1f</font>" % float(spx_st["rsi_14"]))
+    kpi_col_3 = _kpi_column(
+        "标普 500",
+        "**%s**" % format(spx["value"], ","),
+        " · ".join(spx_sub_parts),
+    )
+
+    elements.append({
+        "tag": "column_set",
+        "flex_mode": "trisect",
+        "background_style": "default",
+        "horizontal_spacing": "8px",
+        "columns": [kpi_col_1, kpi_col_2, kpi_col_3],
+    })
+
+    # --- 3. Attribution & Options Window Callout ---
+    if attr and attr.get("regime"):
+        tone_cls = attr.get("tone", ctx["worst_cls"])
+        tone_bg = _CLS_TO_BG_STYLE.get(tone_cls, "grey")
+        tone_tag = _CLS_TO_TAG_COLOR.get(tone_cls, "neutral")
+        attr_els = [
+            {
+                "tag": "markdown",
+                "content": "**跨市场归因** <text_tag color=\"%s\">%s</text_tag>"
+                % (tone_tag, attr["regime"]),
+                "text_size": "normal_v2",
+                "text_align": "left",
+            }
+        ]
+        pillars = attr.get("pillars") or {}
+        pillar_tags = []
+        for pkey, plabel in (("equity", "股"), ("bond", "债"), ("credit", "信")):
+            pinfo = pillars.get(pkey)
+            if isinstance(pinfo, dict) and pinfo.get("label"):
+                pcolor = _CLS_TO_TAG_COLOR.get(pinfo.get("cls"), "neutral")
+                pillar_tags.append("%s <text_tag color=\"%s\">%s</text_tag>"
+                                   % (plabel, pcolor, pinfo["label"]))
+        if pillar_tags:
+            attr_els.append({
+                "tag": "markdown",
+                "content": "  ".join(pillar_tags),
+                "text_size": "notation",
+                "text_align": "left",
+            })
+        if attr.get("summary"):
+            attr_els.append({
+                "tag": "markdown",
+                "content": "<font color=\"grey\">%s</font>" % attr["summary"],
+                "text_size": "notation",
+                "text_align": "left",
+            })
+        elements.append(_callout_box(tone_bg, attr_els))
+
+    if opt and opt.get("label"):
+        opt_tag_color = _CLS_TO_TAG_COLOR.get(opt.get("tone"), "neutral")
+        if opt.get("action") and opt.get("action") != "neutral":
+            opt_bg = _CLS_TO_BG_STYLE.get(opt.get("tone"), "blue-50")
+            elements.append(_callout_box(opt_bg, [
+                {
+                    "tag": "markdown",
+                    "content": "**期权卖方窗口** <text_tag color=\"%s\">%s</text_tag>"
+                    % (opt_tag_color, opt["label"]),
+                    "text_size": "normal_v2",
+                    "text_align": "left",
+                },
+                {
+                    "tag": "markdown",
+                    "content": "<font color=\"grey\">%s</font>" % opt.get("summary", ""),
+                    "text_size": "notation",
+                    "text_align": "left",
+                },
+            ]))
+        else:
+            elements.append({
+                "tag": "markdown",
+                "content": "**期权卖方窗口** <text_tag color=\"%s\">%s</text_tag> <font color=\"grey\">%s</font>"
+                % (opt_tag_color, opt["label"], opt.get("summary", "")),
+                "text_size": "notation",
+                "text_align": "left",
+            })
+
+    if ctx["has_stale"]:
+        elements.append(_callout_box("orange-50", [
+            {
+                "tag": "markdown",
+                "content": "<font color=\"orange\">**注意**：部分数据源本次拉取失败，相应项保留上次成功数据</font>",
+                "text_size": "notation",
+                "text_align": "left",
+            }
+        ]))
+
+    # --- 4. Core Indicators Native Table (top-level only) ---
+    short_names = {
+        "vix": "**VIX** 恐慌",
+        "vvix": "**VVIX** 波动",
+        "skew": "**SKEW** 黑天鹅",
+        "move": "**MOVE** 债市",
+    }
+    rows = []
+    for k in ("vix", "vvix", "skew", "move"):
+        d = ind[k]
+        abs_chg = (d["value"] - d["prev_close"]) if d.get("prev_close") is not None else None
+        extra_parts = []
+        d_st = d.get("stats") or {}
+        if k == "vix" and d_st.get("rv20") is not None and d_st.get("vrp") is not None:
+            extra_parts.append("RV20 %.1f / VRP %+.1f" % (float(d_st["rv20"]), float(d_st["vrp"])))
+        if d_st.get("pct_rank") is not None:
+            extra_parts.append("P%d" % int(round(float(d_st["pct_rank"]))))
+        rows.append({
+            "metric": short_names[k],
+            "value": "**%s**" % d["value"],
+            "change": _fmt_colored_change(abs_chg, d.get("change_pct"), decimals=2),
+            "status": [{"text": st[k]["label"],
+                        "color": _CLS_TO_TAG_COLOR.get(st[k]["cls"], "neutral")}],
+            "extra": ("<font color=\"grey\">%s</font>" % " · ".join(extra_parts)
+                      if extra_parts else "<font color=\"grey\">—</font>"),
+        })
+
+    hy_st = hy.get("stats") or {}
+    hy_extra = ("<font color=\"grey\">P%d</font>" % int(round(float(hy_st["pct_rank"])))
+                if hy_st.get("pct_rank") is not None else "<font color=\"grey\">—</font>")
+    rows.append({
+        "metric": "**HY OAS** 信用",
+        "value": "**%sbp**" % hy["value_bp"],
+        "change": _fmt_colored_change(hy.get("change_bp"), hy_pct, decimals=0, unit="bp"),
+        "status": [{"text": st["hy_oas"]["label"],
+                    "color": _CLS_TO_TAG_COLOR.get(st["hy_oas"]["cls"], "neutral")}],
+        "extra": hy_extra,
+    })
+
+    spx_extra_parts = []
+    if spx_st.get("rsi_14") is not None:
+        spx_extra_parts.append("RSI %.1f" % float(spx_st["rsi_14"]))
+    if spx_st.get("vs_ma200_pct") is not None:
+        spx_extra_parts.append("距MA200 %+.1f%%" % float(spx_st["vs_ma200_pct"]))
+    if spx_st.get("vs_ma200_pct") is not None:
+        spx_above = float(spx_st["vs_ma200_pct"]) >= 0
+        spx_status_opt = [{"text": "MA200上方" if spx_above else "MA200下方",
+                           "color": "green" if spx_above else "orange"}]
+    else:
+        spx_status_opt = [{"text": "基准指数", "color": "neutral"}]
+    rows.append({
+        "metric": "**标普 500**",
+        "value": "**%s**" % format(spx["value"], ","),
+        "change": _fmt_colored_change(spx_abs, spx.get("change_pct"), decimals=2),
+        "status": spx_status_opt,
+        "extra": ("<font color=\"grey\">%s</font>" % " · ".join(spx_extra_parts)
+                  if spx_extra_parts else "<font color=\"grey\">—</font>"),
+    })
+
+    elements.append({
+        "tag": "table",
+        "page_size": 10,
+        "row_height": "low",
+        "header_style": {
+            "text_align": "left",
+            "text_size": "normal",
+            "background_style": "grey",
+            "text_color": "default",
+            "bold": True,
+            "lines": 1,
+        },
+        "columns": [
+            {"name": "metric", "display_name": "指标", "data_type": "lark_md",
+             "width": "auto", "horizontal_align": "left", "vertical_align": "center"},
+            {"name": "value", "display_name": "最新值", "data_type": "lark_md",
+             "width": "auto", "horizontal_align": "right", "vertical_align": "center"},
+            {"name": "change", "display_name": "日变动", "data_type": "lark_md",
+             "width": "auto", "horizontal_align": "right", "vertical_align": "center"},
+            {"name": "status", "display_name": "状态", "data_type": "options",
+             "width": "auto", "horizontal_align": "center", "vertical_align": "center"},
+            {"name": "extra", "display_name": "补充", "data_type": "lark_md",
+             "width": "auto", "horizontal_align": "left", "vertical_align": "center"},
+        ],
+        "rows": rows,
+    })
+
+    # --- 5. VIX Term Structure Native Line Chart ---
+    ts_vals = [ts.get(k) for k in ("vix1d", "vix9d", "vix3m", "vix6m")]
+    if all(v is not None for v in ts_vals):
+        vix_mid = ts.get("vix") if ts.get("vix") is not None else ind["vix"].get("value")
+        ratio = (float(vix_mid) / float(ts["vix3m"])
+                 if (vix_mid is not None and ts.get("vix3m")) else None)
+        inverted = ratio is not None and ratio > 1.0
+        ts_header = "**VIX 期限结构**"
+        if ratio is not None:
+            ts_header += " <text_tag color=\"%s\">%s</text_tag> <font color=\"grey\">VIX/VIX3M %.2f</font>" % (
+                "red" if inverted else "green",
+                "倒挂" if inverted else "升水",
+                ratio,
+            )
+        if ts.get("date_mismatch"):
+            ts_header += " <font color=\"orange\">（各期限日期不一致）</font>"
+        elements.append({
+            "tag": "markdown",
+            "content": ts_header,
+            "text_size": "normal_v2",
+            "text_align": "left",
+        })
+        chart_points = [
+            {"tenor": "1D", "value": round(float(ts["vix1d"]), 2)},
+            {"tenor": "9D", "value": round(float(ts["vix9d"]), 2)},
+        ]
+        if vix_mid is not None:
+            chart_points.append({"tenor": "VIX(30D)", "value": round(float(vix_mid), 2)})
+        chart_points.extend([
+            {"tenor": "3M", "value": round(float(ts["vix3m"]), 2)},
+            {"tenor": "6M", "value": round(float(ts["vix6m"]), 2)},
+        ])
+        elements.append({
+            "tag": "chart",
+            "aspect_ratio": "2:1",
+            "color_theme": "brand",
+            "preview": True,
+            "chart_spec": {
+                "type": "line",
+                "data": [{"id": "vixTerm", "values": chart_points}],
+                "xField": "tenor",
+                "yField": "value",
+                "color": ["#d83931" if inverted else "#3370ff"],
+                "point": {"visible": True},
+                "label": {"visible": True},
+                "axes": [
+                    {"orient": "bottom", "type": "band"},
+                    {"orient": "left", "type": "linear", "zero": False},
+                ],
+            },
+        })
+
+    # --- 6. Footer & Action Button ---
+    elements.append({"tag": "hr"})
+    foot_lines = [
+        "<font color=\"grey\">数据日期：VIX %s · MOVE %s · HY OAS %s</font>"
+        % (ind["vix"]["date"], ind["move"]["date"], hy["date"])
+    ]
+    if ctx["stale_notes"]:
+        foot_lines.append(
+            "<font color=\"orange\">%s 为上次缓存值，本次未拉到</font>"
+            % " / ".join(ctx["stale_notes"])
+        )
+    if ctx["lagging"]:
+        foot_lines.append(
+            "<font color=\"orange\">%s 收盘日期落后于最近交易日 %s</font>"
+            % (" / ".join(ctx["lagging"]), payload.get("expected_close_date", ""))
+        )
+    if payload.get("intraday"):
+        foot_lines.append("<font color=\"grey\">当前为盘中读数，收盘前仍可能变化</font>")
+    elements.append({
+        "tag": "markdown",
+        "content": "\n".join(foot_lines),
+        "text_size": "notation",
+        "text_align": "left",
+    })
+    elements.append({
+        "tag": "button",
+        "text": {"tag": "plain_text", "content": "打开仪表盘"},
+        "type": "primary",
+        "width": "default",
+        "size": "medium",
+        "behaviors": [{"type": "open_url", "default_url": DASHBOARD_URL,
+                       "pc_url": "", "ios_url": "", "android_url": ""}],
+    })
+
+    return {
+        "schema": "2.0",
+        "config": {
+            "wide_screen_mode": True,
+            "update_multi": True,
+        },
+        "header": header,
+        "body": {
+            "direction": "vertical",
+            "vertical_spacing": "10px",
+            "padding": "12px 12px 12px 12px",
+            "elements": elements,
+        },
+    }
+
+
+def build_status_message(payload, stale=False):
+    """(title, body, template) for a manual status push. No state is touched."""
+    ctx = _collect_status_context(payload, stale=stale)
+    ind = ctx["ind"]
+    hy = ctx["hy"]
+    hy_pct = ctx["hy_pct"]
+    st = ctx["st"]
+    spx = ctx["spx"]
+    spx_abs = ctx["spx_abs"]
+    ts = ctx["ts"]
+    attr = ctx["attr"]
+    opt = ctx["opt"]
+    comp = ctx["comp"]
+
+    lines = ["综合判断：%s" % ctx["verdict"]]
     if attr and attr.get("regime"):
         lines.append("跨市场归因：%s（%s）" % (attr["regime"], attr["summary"].rstrip("。")))
-    opt = payload.get("options_window") or evaluate_options_window(payload)
     if opt and opt.get("label"):
         lines.append("期权卖方窗口：%s（%s）" % (opt["label"], opt["summary"]))
-    comp = payload.get("composite") or {}
     if comp.get("score") is not None:
         comp_extra = []
         if comp.get("change") is not None:
@@ -1029,7 +1554,7 @@ def build_status_message(payload, stale=False):
             comp_extra.append("5日 %s" % _signed(comp["chg_5d"], 0))
         suffix = ("，" + "，".join(comp_extra)) if comp_extra else ""
         lines.append("情绪压力分：%s / 100（近一年分位加权%s）" % (comp["score"], suffix))
-    if has_stale:
+    if ctx["has_stale"]:
         lines.append("注意：部分数据源本次拉取失败，相应项保留上次成功数据")
     for k in ("vix", "vvix", "skew", "move"):
         extra = ""
@@ -1069,23 +1594,15 @@ def build_status_message(payload, stale=False):
         lines.append(ts_line)
     lines.append("数据：VIX %s，MOVE %s，HY OAS %s" % (
         ind["vix"]["date"], ind["move"]["date"], hy["date"]))
-    stale_notes = [stale_labels[k] for k in (
-        "vix", "vvix", "skew", "move", "hy_oas", "spx",
-        "vix1d", "vix9d", "vix3m", "vix6m",
-    ) if k in stale_keys]
-    if stale_notes:
-        lines.append("（%s 为上次缓存值，本次未拉到）" % " / ".join(stale_notes))
-    lagging = [NODE_LABELS[k] for k in ("vix", "vvix", "skew", "move", "spx", "hy_oas")
-               if (ind.get(k) or payload.get(k) or {}).get("lagging")]
-    if lagging:
+    if ctx["stale_notes"]:
+        lines.append("（%s 为上次缓存值，本次未拉到）" % " / ".join(ctx["stale_notes"]))
+    if ctx["lagging"]:
         lines.append("（%s 收盘日期落后于最近交易日 %s）"
-                     % (" / ".join(lagging), payload.get("expected_close_date", "")))
+                     % (" / ".join(ctx["lagging"]), payload.get("expected_close_date", "")))
     if payload.get("intraday"):
         lines.append("（当前为盘中读数，收盘前仍可能变化）")
     lines.append("查看仪表盘：%s" % DASHBOARD_URL)
-    template = {"b-green": "green", "b-amber": "yellow",
-                "b-orange": "orange", "b-red": "red"}[worst_cls]
-    return "【手动推送】市场监控状态", "\n".join(lines), template
+    return "【手动推送】市场监控状态", "\n".join(lines), ctx["template"]
 
 
 def send_manual_push(mode, payload=None, stale=False,
@@ -1097,6 +1614,7 @@ def send_manual_push(mode, payload=None, stale=False,
     """
     now_bj = dt.datetime.now(
         dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M")
+    feishu_card = None
     if mode == "test":
         title = "【测试】监控报警通道测试"
         body = ("这是一条测试消息，飞书和 Bark 通道已接通。\n"
@@ -1105,11 +1623,16 @@ def send_manual_push(mode, payload=None, stale=False,
         template = "blue"
     elif mode == "status":
         title, body, template = build_status_message(payload, stale=stale)
+        feishu_card = build_status_feishu_card(payload, stale=stale)
     else:
         return False
     results = {}
     if "feishu" in channels:
-        results["feishu"] = (feishu_sender or send_feishu_card)(title, body, template)
+        sender = feishu_sender or send_feishu_card
+        if feishu_card is not None:
+            results["feishu"] = sender(title, body, template, feishu_card)
+        else:
+            results["feishu"] = sender(title, body, template)
     if "bark" in channels:
         results["bark"] = (bark_sender or send_bark)(title, body, "warning")
     print("  manual push %s (%s): %s"

@@ -64,7 +64,12 @@ def _post_feishu(payload):
     try:
         with _NO_PROXY_OPENER.open(req, timeout=15) as resp:
             result = json.loads(resp.read().decode("utf-8"))
-            return resp.status == 200 and result.get("code") == 0
+            ok = resp.status == 200 and result.get("code") == 0
+            if not ok:
+                print("WARNING: Feishu API error: status=%s code=%s msg=%s"
+                      % (resp.status, result.get("code"), result.get("msg")),
+                      file=sys.stderr)
+            return ok
     except Exception as exc:
         print("WARNING: Feishu send failed: %s" % (exc,), file=sys.stderr)
         return False
@@ -96,12 +101,14 @@ def _color_change_spans(line):
     return _CHANGE_RE.sub(repl, line)
 
 
-def send_feishu_card(title, body, template="blue"):
+def send_feishu_card(title, body, template="blue", card=None):
     """POST one interactive card to the Feishu robot webhook.
 
     Feishu card format (msg_type "interactive", card schema 2.0, per
-    the custom-bot docs): a coloured header (template by severity),
-    a markdown body, and a primary button that opens the dashboard.
+    the custom-bot docs): either a pre-built Card 2.0 dict passed via
+    `card` (for rich layouts using column_set / table / chart), or a
+    default coloured header + markdown body + dashboard button built
+    from plain-text `body`.
     `body` is plain text (lines separated by \\n); the first line is
     bolded, a trailing "查看仪表盘：<url>" line becomes the button
     instead of a raw URL, and each "(±abs，±pct%)" change span is
@@ -111,6 +118,11 @@ def send_feishu_card(title, body, template="blue"):
     Returns True on success, False when skipped (no webhook
     configured) or on failure.
     """
+    if card is not None:
+        return _post_feishu({
+            "msg_type": "interactive",
+            "card": card,
+        })
     lines = body.split("\n")
     dashboard_url = None
     if lines and lines[-1].startswith("查看仪表盘：") and "http" in lines[-1]:

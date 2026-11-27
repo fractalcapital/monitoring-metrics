@@ -251,6 +251,84 @@ class NotifyTests(unittest.TestCase):
         self.assertIn("level=critical", captured[1][1])
         self.assertIn("level=passive", captured[2][1])
 
+    def test_feishu_card_prebuilt_status_schema2(self):
+        from monitoring import alerts
+
+        data_path = REPO / "data" / "data.json"
+        payload = json.loads(data_path.read_text(encoding="utf-8"))
+        card = alerts.build_status_feishu_card(payload)
+
+        # Top-level Schema 2.0 & Webhook size limit (< 20KB)
+        self.assertEqual(card["schema"], "2.0")
+        self.assertTrue(card["config"]["wide_screen_mode"])
+        raw_bytes = json.dumps({"msg_type": "interactive", "card": card}, ensure_ascii=False).encode("utf-8")
+        self.assertLess(len(raw_bytes), 20000)
+
+        # Header subtitle & tags (<= 3)
+        header = card["header"]
+        self.assertIn("跨市场归因", header["subtitle"]["content"])
+        self.assertGreaterEqual(len(header["text_tag_list"]), 2)
+        self.assertLessEqual(len(header["text_tag_list"]), 3)
+
+        elements = card["body"]["elements"]
+        tags = [e["tag"] for e in elements]
+        # 3-column KPI strip + attribution callout + top-level native table + VIX term chart + hr + button
+        self.assertEqual(tags[0], "column_set")
+        self.assertEqual(elements[0]["flex_mode"], "trisect")
+        self.assertEqual(len(elements[0]["columns"]), 3)
+        self.assertIn("table", tags)
+        self.assertIn("chart", tags)
+        self.assertIn("hr", tags)
+        self.assertEqual(tags[-1], "button")
+
+        table_el = next(e for e in elements if e["tag"] == "table")
+        self.assertEqual(len(table_el["columns"]), 5)
+        self.assertEqual(len(table_el["rows"]), 6)
+        valid_opt_colors = {
+            "neutral", "blue", "turquoise", "lime", "orange", "violet",
+            "indigo", "wathet", "green", "yellow", "red", "purple", "carmine",
+        }
+        for row in table_el["rows"]:
+            self.assertIsInstance(row["status"], list)
+            self.assertIn(row["status"][0]["color"], valid_opt_colors)
+
+        chart_el = next(e for e in elements if e["tag"] == "chart")
+        self.assertEqual(chart_el["chart_spec"]["type"], "line")
+        pts = chart_el["chart_spec"]["data"][0]["values"]
+        self.assertEqual([p["tenor"] for p in pts], ["1D", "9D", "VIX(30D)", "3M", "6M"])
+
+        # send_manual_push("status") delivers prebuilt card to Feishu and plain text to Bark
+        captured = []
+
+        def fake_open(req, timeout=None):
+            body = json.loads(req.data.decode("utf-8")) if req.data else None
+            captured.append((req.get_method(), body))
+            return _FakeResp(200, {"code": 0 if req.get_method() == "POST" else 200})
+
+        with mock.patch.dict(os.environ, {
+            "FEISHU_WEBHOOK_URL": "https://example.invalid/feishu",
+            "BARK_URL": "https://example.invalid/barkkey",
+        }), mock.patch.object(notify._NO_PROXY_OPENER, "open", side_effect=fake_open):
+            ok = alerts.send_manual_push("status", payload=payload)
+            self.assertTrue(ok)
+
+        self.assertEqual(len(captured), 2)
+        self.assertEqual(captured[0][0], "POST")
+        self.assertEqual(captured[0][1]["card"], card)
+        self.assertEqual(captured[1][0], "GET")
+
+        # Edge cases: no composite, no term_structure, stale + intraday
+        minimal = json.loads(data_path.read_text(encoding="utf-8"))
+        minimal.pop("composite", None)
+        minimal.pop("term_structure", None)
+        minimal["intraday"] = True
+        card_min = alerts.build_status_feishu_card(minimal, stale=True)
+        self.assertEqual(len(card_min["body"]["elements"][0]["columns"]), 3)
+        self.assertIn("HY OAS", card_min["body"]["elements"][0]["columns"][0]["elements"][0]["content"])
+        self.assertNotIn("chart", [e["tag"] for e in card_min["body"]["elements"]])
+        self.assertIn("盘中", card_min["header"]["subtitle"]["content"])
+        self.assertLessEqual(len(card_min["header"]["text_tag_list"]), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
