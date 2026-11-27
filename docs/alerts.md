@@ -1,13 +1,13 @@
-# 报警推送服务（alert/）
+# 报警推送服务（monitoring/notify.py）
 
-这个目录只负责**把报警消息推出去**：飞书机器人卡片（schema 2.0）与 Bark 手机推送，双通道并行。
+该模块只负责**把报警消息推出去**：飞书机器人卡片（schema 2.0）与 Bark 手机推送，双通道并行。
 
-## 文件说明
+## 模块说明
 
-- `notify.py` — `send_feishu_card(title, body, template)`、`send_feishu(text)`（纯文本备用）、`send_bark(title, body, level)`。只负责发送，不决定何时触发。
-- `__init__.py` — 导出发送函数。
+- [monitoring/notify.py](../monitoring/notify.py) — `send_feishu_card(title, body, template)`、`send_feishu(text)`（纯文本备用）、`send_bark(title, body, level)`。只负责发送，不决定何时触发。
+- [monitoring/alerts.py](../monitoring/alerts.py) 与 [monitoring/config.py](../monitoring/config.py) — 触发阈值、回滞、去重、解除通知与告警历史归档逻辑。
 
-## 触发线与去重（位于 `scripts/fetch_dashboard.py`）
+## 触发线与去重（位于 `monitoring/config.py` & `monitoring/alerts.py`）
 
 | 报警项 | 预警 | 严重 |
 | --- | --- | --- |
@@ -21,7 +21,7 @@
 | VIX 单日急升 | 单日 ≥ +25% | 单日 ≥ +50% |
 | HY OAS 急速走阔 | 单日 ≥ +25bp 或 5 日 ≥ +50bp | — |
 
-- 状态原子写入 `MM_OUT_DIR/alert_state.json`（生产 VPS 为 `/var/lib/monitoring/data/alert_state.json`，本地默认 `dashboard/alert_state.json`）。
+- 状态原子写入 `MM_OUT_DIR/alert_state.json`（生产 VPS 为 `/var/lib/monitoring/data/alert_state.json`，本地默认 `data/alert_state.json`）。
 - **防刷屏与回滞**：仅在新触发、级别升级、或同级持续超过 24 小时时推送；水平类报警带 5% 回滞带（期限倒挂 0.02），避免读数在阈值附近来回抖动重复报警。
 - **恢复解除通知**：曾发过推送的水平类报警（及数据源故障/日期落后）恢复正常时，会发一条绿色飞书卡片与 Bark `passive` 恢复通知。
 - **运维报警**：数据源拉取失败、收盘日期落后预期交易日（`fetch_freshness`），以及 GitHub Actions 外部新鲜度巡检（`freshness-watchdog.yml`，同时覆盖 VPS API 可用性与数据新鲜度）都会通过同一通道通知。

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fetch latest market closes and atomically update data.json + alert_state.json
-# in MM_OUT_DIR (default: dashboard/; production VPS: /var/lib/monitoring/data).
+# in MM_OUT_DIR (default: data/; production VPS: /var/lib/monitoring/data).
 # Used by cron (twice daily on US trading weekdays) and by the VPS API
 # service (manual refresh). Data is served directly by api_server.py
 # (GET /api/data & GET /api/alert-state), so no git commit/push is performed.

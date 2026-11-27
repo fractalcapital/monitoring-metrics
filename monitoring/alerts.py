@@ -5,7 +5,7 @@ import math
 import os
 from pathlib import Path
 
-from alert.notify import send_bark, send_feishu_card
+from .notify import send_bark, send_feishu_card
 
 from .config import (
     ALERT_HISTORY_MAX,

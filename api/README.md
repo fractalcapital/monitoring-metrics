@@ -13,8 +13,10 @@ Base URL: `https://api.infidea.app` (tunnel hostname → `127.0.0.1:8080`).
 | Method | Path | Body | What it does |
 | --- | --- | --- | --- |
 | GET | `/health` | — | `{"ok": true}` — tunnel / monitoring check |
-| GET | `/api/data` | — | Public read-only live `data.json` from `MM_OUT_DIR` (supports `ETag`/`304` and `Cache-Control: public, max-age=60, stale-while-revalidate=300`). |
-| GET | `/api/alert-state` | — | Public read-only live `alert_state.json` from `MM_OUT_DIR` (same ETag/cache semantics). |
+| GET | `/api/data` | — | Public read-only live `data.json` from `MM_OUT_DIR` (fallback: `data/data.json`; supports `ETag`/`304`, gzip, mtime cache, `Cache-Control: public, max-age=60, stale-while-revalidate=300`). |
+| GET | `/api/history` | — | Public read-only ~1y `history.json` for `90D / 1Y` chart views (same ETag/gzip/cache semantics). |
+| GET | `/api/alert-state` | — | Public read-only live `alert_state.json` from `MM_OUT_DIR` (same ETag/gzip/cache semantics). |
+| GET | `/api/alert-history` | — | Public read-only `alert_history.json` (recent alert trigger/upgrade/resolve log; returns empty list if absent). |
 | POST | `/api/refresh` | — | Starts a background fetch job into `MM_OUT_DIR` and returns `{"status": "started"}` immediately (avoids Cloudflare's ~100s tunnel timeout). Poll `GET /api/job` for completion. Only one refresh job runs at a time. |
 | GET | `/api/job` | — | `{"running": "refresh" \| null, "last_result": {...} \| null}`. Read-only snapshot copied under lock. |
 | POST | `/api/push` | `{"mode": "test" \| "status", "channels": ["feishu"] \| ["bark"]}` | Synchronous (1–2s). `test` sends a test message; `status` builds the summary from the cached `data.json` (`MANUAL_PUSH=status-cached`, no fetch). Rate-limited per channel so Feishu and Bark buttons don't block each other. |

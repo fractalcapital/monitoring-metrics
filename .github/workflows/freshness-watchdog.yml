@@ -29,7 +29,7 @@ jobs:
           sys.path.insert(0, str(Path.cwd()))
           sys.path.insert(0, str(Path.cwd() / "scripts"))
           import fetch_dashboard as fd
-          from alert.notify import send_bark, send_feishu_card
+          from monitoring.notify import send_bark, send_feishu_card
 
           url = os.environ.get("DATA_URL", "https://api.infidea.app/api/data")
           data = None

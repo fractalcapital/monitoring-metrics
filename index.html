@@ -2777,7 +2777,7 @@
       </details>
 
       <div class="alerts-subnote">
-        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；带回滞防抖、24 小时同级去重与恢复解除通知。详见 <a href="dashboard/README.md">dashboard/README.md</a>。
+        报警由服务端定时任务在拉取数据时进行判定与推送，页面直接读取 <code>data.json</code> 里的阈值配置并展示状态，绝不保存任何 webhook 或密钥。触发线：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及 VIX ≥30 且 (VVIX ≥140 或 MOVE ≥140) 的综合预警；带回滞防抖、24 小时同级去重与恢复解除通知。详见 <a href="docs/dashboard.md">docs/dashboard.md</a>。
       </div>
     </div>
   </section>
@@ -5289,7 +5289,7 @@ function scheduleNext(){
 
 /* ---- VPS 接口（https://api.infidea.app，见 api/README.md） ----
    读数据优先走 GET /api/data 与 GET /api/alert-state（由 VPS 直出，无需每次提交 GitHub）；
-   API 不可用时按 浏览器 localStorage 缓存 → 静态 ./dashboard/data.json → 内置快照 依次兜底。
+   API 不可用时按 浏览器 localStorage 缓存 → 静态 ./data/data.json → 内置快照 依次兜底。
    手动刷新支持异步轮询 /api/job 避免 Cloudflare 524 超时。 */
 const API_BASE = 'https://api.infidea.app';
 const API_TOKEN = '5d8e7e028445f893836e5e02ee8189f902bd54a35774de49';
@@ -5322,7 +5322,7 @@ async function loadAlertState(){
   try { cached = JSON.parse(localStorage.getItem(LAST_STATE_CACHE_KEY) || 'null'); } catch(_){}
   let staticState = null;
   try {
-    const rs = await fetch('./dashboard/alert_state.json', { cache: 'no-store' });
+    const rs = await fetch('./data/alert_state.json', { cache: 'no-store' });
     if(rs.ok) staticState = await rs.json();
   } catch(_){}
   if(cached && staticState){
@@ -5343,7 +5343,7 @@ async function loadAlertHistory(){
   try { cached = JSON.parse(localStorage.getItem(LAST_ALERT_HISTORY_CACHE_KEY) || 'null'); } catch(_){}
   if(cached && Array.isArray(cached.events)) return cached;
   try {
-    const rs = await fetch('./dashboard/alert_history.json', { cache: 'no-store' });
+    const rs = await fetch('./data/alert_history.json', { cache: 'no-store' });
     if(rs.ok){
       const sh = await rs.json();
       if(sh && Array.isArray(sh.events)) return sh;
@@ -5415,7 +5415,7 @@ async function loadExtendedHistory(force){
     } catch(_){}
   }
   try {
-    const rs = await fetch('./dashboard/history.json', { cache: 'no-store' });
+    const rs = await fetch('./data/history.json', { cache: 'no-store' });
     if(rs.ok){
       const sh = await rs.json();
       if(sh && sh.series){
@@ -5470,7 +5470,7 @@ async function load(){
     } catch(_){}
     let staticData = null;
     try {
-      const r = await fetch('./dashboard/data.json', { cache: 'no-store' });
+      const r = await fetch('./data/data.json', { cache: 'no-store' });
       if(r.ok){
         const sd = await r.json();
         if(sd && sd.indicators && sd.indicators.vix) staticData = sd;

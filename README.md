@@ -66,8 +66,8 @@ open metrics/hy-oas/index.html
 
 - 拉取脚本：`scripts/fetch_dashboard.py`（由 `scripts/push_data.sh` 加并发锁触发），每个美股交易日收盘后跑两次（UTC 21:30 / 23:30，周一至周五，对应北京时间次日 05:30 / 07:30），并发拉取多组数据源并计算近一年历史分位、5 日 / 20 日变动、综合情绪压力分、跨市场归因、IG / CCC 信用分层，以及零新增数据源衍生指标（标普 20 日实际波动率 `RV20` 与 VIX 风险溢价 `VRP`、标普 `RSI(14)` 与 `MA200` 偏离度、VIX 期限结构 `5 日前 / 20 日前` 历史对比快照）
 - 数据源：VIX / VVIX / SKEW / 标普 500 优先走美区 VPS 的 Futu CLI（CBOE CDN / FRED 兜底）；VIX 期限结构走 CBOE 官方 CDN CSV；MOVE 走 Yahoo（`curl_cffi`）→ TradingView → CSV 三级兜底；HY OAS / IG / CCC 走 FRED 官方 JSON API
-- 数据质量与防断更：盘中高低价自动过滤平盘假高低与坏 tick；`data.json` / `history.json` / `alert_state.json` / `alert_history.json` 原子写入并与 git 仓库目录隔离；前端优先读 `GET /api/data`（支持 ETag、Gzip 压缩与内存缓存），走势图支持 `30D / 90D / 1Y` 切换（90D / 1Y 按需懒加载 `GET /api/history`），API 暂不可用时按 `localStorage` 缓存 → 静态 `./dashboard/data.json` → 内置快照依次兜底；同时支持可选 `HEALTHCHECK_URL` 外部心跳与 GitHub Actions 外部新鲜度巡检（`.github/workflows/freshness-watchdog.yml`）
-- 产物：VPS 本地 `MM_OUT_DIR`（默认 `/var/lib/monitoring/data`）下的 `data.json`（30 日轻量收盘与配置）、`history.json`（近 1 年 7 条历史序列）、`alert_state.json`（预警去重与回滞状态）和 `alert_history.json`（近 100 条告警触发 / 升级 / 解除轨迹）；仓库内 `dashboard/data.json` 仅保留作静态兜底样本，不再随日常行情提交
+- 数据质量与防断更：盘中高低价自动过滤平盘假高低与坏 tick；`data.json` / `history.json` / `alert_state.json` / `alert_history.json` 原子写入并与 git 仓库目录隔离；前端优先读 `GET /api/data`（支持 ETag、Gzip 压缩与内存缓存），走势图支持 `30D / 90D / 1Y` 切换（90D / 1Y 按需懒加载 `GET /api/history`），API 暂不可用时按 `localStorage` 缓存 → 静态 `./data/data.json` → 内置快照依次兜底；同时支持可选 `HEALTHCHECK_URL` 外部心跳与 GitHub Actions 外部新鲜度巡检（`.github/workflows/freshness-watchdog.yml`）
+- 产物：VPS 本地 `MM_OUT_DIR`（默认 `/var/lib/monitoring/data`）下的 `data.json`（30 日轻量收盘与配置）、`history.json`（近 1 年 7 条历史序列）、`alert_state.json`（预警去重与回滞状态）和 `alert_history.json`（近 100 条告警触发 / 升级 / 解除轨迹）；仓库内 `data/data.json` 仅保留作静态兜底样本与新机种子，不再随日常行情提交
 
 ### 已知滞后
 
@@ -75,7 +75,7 @@ open metrics/hy-oas/index.html
 
 ### 波动情况与预警
 
-每张卡片都有一个“波动情况”状态（定档区间与告警阈值统一由后端随 `data.json` 下发）：先按区间定级（比如 VIX <20 平静、20–30 警惕、30–40 紧张、≥40 恐慌；MOVE 60–120 常态、120–140 偏高、≥140 紧张），再看常态区单日异动（VIX/VVIX/SKEW/MOVE 单日涨跌 ≥10%，HY OAS 单日变动 ≥25bp 记为“异动”）。顶部 Hero 区同时展示基于股、债、信用三端状态自动生成的**跨市场归因摘要**。走势图支持 **`30D / 90D / 1Y`** 切换，下方的 **1 年分位（%）** 表示当前值在近 252 个交易日收盘价中的中点分位排名（例如 `98%` 代表高于近一年约 98% 的交易日，衡量年内相对高低，需结合绝对区间条阅读；详见 [dashboard/README.md](dashboard/README.md#卡片统计条1-年分位与-5-日--20-日变化)）。VIX 卡片附带 **RV20 / VRP（波动率风险溢价）**，标普 500 背景卡附带 **RSI(14)、距 MA200 年线偏离与 RV20**，VIX 期限结构支持叠加 **5 日前 / 20 日前** 历史虚线对比。预警阈值：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及股债综合预警。预警带回滞防抖、同级 24 小时去重、恢复解除通知，并归档至风控区的「历史告警轨迹」。
+每张卡片都有一个“波动情况”状态（定档区间与告警阈值统一由后端随 `data.json` 下发）：先按区间定级（比如 VIX <20 平静、20–30 警惕、30–40 紧张、≥40 恐慌；MOVE 60–120 常态、120–140 偏高、≥140 紧张），再看常态区单日异动（VIX/VVIX/SKEW/MOVE 单日涨跌 ≥10%，HY OAS 单日变动 ≥25bp 记为“异动”）。顶部 Hero 区同时展示基于股、债、信用三端状态自动生成的**跨市场归因摘要**。走势图支持 **`30D / 90D / 1Y`** 切换，下方的 **1 年分位（%）** 表示当前值在近 252 个交易日收盘价中的中点分位排名（例如 `98%` 代表高于近一年约 98% 的交易日，衡量年内相对高低，需结合绝对区间条阅读；详见 [docs/dashboard.md](docs/dashboard.md#卡片统计条1-年分位与-5-日--20-日变化)）。VIX 卡片附带 **RV20 / VRP（波动率风险溢价）**，标普 500 背景卡附带 **RSI(14)、距 MA200 年线偏离与 RV20**，VIX 期限结构支持叠加 **5 日前 / 20 日前** 历史虚线对比。预警阈值：VIX ≥35 预警 / ≥40 严重，VVIX ≥140，SKEW ≥150，MOVE ≥140，HY OAS ≥500bp 预警 / ≥1000bp 严重，VIX/VIX3M ≥1.0 倒挂预警 / ≥1.1 严重，VIX 单日急升 ≥25%，HY OAS 单日走阔 ≥25bp 或 5 日 ≥50bp，综合情绪压力分 ≥85（5 日急升 ≥+25 分），以及股债综合预警。预警带回滞防抖、同级 24 小时去重、恢复解除通知，并归档至风控区的「历史告警轨迹」。
 
 预警走两个通道（由 VPS 服务端发，密钥只放在服务器 `.env` 里，仓库里没有）：飞书机器人（卡片消息）和 Bark 移动推送。数据拉取失败、收盘日期落后与 API 不可达同样会报警。
 
@@ -99,12 +99,16 @@ API 端点：`GET /health`、`GET /api/data`、`GET /api/history`、`GET /api/al
 
 - `index.html`：实时仪表盘主页面（`https://mon.infidea.app/` 首页直接访问）
 - `metrics/`：六个指标的独立页面（VIX、期限结构、VVIX、SKEW、MOVE、HY OAS，各带一份 README）
-- `dashboard/`：静态兜底数据（`data.json` + `alert_state.json`）、说明文档与旧路径 `/dashboard/` 兼容跳转页
-- `scripts/`：拉取入口（`fetch_dashboard.py`）、模块化核心包（`monitoring/{config,calendar,series,providers,alerts}.py`）与发布脚本（`push_data.sh`）
-- `alert/`：飞书 + Bark 发送模块（`notify.py`）
-- `api/`：VPS 上的 API 服务与部署脚本
+- `data/`：静态兜底数据与新机初始化种子（`data.json` + `alert_state.json`）
+- `monitoring/`：核心 Python 领域包（`{config,calendar,series,providers,alerts,notify}.py`，涵盖数据源抓取、衍生指标、压力分、预警判定及飞书/Bark 推送）
+- `scripts/`：可执行入口脚本（`fetch_dashboard.py` CLI 门面与带并发锁的 `push_data.sh`）
+- `api/`：VPS 上的 HTTP API 服务与部署脚本（`api_server.py`、`monitoring-api.service`、`deploy.sh`、`deploy-mac.sh`）
 - `tests/`：单元测试与 Python / JS 一致性测试
-- `docs/`：综合情绪压力分算法说明（[composite-stress-score.md](docs/composite-stress-score.md)）、VPS 日常运维速查手册（[ops-runbook.md](docs/ops-runbook.md)）与历史迁移日志（[ops-monitoring-user.md](docs/ops-monitoring-user.md)、[ops-api-data-migration.md](docs/ops-api-data-migration.md)）
+- `docs/`：项目文档中心
+  - 规则与算法：[dashboard.md](docs/dashboard.md)（仪表盘定档、分位与告警说明）、[alerts.md](docs/alerts.md)（推送通道与密钥说明）、[composite-stress-score.md](docs/composite-stress-score.md)（综合情绪压力分算法）
+  - 运维手册与迁移记录（`docs/ops/`）：[runbook.md](docs/ops/runbook.md)（VPS 日常运维速查手册）、[monitoring-user.md](docs/ops/monitoring-user.md)、[api-data-migration.md](docs/ops/api-data-migration.md)
+  - 方案评估与规划（`docs/plans/`）：[private-repo-migration.md](docs/plans/private-repo-migration.md)、[rsi-indicator-evaluation.md](docs/plans/rsi-indicator-evaluation.md)、[yahoo-429.md](docs/plans/yahoo-429.md)
+- `preview/`：仪表盘亮 / 暗双主题与移动端预览截图
 
 ## 数据口径与免责
 

@@ -1,4 +1,4 @@
-"""Unit tests for api/api_server.py and alert/notify.py (in-memory, no sockets)."""
+"""Unit tests for api/api_server.py and monitoring/notify.py (in-memory, no sockets)."""
 import gzip
 import io
 import json
@@ -15,7 +15,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "api"))
 
 import api_server  # noqa: E402
-from alert import notify  # noqa: E402
+from monitoring import notify  # noqa: E402
 
 
 def _invoke_get(path, req_headers=None, method="GET"):

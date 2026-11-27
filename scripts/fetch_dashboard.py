@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""CLI entry point for fetching market risk closes and updating dashboard/data.json.
+"""CLI entry point for fetching market risk closes and updating data/data.json.
 
-All domain logic lives in `scripts/monitoring/`:
+All domain logic lives in `monitoring/`:
   - `config.py`    constants, source URLs, status bands and alert thresholds
   - `calendar.py`  date normalization, NYSE holiday / early-close calendar, freshness
   - `series.py`    H/L sanity checks, upsert, 1y percentile stats, composite stress curve, atomic JSON
   - `providers.py` Futu CLI, CBOE CDN, FRED, Stooq, Yahoo curl_cffi, TradingView, CSV
   - `alerts.py`    hysteresis, term-structure / velocity / recovery alerts, manual pushes
+  - `notify.py`    Feishu card + Bark push delivery
 
 This module stays as the stable CLI and public import facade so cron,
 `push_data.sh`, `api_server.py`, `freshness-watchdog.yml` and tests keep working.
@@ -19,16 +20,14 @@ import sys
 import threading
 from pathlib import Path
 
-# Ensure repo root (for `alert`) and scripts/ (for `monitoring`) are importable
-# regardless of working directory.
+# Ensure repo root (for `monitoring`) is importable regardless of working directory.
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPTS_DIR.parent
-for _p in (str(_REPO_ROOT), str(_SCRIPTS_DIR)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-from alert.notify import send_bark, send_feishu_card  # noqa: E402
 from monitoring import alerts as _alerts  # noqa: E402
+from monitoring.notify import send_bark, send_feishu_card  # noqa: E402
 from monitoring.alerts import (  # noqa: E402, F401
     _channel_should_send,
     _level_for,
@@ -158,7 +157,7 @@ def send_manual_push(mode, payload=None, stale=False, channels=("feishu", "bark"
 
 
 def main():
-    out_dir = Path(os.environ.get("MM_OUT_DIR") or (_REPO_ROOT / "dashboard"))
+    out_dir = Path(os.environ.get("MM_OUT_DIR") or (_REPO_ROOT / "data"))
     out_path = out_dir / "data.json"
     history_path = out_dir / "history.json"
     state_path = out_dir / "alert_state.json"

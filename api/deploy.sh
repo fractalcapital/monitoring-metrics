@@ -57,9 +57,9 @@ cd "$REPO_DIR"
 # Seed runtime data dir from repo snapshot on first migration so history & alert
 # dedup state carry over seamlessly without dirtying the git working tree.
 for fname in data.json alert_state.json; do
-  if [ ! -f "$DATA_DIR/$fname" ] && [ -f "$REPO_DIR/dashboard/$fname" ]; then
-    cp "$REPO_DIR/dashboard/$fname" "$DATA_DIR/$fname"
-    echo "Seeded $DATA_DIR/$fname from dashboard/$fname"
+  if [ ! -f "$DATA_DIR/$fname" ] && [ -f "$REPO_DIR/data/$fname" ]; then
+    cp "$REPO_DIR/data/$fname" "$DATA_DIR/$fname"
+    echo "Seeded $DATA_DIR/$fname from data/$fname"
   fi
 done
 

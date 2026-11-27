@@ -31,8 +31,8 @@ cd "$REPO_DIR"
 
 mkdir -p "$DATA_DIR"
 for fname in data.json alert_state.json; do
-  if [ ! -f "$DATA_DIR/$fname" ] && [ -f "$REPO_DIR/dashboard/$fname" ]; then
-    cp "$REPO_DIR/dashboard/$fname" "$DATA_DIR/$fname"
+  if [ ! -f "$DATA_DIR/$fname" ] && [ -f "$REPO_DIR/data/$fname" ]; then
+    cp "$REPO_DIR/data/$fname" "$DATA_DIR/$fname"
   fi
 done
 

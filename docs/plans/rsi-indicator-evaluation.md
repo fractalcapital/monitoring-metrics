@@ -2,7 +2,7 @@
 
 > **状态：已采纳方案 C 并落地（2026-11-27）**。
 > **核心结论**：**不需要**将 RSI 做成与 VIX / MOVE / HY OAS 并列的独立核心卡片，也**不建议**纳入「综合情绪压力分」或单独配置飞书 / Bark 报警；已按**方案 C**将标普 500 的 `RSI(14)`、`MA200` 偏离度与 `RV20`（20 日年化实际波动率）内嵌到「标普 500」背景卡，并在 VIX 卡片附带 `RV20 / VRP` 风险溢价条。
-> 相关文件：`README.md`、`docs/composite-stress-score.md`、`scripts/monitoring/config.py`、`scripts/monitoring/series.py`、`scripts/fetch_dashboard.py`、`index.html`。
+> 相关文件：`README.md`、`docs/composite-stress-score.md`、`monitoring/config.py`、`monitoring/series.py`、`scripts/fetch_dashboard.py`、`index.html`。
 
 ## 1. 背景与讨论问题
 

@@ -165,8 +165,8 @@ class PythonJsParityTests(unittest.TestCase):
 
 class HtmlLinkChecks(unittest.TestCase):
     def test_relative_links_resolve(self):
-        pages = [REPO / "index.html", REPO / "dashboard" / "index.html"] + sorted((REPO / "metrics").glob("*/index.html"))
-        self.assertGreaterEqual(len(pages), 8)  # root dashboard + legacy redirect + 6 metric pages incl. skew
+        pages = [REPO / "index.html"] + sorted((REPO / "metrics").glob("*/index.html"))
+        self.assertGreaterEqual(len(pages), 7)  # root dashboard + 6 metric pages incl. skew
         href_re = re.compile(r'href="([^"]+)"')
         meta_link_re = re.compile(r'link:\s*"((?:\.\./)?metrics/[^"]+)"')
         for page in pages:

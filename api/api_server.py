@@ -31,7 +31,7 @@ the single backend for both reading live data and triggering manual actions:
 
 Data files (data.json, alert_state.json) are stored in MM_OUT_DIR
 (production: /var/lib/monitoring/data, decoupled from the git working tree;
-local dev default: <repo>/dashboard).
+local dev default: <repo>/data).
 
 Auth: the X-Api-Token header must match the API_TOKEN env var on POST
 endpoints. The token is ALSO in the dashboard page source (public), so it is
@@ -66,7 +66,7 @@ PORT = int(os.environ.get("API_PORT", "8080"))
 API_TOKEN = os.environ.get("API_TOKEN", "")
 REPO_DIR = Path(os.environ.get(
     "REPO_DIR", str(Path(__file__).resolve().parent.parent)))
-DATA_DIR = Path(os.environ.get("MM_OUT_DIR") or str(REPO_DIR / "dashboard"))
+DATA_DIR = Path(os.environ.get("MM_OUT_DIR") or str(REPO_DIR / "data"))
 ALLOWED_ORIGIN = "https://mon.infidea.app"
 DASHBOARD_URL = "https://mon.infidea.app/"
 DATA_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300"
@@ -189,7 +189,7 @@ def _build_cache_entry(raw, mtime_ns=None, size=None):
 def _read_cached_json(filename):
     """Read and cache a validated JSON file by (mtime_ns, size) to avoid repeat I/O and parsing."""
     candidates = [_data_dir() / filename]
-    fallback = REPO_DIR / "dashboard" / filename
+    fallback = REPO_DIR / "data" / filename
     if fallback != candidates[0]:
         candidates.append(fallback)
     for path in candidates:
@@ -222,7 +222,7 @@ def _read_cached_json(filename):
 
 
 def _read_json_bytes(filename):
-    """Read raw UTF-8 bytes of a JSON file from DATA_DIR (fallback: repo dashboard/)."""
+    """Read raw UTF-8 bytes of a JSON file from DATA_DIR (fallback: repo data/)."""
     entry = _read_cached_json(filename)
     return entry["raw"] if entry is not None else None
 

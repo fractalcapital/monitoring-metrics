@@ -2,7 +2,7 @@
 
 > 目标主机：`proud-pipes-7`  
 > 运行用户：`monitoring`（API 服务、定时拉取、Futu OAuth 凭据与运行时数据目录均归属该用户）  
-> 历史迁移记录见：[ops-monitoring-user.md](ops-monitoring-user.md)、[ops-api-data-migration.md](ops-api-data-migration.md)
+> 历史迁移记录见：[monitoring-user.md](monitoring-user.md)、[api-data-migration.md](api-data-migration.md)
 
 ---
 

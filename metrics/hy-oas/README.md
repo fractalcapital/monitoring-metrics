@@ -1,6 +1,6 @@
 # 高收益债信用利差（HY OAS）可视化
 
-页面：[index.html](index.html)（另见仓库根目录 [README.md](../README.md)）
+页面：[index.html](index.html)（另见仓库根目录 [README.md](../../README.md)）
 
 ## 一句话
 

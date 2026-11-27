@@ -9,7 +9,7 @@
 随着监控指标、分析文档、运维记录与历史数据不断积累，继续保持 `fractalcapital/monitoring-metrics` 为 Public 仓库存在代码/配置/策略暴露顾虑。目标是：
 
 1. 将 GitHub 仓库从 **Public 转为 Private**。
-2. 保持前端站点 `https://mon.infidea.app/`（直接打开实时仪表盘，旧路径 `/dashboard/` 自动兼容跳转）稳定可用，且 `POST /api/refresh`、`POST /api/push` 等交互不受影响。
+2. 保持前端站点 `https://mon.infidea.app/`（首页直接打开实时仪表盘）稳定可用，且 `POST /api/refresh`、`POST /api/push` 等交互不受影响。
 3. 明确并按需控制**网页与监控数据的访问边界**（区分“仅隐藏仓库代码”与“连网页/数据也仅自己可见”）。
 4. 保持 VPS（`proud-pipes-7`）定时拉取、代码更新及 GitHub Actions 巡检（`freshness-watchdog.yml`）持续正常运行。
 
@@ -30,9 +30,9 @@
 1. **静态页面托管失效（最高优先级）**
    - 当前通过根 `CNAME`（`mon.infidea.app`）依赖 GitHub Pages 发布。Free 账号转 Private 后站点会立即 404。
 2. **根目录入口与目录暴露边界**
-   - 已将仪表盘主页面迁至根目录 `index.html`（`dashboard/index.html` 保留为指向 `/` 的兼容跳转页），访问 `https://mon.infidea.app/` 即直接进入仪表盘，不再依赖 GitHub Pages 自动渲染 `README.md`。
-   - 迁移到 Cloudflare Pages 时，不要直接把整个仓库根目录作为静态站点输出目录，否则 `api/`、`scripts/`、`docs/`、`plan/`、`tests/` 等源码与计划文档可通过 URL 直接下载（即使仓库本身已是 Private）。
-   - **处理方式**：加一步极简构建脚本，仅拷贝 `index.html`、`dashboard/`（静态兜底 JSON + 兼容跳转页 + README）、`metrics/` 到输出目录（如 `dist/`）供静态托管发布。
+   - 已将仪表盘主页面迁至根目录 `index.html`（已移除旧 `dashboard/` 跳转目录），访问 `https://mon.infidea.app/` 即直接进入仪表盘，不再依赖 GitHub Pages 自动渲染 `README.md`。
+   - 迁移到 Cloudflare Pages 时，不要直接把整个仓库根目录作为静态站点输出目录，否则 `api/`、`monitoring/`、`scripts/`、`docs/`、`tests/` 等源码与计划文档可通过 URL 直接下载（即使仓库本身已是 Private）。
+   - **处理方式**：加一步极简构建脚本，仅拷贝 `index.html`、`data/`（静态兜底 JSON）、`metrics/` 到输出目录（如 `dist/`）供静态托管发布。
 3. **VPS 与备用机拉取代码鉴权（`api/deploy.sh`）**
    - `api/deploy.sh` 目前采用匿名 HTTPS `git clone https://github.com/fractalcapital/monitoring-metrics.git` 与 `git pull --ff-only`，且 `api/README.md` 中的快速部署命令使用 `raw.githubusercontent.com`。
    - 仓库转 Private 后，匿名 HTTPS clone/pull 与 raw 下载都会返回 404/401。
@@ -74,13 +74,13 @@
 ### Phase 1：整理静态发布边界（代码仓库改动）
 
 1. **根入口 `index.html`（已完成）**
-   - 已将原 `dashboard/index.html` 提升至项目根目录 `index.html`，`https://mon.infidea.app/` 直接展示实时仪表盘，原 `dashboard/index.html` 改为自动跳转至 `/`。
+   - 已将仪表盘主页面提升至项目根目录 `index.html`，`https://mon.infidea.app/` 直接展示实时仪表盘，并已清理旧 `dashboard/` 目录（静态兜底迁至 `data/`）。
 2. **新增极简发布打包脚本**（例如 `scripts/build_site.sh`）
    - 将需要公开的前端文件复制到 `dist/`：
      - `index.html`（实时仪表盘主页面）
-     - `dashboard/index.html`（旧路径跳转）、`dashboard/data.json`、`dashboard/alert_state.json`、`dashboard/README.md`
+     - `data/data.json`、`data/alert_state.json`（静态兜底样本）
      - `metrics/`（仅 `.html` 及必要静态资源，不复制多余脚本）
-   - 确保 `api/`、`scripts/`、`alert/`、`docs/`、`plan/`、`tests/`、`.github/` **不会进入 `dist/`**，杜绝私有代码与运维文档通过静态站点泄露。
+   - 确保 `api/`、`monitoring/`、`scripts/`、`docs/`、`tests/`、`.github/` **不会进入 `dist/`**，杜绝私有代码与运维文档通过静态站点泄露。
    - 在 `.gitignore` 中加入 `dist/`。
 3. **补充/更新单元测试与文档**
    - 跑 `unittest` / 现有 CI 测试，确保新增脚本和根页面不破坏既有测试。
@@ -107,15 +107,14 @@
    - Build output directory：`dist`
 4. 首次部署完成后，用 `*.pages.dev` 预览域名验证：
    - `/` 首页直接正常渲染实时仪表盘且能拉取 `GET https://api.infidea.app/api/data`
-   - `/dashboard/` 自动跳转回 `/`
    - `/metrics/vix/` 等 6 个指标页均可正常打开
-   - 确认 `/scripts/fetch_dashboard.py`、`/plan/yahoo-429-plan.md`、`/api/api_server.py` 均返回 404（未泄露后端与文档）
+   - 确认 `/scripts/fetch_dashboard.py`、`/monitoring/config.py`、`/docs/plans/yahoo-429.md`、`/api/api_server.py` 均返回 404（未泄露后端与文档）
    - *注：预览域名下 `POST /api/refresh` / `POST /api/push` 会被 CORS 拦截属预期行为，切到 `mon.infidea.app` 后恢复。*
 5. 在 Cloudflare Pages 项目中添加自定义域名 `mon.infidea.app`：
    - 将 Cloudflare DNS 中 `mon.infidea.app` 原指向 GitHub Pages 的 CNAME/A 记录切换为 Cloudflare Pages 提供的目标 CNAME（开启代理橙云）。
    - 等待 TLS 证书签发并生效（通常 1–5 分钟）。
 6. 线上域名验收：
-   - 访问 `https://mon.infidea.app/` 直接加载实时仪表盘，`https://mon.infidea.app/dashboard/` 自动跳转至首页。
+   - 访问 `https://mon.infidea.app/` 直接加载实时仪表盘。
    - 在仪表盘触发一次手动刷新或测试推送，确认 `POST /api/refresh`、`POST /api/push` 在 `https://mon.infidea.app` 下 CORS 正常放行。
 
 ### Phase 4：将 GitHub 仓库转为 Private 并清理
@@ -146,8 +145,8 @@
 ## 7. 验收标准
 
 - [ ] GitHub 仓库可见性为 **Private**，未登录状态下访问仓库页面返回 404。
-- [ ] `https://mon.infidea.app/` 直接展示实时仪表盘，`/dashboard/` 自动跳转至首页，6 个 `metrics/*` 页面加载正常。
-- [ ] `https://mon.infidea.app/api/api_server.py`、`https://mon.infidea.app/scripts/fetch_dashboard.py`、`https://mon.infidea.app/plan/yahoo-429-plan.md` 等非前端路径返回 404。
+- [ ] `https://mon.infidea.app/` 直接展示实时仪表盘，6 个 `metrics/*` 页面加载正常。
+- [ ] `https://mon.infidea.app/api/api_server.py`、`https://mon.infidea.app/scripts/fetch_dashboard.py`、`https://mon.infidea.app/monitoring/config.py`、`https://mon.infidea.app/docs/plans/yahoo-429.md` 等非前端路径返回 404。
 - [ ] 仪表盘实时数据加载正常，手动刷新与飞书/Bark 推送按钮工作正常。
 - [ ] 推送新 commit 到 Private 仓库的 `main` 分支后，Cloudflare Pages 在 1–2 分钟内自动完成构建上线。
 - [ ] VPS `git pull --ff-only` 通过只读 SSH Deploy Key 正常工作。

@@ -164,7 +164,7 @@ footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:v
           <line x1="60" y1="105" x2="840" y2="105"/>
           <line x1="60" y1="35" x2="840" y2="35"/>
         </g>
-        <!-- Real sampled closes from dashboard/data.json (Oct 15 - Nov 25, 2026) -->
+        <!-- Real sampled closes from data/data.json (Oct 15 - Nov 25, 2026) -->
         <!-- SKEW (left axis 130..175 -> y = 265 - (v-130)/45*230) -->
         <polyline fill="none" stroke="var(--chart-line)" stroke-width="3" stroke-linejoin="round"
           points="60,109 87,68 114,102 141,109 168,161 195,151 222,154 249,158 276,167 303,169 330,157 357,164 384,149 411,163 438,158 465,166 492,145 519,161 546,157 573,167 600,162 627,177 654,182 681,188 708,199 735,209 762,220 789,212 816,218 840,203"/>
@@ -186,7 +186,7 @@ footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:v
           <text x="520" y="242" fill="var(--chart-line)">同一天 SKEW 反而回落到 138.84</text>
         </g>
       </svg>
-      <p class="note" style="padding:0 6px 6px">数据来源：本仓库 <code>dashboard/data.json</code>（2026-10-15 至 2026-11-25 收盘，共 30 个交易日）。左轴实线为 SKEW，右轴虚线为 VIX。11-25 收盘 SKEW 为 142.06。</p>
+      <p class="note" style="padding:0 6px 6px">数据来源：本仓库 <code>data/data.json</code>（2026-10-15 至 2026-11-25 收盘，共 30 个交易日）。左轴实线为 SKEW，右轴虚线为 VIX。11-25 收盘 SKEW 为 142.06。</p>
     </div>
     <div class="callout" style="margin-top:14px">为什么会反着走？<strong>因为 SKEW 测的是“深度虚值看跌期权相对平值期权的贵贱”</strong>。市场平静、VIX 低时，平值期权便宜，但机构依然会买深度虚值看跌期权防崩盘，把 SKEW 推到 150–170；等真正大跌、VIX 暴涨时，平值期权价格飙升，同时机构趁机平仓兑现早先买的尾部保护，SKEW 反而掉下来。</div>
   </section>
